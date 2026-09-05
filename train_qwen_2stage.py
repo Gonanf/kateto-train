@@ -291,6 +291,83 @@ def train_stage(stage=1, model=None, tokenizer=None):
     print(f"Stage {stage} guardado exitosamente en {out}")
     return model, tokenizer
 
+def merge_lora_direct(base_model_path_or_id, adapter_dir, merged_dir):
+    import glob, json
+    import torch
+    from safetensors.torch import load_file, save_file
+    
+    # 1. Encontrar archivo safetensors de base
+    base_files = glob.glob(os.path.expanduser(f"~/.cache/huggingface/hub/models--{base_model_path_or_id.replace('/', '--')}/snapshots/*/model.safetensors*"))
+    base_files = [f for f in base_files if f.endswith(".safetensors")]
+    if not base_files:
+        from huggingface_hub import snapshot_download
+        base_dir = snapshot_download(base_model_path_or_id)
+        base_files = glob.glob(f"{base_dir}/model.safetensors*")
+        base_files = [f for f in base_files if f.endswith(".safetensors")]
+    
+    base_file = base_files[0]
+    base_snapshot_dir = Path(base_file).parent
+    print(f"Cargando modelo base: {base_file}")
+    base_tensors = load_file(base_file)
+
+    adapter_file = Path(adapter_dir) / "adapter_model.safetensors"
+    print(f"Cargando adapter LoRA: {adapter_file}")
+    adapter = load_file(str(adapter_file))
+
+    cfg = json.loads((Path(adapter_dir) / "adapter_config.json").read_text())
+    r = cfg.get("r", 16)
+    alpha = cfg.get("lora_alpha", 16)
+    scaling = alpha / r
+    print(f"LoRA config: r={r}, alpha={alpha}, scaling={scaling}")
+
+    merged_tensors = dict(base_tensors)
+    merged_keys_count = 0
+    diffs = []
+
+    for k in sorted(adapter.keys()):
+        if k.endswith(".lora_A.weight"):
+            # En Unsloth Qwen 3.5 las claves son base_model.model.model.language_model...
+            # Las claves de peso base en model.safetensors son model.language_model...
+            clean_k = k.replace("base_model.model.", "")
+            base_k = clean_k.replace(".lora_A.weight", "") + ".weight"
+            if base_k not in merged_tensors:
+                print(f"ALERTA: no se encontró {base_k} en base!")
+                continue
+            lora_A = adapter[k].float()
+            lora_B = adapter[k.replace(".lora_A.weight", ".lora_B.weight")].float()
+            delta_W = (lora_B @ lora_A) * scaling
+            
+            orig_W = merged_tensors[base_k]
+            orig_dtype = orig_W.dtype
+            new_W = (orig_W.float() + delta_W).to(orig_dtype)
+            merged_tensors[base_k] = new_W
+            
+            max_d = delta_W.abs().max().item()
+            mean_d = delta_W.abs().mean().item()
+            norm_d = delta_W.norm().item()
+            diffs.append((base_k, max_d, mean_d, norm_d))
+            merged_keys_count += 1
+
+    print(f"Total capas LoRA fusionadas directamente: {merged_keys_count}")
+    assert merged_keys_count > 0, "Error crítico: no se fusionó ninguna capa LoRA!"
+
+    merged_dir = Path(merged_dir)
+    merged_dir.mkdir(parents=True, exist_ok=True)
+    out_safetensors = merged_dir / "model.safetensors"
+    print(f"Guardando tensores fusionados en {out_safetensors}...")
+    save_file(merged_tensors, str(out_safetensors))
+
+    for fn in ["config.json", "generation_config.json", "tokenizer.json", "tokenizer_config.json", "vocab.json", "merges.txt"]:
+        src = base_snapshot_dir / fn
+        if src.exists():
+            (merged_dir / fn).write_bytes(src.read_bytes())
+
+    if (Path(adapter_dir) / "chat_template.jinja").exists():
+        (merged_dir / "chat_template.jinja").write_bytes((Path(adapter_dir) / "chat_template.jinja").read_bytes())
+
+    print(f"Modelo merged 16-bit completado en {merged_dir}")
+
+
 def export_to_gguf_and_imatrix(stage2_dir=None, merged_dir=None):
     import subprocess, sys
     stage2_dir = stage2_dir or (OUTPUT_DIR / "stage2")
@@ -304,24 +381,9 @@ def export_to_gguf_and_imatrix(stage2_dir=None, merged_dir=None):
     print(f"\n{'='*50}\n=== EXPORTANDO A GGUF E IMATRIX ===\n{'='*50}")
 
     # 1. Merge LoRA a 16-bit
-    if not (merged_dir / "config.json").exists():
-        print(f"--- 1/5 Merge LoRA a 16-bit en {merged_dir} ---")
-        import unsloth
-        import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-        from peft import PeftModel
-        tok = AutoTokenizer.from_pretrained(str(stage2_dir), trust_remote_code=True)
-        base = AutoModelForCausalLM.from_pretrained(
-            MODEL_ID, torch_dtype=torch.bfloat16, device_map="cpu",
-            trust_remote_code=True, low_cpu_mem_usage=True,
-        )
-        print("Base cargada en CPU, fusionando pesos LoRA...")
-        peft_m = PeftModel.from_pretrained(base, str(stage2_dir))
-        merged = peft_m.merge_and_unload()
-        merged_dir.mkdir(parents=True, exist_ok=True)
-        merged.save_pretrained(str(merged_dir), safe_serialization=True)
-        tok.save_pretrained(str(merged_dir))
-        print("Merge completado exitosamente.")
+    if not (merged_dir / "model.safetensors").exists():
+        print(f"--- 1/5 Merge LoRA matemático directo a 16-bit en {merged_dir} ---")
+        merge_lora_direct(MODEL_ID, stage2_dir, merged_dir)
     else:
         print(f"Modelo merged 16-bit ya existe en {merged_dir}")
 
@@ -362,14 +424,15 @@ def export_to_gguf_and_imatrix(stage2_dir=None, merged_dir=None):
 
     # 5. Smoke test con llama-cli
     print("--- 5/5 Smoke test con llama-cli ---")
-    test_prompt = "<|im_start|>user\nChe Kateto, contame un chiste corto o qué onda el server.<|im_end|>\n<|im_start|>assistant\n"
+    test_prompt = "<|im_start|>user\nChe Kateto, quién sos y qué hacés acá?<|im_end|>\n<|im_start|>assistant\n"
     cmd_test = [
         "llama-cli",
         "-m", str(q4_gguf),
         "-p", test_prompt,
         "-n", "64",
         "--temp", "0.7",
-        "--no-conversation"
+        "--single-turn",
+        "-r", "<|im_end|>"
     ]
     subprocess.run(cmd_test, input=b"")
     print("\nPipeline completada con éxito.")

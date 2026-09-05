@@ -72,15 +72,20 @@ kateto-train/
 - **Remote:** `—`
 - **Docs previas:** `docs/overview.md` (borrador previo, preservado como referencia)
 
-## Roadmap
+## Modelos y Entrenamiento
 
-- [ ] Completar README con uso real verificado
-- [ ] Añadir tests / CI básico
-- [ ] Pulir `Cómo correr` con comandos probados en Arch Linux
-- [ ] Definir si se archiva, se continúa o se integra a otro proyecto
+### Qwen 3.5 0.8B (Unsloth + ROCm 6.3/7.2 en Navi 24)
+- **Script principal:** [`train_qwen_2stage.py`](./train_qwen_2stage.py)
+- **Documentación técnica del merge:** [`docs/qwen_unsloth_lora_merge_issue.md`](./docs/qwen_unsloth_lora_merge_issue.md)
+  - Diagnóstico del bug de claves en PEFT (`base_model.model.model.` vs `model.`) que provocaba exportaciones idénticas al modelo base.
+  - Implementación de fusión matemática de tensores y verificación con diff L2 norm.
+  - Pipeline de exportación a GGUF FP16 y cuantización asistida por `imatrix` a `Q4_K_M`.
+- **Script de verificación/diff:** [`scripts/merge_and_diff_qwen.py`](./scripts/merge_and_diff_qwen.py)
 
 ## Docs y README original
 
+- `docs/qwen_unsloth_lora_merge_issue.md` — Diagnóstico y resolución de fusión LoRA para Qwen 3.5 en Unsloth.
+- `docs/knowledge-rwkv-kateto-rosa-gguf-rx6500xt.md` — Arquitectura RWKV-7/8, ROSA y compatibilidad RX 6500 XT.
 - `docs/overview.md` — borrador previo generado automáticamente (se mantiene como referencia, no como README principal).
 - README previo recortado (2000 chars) se preservó abajo para trazabilidad.
 

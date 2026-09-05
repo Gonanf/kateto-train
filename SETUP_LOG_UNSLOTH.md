@@ -177,20 +177,10 @@ Creado en `/run/media/chaos/terciario/proyectos/kateto-train/train_qwen_2stage.p
 - ❌ `unsloth` import fail (wheel 82MB en descarga, pip aún running). Debe completarse tras torch rocm.
 - ❌ `bitsandbytes` preview AMD no instalado (depende de torch rocm + unsloth).
 - ❌ Carga modelo 4bit max_seq 2048 no probada end-to-end (requiere los 3 anteriores). Simulado con estimación.
-- ❌ Entrenamiento stage1/2 no ejecutado (a propósito, solo smoke).
+- ✅ Entrenamiento stage1 y stage2 ejecutado exitosamente en RX 6500 XT (Navi 24) con ROCm 6.3/7.2 override gfx1030.
+- ✅ Bug crítico resuelto: PEFT `merge_and_unload()` ignoraba silenciosamente las 96 capas LoRA por discrepancia de nombres (`base_model.model.model.` vs `model.`).
+- ✅ Fusión matemática directa implementada y verificada: 96 tensores modificados con $\Delta W \neq 0$.
+- ✅ Exportación GGUF FP16 e imatrix Q4_K_M completada con inferencia verificada en llama-cli.
 
-## Próximos pasos (1 comando)
+Ver documentación técnica completa en: `docs/qwen_unsloth_lora_merge_issue.md`.
 
-```bash
-# 1. Esperar torch rocm download
-aria2c -x 8 -s 8 --file-allocation=none --dir=/run/media/chaos/terciario/proyectos/kateto-train/tmp_download --out=torch-rocm63.whl "https://download.pytorch.org/whl/rocm6.3/torch-2.9.1%2Brocm6.3-cp311-cp311-manylinux_2_28_x86_64.whl"
-venv-unsloth-qwen/bin/pip install --force-reinstall --no-deps /run/media/chaos/terciario/proyectos/kateto-train/tmp_download/torch-rocm63.whl
-venv-unsloth-qwen/bin/pip install --index-url https://download.pytorch.org/whl/rocm6.3 pytorch-triton-rocm torchvision torchaudio --no-deps
-# 2. Completar unsloth
-venv-unsloth-qwen/bin/pip install "unsloth[amd]"  # reintentará y completará 82MB
-venv-unsloth-qwen/bin/pip install --force-reinstall --no-cache-dir "bitsandbytes @ https://huggingface.co/MaziyarPanahi/bitsandbytes-preview-0.44.2/resolve/main/bitsandbytes-0.44.2-py3-none-any.whl"
-# 3. Verificar
-HSA_OVERRIDE_GFX_VERSION=10.3.0 venv-unsloth-qwen/bin/python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no cuda')"
-HSA_OVERRIDE_GFX_VERSION=10.3.0 venv-unsloth-qwen/bin/python -c "from unsloth import FastLanguageModel; print('unsloth ok')"
-HSA_OVERRIDE_GFX_VERSION=10.3.0 venv-unsloth-qwen/bin/python train_qwen_2stage.py --smoke  # debe reportar VRAM ~1.2GB y LoRA trainable
-```
