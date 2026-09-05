@@ -8,9 +8,14 @@ GPU: RX 6500 XT Navi24 gfx1034 -> HSA_OVERRIDE_GFX_VERSION=10.3.0 required
 """
 import os
 os.environ.setdefault("HSA_OVERRIDE_GFX_VERSION", "10.3.0")
+os.environ["TORCH_COMPILE_DISABLE"] = "1"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 import json, glob
 from pathlib import Path
+import torch
+if hasattr(torch, "_dynamo"):
+    torch._dynamo.disable()
 
 PROJECT = Path(__file__).parent
 DATA_SFT_TRAIN = PROJECT / "data/sft_out/sft_train.jsonl"
@@ -28,7 +33,7 @@ MODEL_ID = "Qwen/Qwen3.5-0.8B"
 OUTPUT_DIR = PROJECT / "out/qwen35-0.8b-kateto-2stage"
 
 COMMON_ARGS = dict(
-    max_seq_length=2048,
+    max_seq_length=1024,
     dtype=None,  # auto
     load_in_4bit=True,
 )
@@ -39,21 +44,21 @@ LORA_CONFIG = dict(
     lora_dropout=0,
     target_modules=["q_proj","k_proj","v_proj","o_proj","gate_proj","up_proj","down_proj"],
     bias="none",
-    use_gradient_checkpointing="unsloth",
+    use_gradient_checkpointing=False,
     random_state=3407,
 )
 
 TRAIN_ARGS_STAGE1 = dict(
     per_device_train_batch_size=1,
     gradient_accumulation_steps=8,  # effective 8
-    learning_rate=2e-4,
+    learning_rate=1.5e-4,
     num_train_epochs=1,
     warmup_ratio=0.03,
     weight_decay=0.01,
     optim="adamw_8bit",
     lr_scheduler_type="cosine",
     logging_steps=10,
-    save_steps=200,
+    save_steps=50,
     eval_strategy="no",
     output_dir=str(OUTPUT_DIR / "stage1"),
 )
@@ -67,26 +72,33 @@ TRAIN_ARGS_STAGE2 = dict(
     weight_decay=0.01,
     optim="adamw_8bit",
     lr_scheduler_type="cosine",
-    logging_steps=10,
-    save_steps=100,
+    logging_steps=5,
+    save_steps=20,
     eval_strategy="steps",
-    eval_steps=100,
+    eval_steps=20,
     save_total_limit=2,
     output_dir=str(OUTPUT_DIR / "stage2"),
 )
 
-CHAT_TEMPLATE_QWEN35 = """{% for message in messages %}{% if message['role'] == 'user' %}{{ '<|im_start|>user\n' + message['content'] + '<|im_end|>\n' }}{% elif message['role'] == 'assistant' %}{{ '<|im_start|>assistant\n' + message['content'] + '<|im_end|>\n' }}{% elif message['role'] == 'system' %}{{ '<|im_start|>system\n' + message['content'] + '<|im_end|>\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"""
+CHAT_TEMPLATE_QWEN35 = """{% for message in messages %}{% if message['role'] == 'user' %}{{ '<|im_start|>user\n' + message['content'] + '<|im_end|>\n' }}{% elif message['role'] == 'assistant' %}{{ '<|im_start|>assistant\n' + message['content'] + '<|im_end|>\n' }}{% elif message['role'] == 'system' %}{{ '<|im_start|>system\n' + message['content'] + '<|im_end|>\n' }}{% elif message['role'] == 'tool' %}{{ '<|im_start|>tool\n' + message['content'] + '<|im_end|>\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"""
 
 def format_chat(example):
-    # Soporta openai.messages, messages, query/response, question/answer
+    # 1. Preferir question/answer o query/response directos
+    q = example.get("query") or example.get("question") or ""
+    a = example.get("response") or example.get("answer") or ""
+    if q and a:
+        return [{"role": "user", "content": str(q).strip()}, {"role": "assistant", "content": str(a).strip()}]
+    # 2. Manejar openai messages sanitizados
     if "openai" in example and isinstance(example["openai"], dict) and "messages" in example["openai"]:
-        return example["openai"]["messages"]
+        msgs = []
+        for m in example["openai"]["messages"]:
+            content = m.get("content") or ""
+            if not isinstance(content, str):
+                content = json.dumps(content, ensure_ascii=False)
+            msgs.append({"role": m.get("role", "user"), "content": content})
+        return msgs
     if "messages" in example:
         return example["messages"]
-    if "query" in example and "response" in example:
-        return [{"role": "user", "content": example["query"]}, {"role": "assistant", "content": example["response"]}]
-    if "question" in example and "answer" in example:
-        return [{"role": "user", "content": example["question"]}, {"role": "assistant", "content": example["answer"]}]
     text = example.get("text") or example.get("content") or json.dumps(example, ensure_ascii=False)
     return [{"role": "user", "content": text[:500]}, {"role": "assistant", "content": text[500:1000]}]
 
@@ -196,11 +208,8 @@ def smoke_test():
     )
     print(f"model loaded: {model.__class__.__name__} 4bit={True}")
     # tokenizer chat template check
-    if tokenizer.chat_template is None:
-        tokenizer.chat_template = CHAT_TEMPLATE_QWEN35
-        print("set chat_template Qwen3.5")
-    else:
-        print(f"chat_template exists len={len(tokenizer.chat_template)}")
+    tokenizer.chat_template = CHAT_TEMPLATE_QWEN35
+    print("set chat_template Qwen3.5 (clean Jinja template)")
     # test tokenize (robusto a processor vision: usa sub-tokenizer texto)
     sample = [{"role":"user","content":"Che, ¿cómo andás?"},{"role":"assistant","content":"¡Hola boludo! Todo bien."}]
     text = tokenizer.apply_chat_template(sample, tokenize=False, add_generation_prompt=False)
@@ -222,41 +231,42 @@ def smoke_test():
     print(f"LoRA trainable {trainable/1e6:.2f}M / {total/1e6:.1f}M ({100*trainable/total:.2f}%)")
     return True
 
-def train_stage(stage=1):
+def train_stage(stage=1, model=None, tokenizer=None):
     from unsloth import FastLanguageModel
     from trl import SFTTrainer
     from transformers import TrainingArguments
 
-    print(f"=== STAGE {stage} ===")
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=MODEL_ID,
-        max_seq_length=2048,
-        dtype=None,
-        load_in_4bit=True,
-    )
-    if tokenizer.chat_template is None:
+    print(f"\n{'='*40}\n=== INICIANDO STAGE {stage} ===\n{'='*40}")
+    if model is None or tokenizer is None:
+        model, tokenizer = FastLanguageModel.from_pretrained(
+            model_name=MODEL_ID,
+            max_seq_length=COMMON_ARGS["max_seq_length"],
+            dtype=None,
+            load_in_4bit=True,
+        )
         tokenizer.chat_template = CHAT_TEMPLATE_QWEN35
-    tokenizer.padding_side = "right"
-    model = FastLanguageModel.get_peft_model(model, **LORA_CONFIG)
+        tokenizer.padding_side = "right"
+        model = FastLanguageModel.get_peft_model(model, **LORA_CONFIG)
 
     if stage == 1:
-        ds = load_stage1_dataset(tokenizer, max_samples=6000)
+        ds = load_stage1_dataset(tokenizer, max_samples=1200)
         args = TrainingArguments(**TRAIN_ARGS_STAGE1)
         eval_ds = None
         out = OUTPUT_DIR / "stage1"
     else:
         ds, eval_ds = load_stage2_dataset(tokenizer)
-        # si stage2 continúa desde stage1 adapter
         stage1_adapter = OUTPUT_DIR / "stage1"
-        if stage1_adapter.exists() and any(stage1_adapter.glob("adapter*")):
-            print(f"cargando adapter stage1 desde {stage1_adapter}")
-            # opcjonal: cargar pesos stage1
-            # model.load_adapter(str(stage1_adapter))
-            pass
+        if stage1_adapter.exists() and (stage1_adapter / "adapter_model.safetensors").exists():
+            print(f"Cargando pesos de stage1 adapter desde {stage1_adapter}...")
+            try:
+                from safetensors.torch import load_file
+                from peft import set_peft_model_state_dict
+                adapters_weights = load_file(str(stage1_adapter / "adapter_model.safetensors"))
+                set_peft_model_state_dict(model, adapters_weights)
+                print("Adapter stage1 cargado en el modelo.")
+            except Exception as e:
+                print(f"Nota: continuando con pesos actuales en memoria ({e})")
         args = TrainingArguments(**TRAIN_ARGS_STAGE2)
-        # ensure eval
-        if eval_ds is not None:
-            args.eval_strategy = "steps"
         out = OUTPUT_DIR / "stage2"
 
     trainer = SFTTrainer(
@@ -265,7 +275,7 @@ def train_stage(stage=1):
         train_dataset=ds,
         eval_dataset=eval_ds,
         dataset_text_field="text",
-        max_seq_length=2048,
+        max_seq_length=COMMON_ARGS["max_seq_length"],
         dataset_num_proc=2,
         args=args,
     )
@@ -278,20 +288,120 @@ def train_stage(stage=1):
     trainer.train()
     trainer.save_model(str(out))
     tokenizer.save_pretrained(str(out))
-    print(f"stage {stage} guardado en {out}")
-    # merge option
-    # model.save_pretrained_merged(str(out / "merged"), tokenizer, save_method="merged_16bit")
+    print(f"Stage {stage} guardado exitosamente en {out}")
+    return model, tokenizer
+
+def export_to_gguf_and_imatrix(stage2_dir=None, merged_dir=None):
+    import subprocess, sys
+    stage2_dir = stage2_dir or (OUTPUT_DIR / "stage2")
+    merged_dir = merged_dir or (PROJECT / "out/qwen35-0.8b-kateto-merged")
+    f16_gguf = PROJECT / "out/qwen35-0.8b-kateto-f16.gguf"
+    imatrix_dat = PROJECT / "out/qwen35-0.8b-kateto.imatrix.dat"
+    q4_gguf = PROJECT / "out/qwen35-0.8b-kateto-Q4_K_M.gguf"
+    calib_file = PROJECT / "data/sft_out/calib.txt"
+    converter_script = Path("/run/media/chaos/terciario/Backup/Proyectos/kateto/llama.cpp/convert_hf_to_gguf.py")
+
+    print(f"\n{'='*50}\n=== EXPORTANDO A GGUF E IMATRIX ===\n{'='*50}")
+
+    # 1. Merge LoRA a 16-bit
+    if not (merged_dir / "config.json").exists():
+        print(f"--- 1/5 Merge LoRA a 16-bit en {merged_dir} ---")
+        import unsloth
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from peft import PeftModel
+        tok = AutoTokenizer.from_pretrained(str(stage2_dir), trust_remote_code=True)
+        base = AutoModelForCausalLM.from_pretrained(
+            MODEL_ID, torch_dtype=torch.bfloat16, device_map="cpu",
+            trust_remote_code=True, low_cpu_mem_usage=True,
+        )
+        print("Base cargada en CPU, fusionando pesos LoRA...")
+        peft_m = PeftModel.from_pretrained(base, str(stage2_dir))
+        merged = peft_m.merge_and_unload()
+        merged_dir.mkdir(parents=True, exist_ok=True)
+        merged.save_pretrained(str(merged_dir), safe_serialization=True)
+        tok.save_pretrained(str(merged_dir))
+        print("Merge completado exitosamente.")
+    else:
+        print(f"Modelo merged 16-bit ya existe en {merged_dir}")
+
+    # 2. Convertir a GGUF F16
+    print(f"--- 2/5 Convertir a GGUF F16: {f16_gguf} ---")
+    cmd_convert = [
+        sys.executable, str(converter_script),
+        str(merged_dir),
+        "--outfile", str(f16_gguf),
+        "--outtype", "f16"
+    ]
+    subprocess.run(cmd_convert, check=True)
+    print(f"GGUF F16 generado: {f16_gguf} ({f16_gguf.stat().st_size / 1024**2:.1f} MB)")
+
+    # 3. Calcular imatrix
+    print(f"--- 3/5 Calcular imatrix con {calib_file} ---")
+    cmd_imatrix = [
+        "llama-imatrix",
+        "-m", str(f16_gguf),
+        "-f", str(calib_file),
+        "-o", str(imatrix_dat),
+        "--chunks", "64"
+    ]
+    subprocess.run(cmd_imatrix, check=True)
+    print("imatrix calculada exitosamente.")
+
+    # 4. Cuantizar a Q4_K_M con imatrix
+    print(f"--- 4/5 Cuantizar a Q4_K_M con imatrix: {q4_gguf} ---")
+    cmd_quant = [
+        "llama-quantize",
+        "--imatrix", str(imatrix_dat),
+        str(f16_gguf),
+        str(q4_gguf),
+        "Q4_K_M"
+    ]
+    subprocess.run(cmd_quant, check=True)
+    print(f"GGUF Q4_K_M generado: {q4_gguf} ({q4_gguf.stat().st_size / 1024**2:.1f} MB)")
+
+    # 5. Smoke test con llama-cli
+    print("--- 5/5 Smoke test con llama-cli ---")
+    test_prompt = "<|im_start|>user\nChe Kateto, contame un chiste corto o qué onda el server.<|im_end|>\n<|im_start|>assistant\n"
+    cmd_test = [
+        "llama-cli",
+        "-m", str(q4_gguf),
+        "-p", test_prompt,
+        "-n", "64",
+        "--temp", "0.7",
+        "--no-conversation"
+    ]
+    subprocess.run(cmd_test, input=b"")
+    print("\nPipeline completada con éxito.")
+
+def run_all(force_stage1=False):
+    print(">>> EJECUTANDO PIPELINE (STAGE 1 -> STAGE 2 -> MERGE -> GGUF -> IMATRIX -> Q4_K_M)")
+    stage1_weights = OUTPUT_DIR / "stage1" / "adapter_model.safetensors"
+    if stage1_weights.exists() and not force_stage1:
+        print(f"Stage 1 ya completado con pesos en {stage1_weights}. Continuando directamente a Stage 2...")
+        m, tok = train_stage(stage=2)
+    else:
+        m, tok = train_stage(stage=1)
+        m, tok = train_stage(stage=2, model=m, tokenizer=tok)
+    export_to_gguf_and_imatrix()
 
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--smoke", action="store_true", help="solo prueba carga 4bit")
     ap.add_argument("--stage", type=int, default=0, choices=[0,1,2], help="0=smoke, 1=stage1, 2=stage2")
+    ap.add_argument("--all", action="store_true", help="corre stage 1, stage 2 y exporta a GGUF imatrix")
+    ap.add_argument("--force-stage1", action="store_true", help="fuerza re-entrenamiento de stage 1")
+    ap.add_argument("--export", action="store_true", help="solo exporta a GGUF e imatrix desde out/")
     ap.add_argument("--model", type=str, default=MODEL_ID)
     args = ap.parse_args()
     if args.model != MODEL_ID:
         MODEL_ID = args.model
-    if args.smoke or args.stage==0:
+    if args.all:
+        run_all(force_stage1=args.force_stage1)
+    elif args.export:
+        export_to_gguf_and_imatrix()
+    elif args.smoke or args.stage==0:
         smoke_test()
     elif args.stage==1:
         train_stage(1)
