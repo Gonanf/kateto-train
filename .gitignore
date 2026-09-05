@@ -1,0 +1,54 @@
+# Environments
+venv/
+venv-*/
+env/
+.venv/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+unsloth_compiled_cache/
+
+# Large Model Weights, Checkpoints & Quantizations
+*.pth
+*.pt
+*.bin
+*.safetensors
+*.gguf
+*.whl
+*.tar*
+*.zip
+*.gz
+
+# Directories with large assets & raw downloads
+base/
+out/
+tmp_download/
+cpu-debug/
+data/raw/
+
+# Large Databases, Raw Dumps & Backups
+*.db
+*.sqlite*
+*.part
+*.bak*
+*_backup.*
+*.log
+scratch_help.txt
+**/.cache/
+
+# External cloned sub-repositories
+RWKV-LM/
+RWKV-PEFT/
+rwkv-mobile/
+
+# Scratch and IDE / agent cache
+.codegraph/
+.omh/
+.omo/
+.DS_Store
+.idea/
+.vscode/
