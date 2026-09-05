@@ -162,3 +162,20 @@ llama-cli \
 ```
 
 El modelo responde ahora con la estructura XML aprendida del dataset Kateto v2 (`[Start thinking]`, `<correct_response>`) y vocabulario rioplatense, confirmando que los pesos de LoRA están activos en el binario final GGUF.
+
+---
+
+## 7. Error Resuelto: `wrong number of tensors; expected 335, got 320`
+
+### Causa
+- El snapshot original de Hugging Face (`Qwen/Qwen3.5-0.8B`) incluye 24 capas de lenguaje (320 tensores) más 1 capa especulativa de Multi-Token Prediction (MTP / `mtp.layers.0.*`, 15 tensores adicionales), totalizando 335 tensores con `architectures: ["Qwen3_5ForConditionalGeneration"]`.
+- Al convertir el snapshot base directamente a GGUF, se escribían 335 tensores con `block_count = 25`.
+- Si se parcheaba manualmente el header binario a `block_count = 24`, `llama.cpp` solo cargaba las 24 capas principales (320 tensores) e ignoraba los 15 tensores MTP sobrantes. Al terminar de leer, comparaba contra el total declarado en la cabecera:
+  ```text
+  llama_model_load: error loading model: done_getting_tensors: wrong number of tensors; expected 335, got 320
+  ```
+
+### Solución
+- Filtrar los 320 tensores puros del `model.language_model.*` y configurar la arquitectura como `Qwen3_5ForCausalLM` con `num_hidden_layers = 24`.
+- `convert_hf_to_gguf.py` exporta limpiamente el archivo GGUF con `n_tensors = 320`, permitiendo que tanto el modelo base (`qwen35-0.8b-base-f16.gguf`) como los modelos Kateto se ejecuten sin incompatibilidades en `llama-cli`.
+
