@@ -15,7 +15,7 @@ from pathlib import Path
 PROJECT = Path(__file__).parent
 DATA_SFT_TRAIN = PROJECT / "data/sft_out/sft_train.jsonl"
 DATA_SFT_EVAL  = PROJECT / "data/sft_out/sft_eval.jsonl"
-DATA_KATETO    = PROJECT / "data/kateto_full.jsonl"
+DATA_KATETO    = PROJECT / "data/toolcalling_kateto_v2.jsonl"
 # Raw stage1 sources
 RAW_SOURCES = [
     "data/raw/argentina-news/data/*.parquet",
@@ -61,8 +61,8 @@ TRAIN_ARGS_STAGE1 = dict(
 TRAIN_ARGS_STAGE2 = dict(
     per_device_train_batch_size=1,
     gradient_accumulation_steps=8,
-    learning_rate=2e-4,
-    num_train_epochs=3,  # ajustable 2-3 epojs para 3200 samples
+    learning_rate=8e-5,
+    num_train_epochs=2,
     warmup_ratio=0.03,
     weight_decay=0.01,
     optim="adamw_8bit",
@@ -78,19 +78,17 @@ TRAIN_ARGS_STAGE2 = dict(
 CHAT_TEMPLATE_QWEN35 = """{% for message in messages %}{% if message['role'] == 'user' %}{{ '<|im_start|>user\n' + message['content'] + '<|im_end|>\n' }}{% elif message['role'] == 'assistant' %}{{ '<|im_start|>assistant\n' + message['content'] + '<|im_end|>\n' }}{% elif message['role'] == 'system' %}{{ '<|im_start|>system\n' + message['content'] + '<|im_end|>\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"""
 
 def format_chat(example):
-    # Soporta dos formatos: query/response y messages
+    # Soporta openai.messages, messages, query/response, question/answer
+    if "openai" in example and isinstance(example["openai"], dict) and "messages" in example["openai"]:
+        return example["openai"]["messages"]
     if "messages" in example:
-        msgs = example["messages"]
-    elif "query" in example and "response" in example:
-        # detectar si query ya es lista
-        msgs = [{"role":"user","content":example["query"]}, {"role":"assistant","content":example["response"]}]
-    elif "question" in example and "answer" in example:
-        msgs = [{"role":"user","content":example["question"]}, {"role":"assistant","content":example["answer"]}]
-    else:
-        # fallback: usa todo el texto
-        text = example.get("text") or example.get("content") or json.dumps(example, ensure_ascii=False)
-        msgs = [{"role":"user","content": text[:500]}, {"role":"assistant","content": text[500:1000]}]
-    return msgs
+        return example["messages"]
+    if "query" in example and "response" in example:
+        return [{"role": "user", "content": example["query"]}, {"role": "assistant", "content": example["response"]}]
+    if "question" in example and "answer" in example:
+        return [{"role": "user", "content": example["question"]}, {"role": "assistant", "content": example["answer"]}]
+    text = example.get("text") or example.get("content") or json.dumps(example, ensure_ascii=False)
+    return [{"role": "user", "content": text[:500]}, {"role": "assistant", "content": text[500:1000]}]
 
 def load_stage1_dataset(tokenizer, max_samples=8000):
     """Stage1: mezcla raw con peso bajo. Usa sampleado para no exceder VRAM/tiempo."""
@@ -270,6 +268,12 @@ def train_stage(stage=1):
         max_seq_length=2048,
         dataset_num_proc=2,
         args=args,
+    )
+    from unsloth.chat_templates import train_on_responses_only
+    trainer = train_on_responses_only(
+        trainer,
+        instruction_part="<|im_start|>user\n",
+        response_part="<|im_start|>assistant\n",
     )
     trainer.train()
     trainer.save_model(str(out))
