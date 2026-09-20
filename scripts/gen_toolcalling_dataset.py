@@ -133,9 +133,35 @@ def _tipo_ok(valor, esperado: str) -> bool:
 # Tuteo / espanol neutro en 2a persona: el dataset es rioplatense, la forma de
 # "vos" es obligatoria. RX_VOSEO es una comprobacion POSITIVA y puede pasar una
 # muestra que dice "che" una vez y tutea el resto; esta lista la cierra.
-RX_TUTEO = re.compile(
-    r"(?<![\wáéíóúñ])(tienes|hazlo|haz|mira|puedes|dime|quieres|eres|ven|amigo mio|amigo mío)"
+# fix123: partida en DOS. Medido en kateto-ola99: 222/334 rechazos por tuteo eran
+# falsos positivos. 147 con el tuteo SOLO en el turno del usuario (el usuario no
+# es la voz: no tiene que hablar en voseo) y 75 homografos de 3a persona en la
+# voz ("la heladera te mira", "todos lo ven"). Solo los inequivocos y los
+# homografos sin clitico/sujeto delante son error, y SOLO en turnos de la voz.
+RX_TUTEO_INEQUIVOCO = re.compile(
+    r"(?<![\wáéíóúñ])(tienes|puedes|quieres|eres|dime|hazlo|amigo mio|amigo mío)"
     r"(?![\wáéíóúñ])", re.I)
+RX_TUTEO_HOMOGRAFO = re.compile(
+    r"(?<![\wáéíóúñ])(mira|ven|haz)(?![\wáéíóúñ])", re.I)
+# Guarda de homografos: "te mira", "todos lo ven", "nadie lo tapa" — el pronombre
+# o sujeto delante hace que la palabra sea 3a persona, no imperativo de tuteo.
+RX_TUTEO_GUARDA = re.compile(r"\b(te|me|lo|la|se|nos|les|todos|nadie|ellos)\s+$", re.I)
+
+
+def _tuteo_en(texto: str) -> str | None:
+    """Devuelve la primera palabra de tuteo REAL del texto, o None.
+
+    Los inequivocos (tienes, dime, hazlo, ...) siempre son error. Los homografos
+    (mira, ven, haz) solo si NO estan precedidos por clitico o sujeto.
+    """
+    m = RX_TUTEO_INEQUIVOCO.search(texto)
+    if m:
+        return m.group(1).lower()
+    for m in RX_TUTEO_HOMOGRAFO.finditer(texto):
+        if RX_TUTEO_GUARDA.search(texto[:m.start()]):
+            continue
+        return m.group(1).lower()
+    return None
 
 
 def firmas(name: str) -> list[str]:
@@ -230,6 +256,75 @@ def collapse_tool_call_newlines(txt: str) -> str:
     return "".join(pieces)
 
 
+# fix123: el RX_TOOLCALL original (`\{.*?\}`) era non-greedy y cortaba el JSON en
+# el primer `}`: con `data` anidado capturaba hasta el `}` INTERNO y el bloque
+# quedaba invalido. 188 bloques rechazados por eso en kateto-ola99, y el JSON del
+# teacher estaba BIEN: el que cortaba era el parser. Se extrae por BALANCE.
+RX_TOOL_HDR = re.compile(r"(tool_call|tool_result)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:")
+
+
+def _fin_balanceado(txt: str, i: int) -> int:
+    """Desde el indice `i` (que apunta a un `{` o `[`), devuelve el indice FIN
+    (exclusivo) del bloque balanceado, ignorando los delimitadores dentro de
+    strings. Devuelve -1 si nunca cierra."""
+    abre = txt[i]
+    cierra = "}" if abre == "{" else "]"
+    depth = 0
+    in_string = False
+    escape = False
+    for j in range(i, len(txt)):
+        ch = txt[j]
+        if escape:
+            escape = False
+            continue
+        if in_string:
+            if ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch == abre:
+            depth += 1
+        elif ch == cierra:
+            depth -= 1
+            if depth == 0:
+                return j + 1
+    return -1
+
+
+def extraer_bloques(txt: str) -> list[tuple[str, str, str]]:
+    """Extrae los bloques de tool_call / tool_result por BALANCE de llaves y
+    corchetes, no por regex non-greedy (fix123).
+
+    Devuelve [(tipo, nombre, contenido)] con tipo 'call' o 'res'. El contenido
+    arranca en el primer `{`/`[` despues del header y llega hasta que balancee
+    (sin contar lo que esta dentro de strings). Si nunca balancea, llega hasta
+    el fin de la linea, como hoy. No repara nada: si el texto del teacher era
+    valido, el bloque extraido parsea.
+    """
+    out: list[tuple[str, str, str]] = []
+    for m in RX_TOOL_HDR.finditer(txt):
+        tipo = "call" if m.group(1) == "tool_call" else "res"
+        nombre = m.group(2)
+        base = m.end()
+        k = re.search(r"[{\[]", txt[base:txt.find("\n", base) + 1 or len(txt)])
+        if k is None:
+            # sin JSON en la linea (tool_result de texto plano): hasta fin de linea
+            nl = txt.find("\n", base)
+            fin = len(txt) if nl == -1 else nl
+            out.append((tipo, nombre, txt[base:fin].strip()))
+            continue
+        start = base + k.start()
+        end = _fin_balanceado(txt, start)
+        if end == -1:
+            nl = txt.find("\n", start)
+            end = len(txt) if nl == -1 else nl
+        out.append((tipo, nombre, txt[start:end]))
+    return out
+
+
 def normalize_backticks(txt: str) -> str:
     """Saca backticks que envuelven tool_call/tool_result y deja uno por linea. PURA.
 
@@ -257,11 +352,33 @@ def normalize_backticks(txt: str) -> str:
     out = collapse_tool_call_newlines(out)
     # 4. \n despues del `}` que cierra los argumentos de un tool_call (RX_TOOLCALL
     #    exige \n o fin de texto ahi: en linea con prosa, el `}` quedaba pegado).
-    out = re.sub(r"(tool_call\s+[a-zA-Z_][a-zA-Z0-9_]*\s*:\s*\{.*?\})(?=[^\n])",
-                 r"\1\n", out, flags=re.S)
-    # 5. idem para el contenido JSON de un tool_result (RX_TOOLRES termina en \n|$)
-    out = re.sub(r"(tool_result\s+[a-zA-Z_][a-zA-Z0-9_]*\s*:[^\n]*?\})(?=[^\n])",
-                 r"\1\n", out)
+    #    fix123: por BALANCE, no non-greedy — el `\{.*?\}` viejo veia el `}`
+    #    INTERNO de un objeto anidado y partia el JSON en dos lineas.
+    pieces, pos = [], 0
+    for m in re.finditer(r"tool_call\s+[a-zA-Z_][a-zA-Z0-9_]*\s*:\s*\{", out):
+        end = _fin_balanceado(out, m.end() - 1)
+        if end == -1 or end <= pos:
+            continue
+        pieces.append(out[pos:end])
+        if end < len(out) and out[end] != "\n":
+            pieces.append("\n")
+        pos = end
+    pieces.append(out[pos:])
+    out = "".join(pieces)
+    # 5. idem para el contenido JSON de un tool_result (RX_TOOLRES termina en \n|$).
+    #    Solo con `{`: un `[...]` de texto plano (ej. `[00:14:22]`) no es JSON y
+    #    no hay que partirlo (comportamiento del regex viejo, que exigia `\}`).
+    pieces, pos = [], 0
+    for m in re.finditer(r"tool_result\s+[a-zA-Z_][a-zA-Z0-9_]*\s*:\s*\{", out):
+        end = _fin_balanceado(out, m.end() - 1)
+        if end == -1 or end <= pos:
+            continue
+        pieces.append(out[pos:end])
+        if end < len(out) and out[end] != "\n":
+            pieces.append("\n")
+        pos = end
+    pieces.append(out[pos:])
+    out = "".join(pieces)
     return out
 RX_VOSEO = re.compile(r"\b(tenes|tenés|sabes|sabés|queres|querés|podes|podés|fijate|fijate|"
                       r"sos|decis|decís|vos|che|boludo|boluda|posta|laburo|quilombo|pibe)\b", re.I)
@@ -472,17 +589,31 @@ def validate(sample: str, *, voice: str = "seco", require_tool: bool = False,
             errs.append(f"turnos_consecutivos_sin_usuario({m1.group(1)})")
             break
 
-    # --- tools ---
-    llamadas = RX_TOOLCALL.findall(sample)
-    resultados = RX_TOOLRES.findall(sample)
+    # --- tools (fix123: extraccion por BALANCE, no regex non-greedy) ---
+    # El `\{.*?\}` viejo cortaba en el primer `}` y con objetos anidados dejaba
+    # el JSON invalido: si el bloque extraido por balance parsea, NO es
+    # args_no_json — el texto del teacher ya era valido.
+    bloques = extraer_bloques(sample)
+    llamadas = [(n, b) for (t, n, b) in bloques if t == "call"]
+    resultados = [(n, b) for (t, n, b) in bloques if t == "res"]
     for nombre, args_txt in llamadas:
         if nombre not in ALL_TOOLS:
             errs.append(f"tool_inexistente:{nombre}")
             continue
+        # el wrap medido del teacher deja la coma al principio de la linea
+        # siguiente: colapsar los saltos internos del bloque antes de parsear
+        args_plano = re.sub(r"\s*\r?\n\s*", " ", args_txt)
         try:
-            args = json.loads(args_txt)
+            args = json.loads(args_plano)
         except Exception:
             errs.append(f"args_no_json:{nombre}")
+            continue
+        # fix124: fix123 levanta tool_call cuyos args NO son un objeto JSON (array,
+        # string pelado, etc). `faltan_requeridos`/`args_extra`/`args_tipo` asumen
+        # claves y el esquema de ALL_TOOLS es todo argumentos con nombre: si no es
+        # dict, es un error de forma, no un crash.
+        if not isinstance(args, dict):
+            errs.append(f"args_no_dict:{nombre}")
             continue
         faltan = [r for r in ALL_TOOLS[nombre]["required"] if r not in args]
         if faltan:
@@ -539,10 +670,16 @@ def validate(sample: str, *, voice: str = "seco", require_tool: bool = False,
         errs.append("codigo(no-objetivo)")
     if require_voseo and not RX_VOSEO.search(sample):
         errs.append("sin_voseo")
+    # fix123: el tuteo se mide SOLO en los turnos de la VOZ, nunca en el del
+    # usuario (el usuario no es la voz: puede tutear y eso es legitimo). Mismo
+    # criterio que la regla `spanglish` de fix119. Y con la partida de RX_TUTEO:
+    # homografos de 3a persona ("te mira", "todos lo ven") no son tuteo.
     if require_voseo:
-        m_tut = RX_TUTEO.search(sample)
-        if m_tut:
-            errs.append(f"tuteo:{m_tut.group(1).lower()}")
+        for m_v in re.finditer(rf"<\|im_start\|>{re.escape(voice)}\s*(.*?)<\|im_end\|>", sample, re.S):
+            w_tut = _tuteo_en(m_v.group(1))
+            if w_tut:
+                errs.append(f"tuteo:{w_tut}")
+                break
 
     # --- spanglish (fix119): SOLO en turnos de la VOZ, nunca en el del usuario
     # (el usuario puede citar chat o NPC en ingles y eso es legitimo). Los tramos
@@ -870,6 +1007,9 @@ REGLAS:
 - RIOPLATENSE: voseo (tenes, sabes, sos, fijate), lunfardo cuando encaja (boludo, quilombo,
   pibe, laburo, posta, che). Ni espanol neutro ni spanglish. NADA de palabras de otros
   paises (nada de "ahuevo", "cuate", "güey").
+- Imperativos SIEMPRE en voseo: mirá (no "mira"), decime (no "dime"), vení (no "ven"),
+  hacelo (no "hazlo"), escuchá (no "escucha"), fijate (no "fijate").
+- PROHIBIDO el tuteo: tienes, puedes, quieres, eres, dime, hazlo, ven, amigo mio.
 - COHERENCIA ANTE TODO: cada frase tiene que significar algo. No inventes palabras. Si no
   sale un chiste bueno, algo simple y claro.
 - Kateto NO programa y NO menciona codigo.
@@ -949,6 +1089,9 @@ REGLAS:
 - {forma}
 - RIOPLATENSE: voseo (tenes, sabes, sos, fijate), lunfardo cuando encaja (boludo,
   quilombo, pibe, laburo, posta, che). Ni espanol neutro ni spanglish.
+- Imperativos SIEMPRE en voseo: mirá (no "mira"), decime (no "dime"), vení (no "ven"),
+  hacelo (no "hazlo"), escuchá (no "escucha"), fijate (no "fijate").
+- PROHIBIDO el tuteo: tienes, puedes, quieres, eres, dime, hazlo, ven, amigo mio.
 - COHERENCIA ANTE TODO: cada frase tiene que significar algo. No inventes palabras,
   no metas lunfardo donde no encaja. Si no sale un chiste bueno, algo simple y claro.
 - PROHIBIDO sonar a asistente: nada de "como asistente", "en que puedo ayudarte",
@@ -982,6 +1125,9 @@ REGLAS DURAS:
   dos turnos de la voz seguidos.
 - RIOPLATENSE obligatorio: voseo (tenes, sabes, querés, fijate, sos), lunfardo cuando encaja
   (boludo, quilombo, pibe, laburo, posta, che). Nada de espanol neutro ni spanglish.
+- Imperativos SIEMPRE en voseo: mirá (no "mira"), decime (no "dime"), vení (no "ven"),
+  hacelo (no "hazlo"), escuchá (no "escucha"), fijate (no "fijate").
+- PROHIBIDO el tuteo: tienes, puedes, quieres, eres, dime, hazlo, ven, amigo mio.
 - PROHIBIDO sonar a asistente: nada de "como asistente", "en que puedo ayudarte", "lamento",
   "soy un modelo", ofrecer ayuda, ni disculparse servilmente. Toma postura y opina.
 - COHERENCIA: cada frase tiene que significar algo. No inventes palabras ni metas lunfardo
@@ -1359,7 +1505,18 @@ def main(argv: list[str] | None = None) -> int:
                                 # se queda en el default 2.
                                 ancla_min=sc.get("ancla_min", 2))
 
-            errs = _validar(txt)
+            # fix124: un bug del validador NO puede matar al worker. Esta llamada
+            # esta fuera del try/except de la generacion (es otro): si validate()
+            # explota, se registra como rechazo en vez de tumbar el proceso.
+            try:
+                errs = _validar(txt)
+            except Exception as e:
+                rej += 1
+                motivo = f"exc_validate:{type(e).__name__}"
+                razones[motivo] += 1
+                print(f"[{i+1}/{len(escenarios)}] {sc['id']}: VALIDADOR EXPLOTO -> {type(e).__name__}: {e}")
+                record_rejection(fr, sc["id"], [motivo], raw=raw or "", text=txt)
+                continue
             # --- reintento UNICO por sin_tool_call (fix119) ---
             # El prompt de tools decia "escribi solo tu mensaje" y el validador
             # exigia tool_call: el 62% de los rechazos era eso. Si TODOS los
