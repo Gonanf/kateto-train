@@ -394,7 +394,8 @@ def validate(sample: str, *, voice: str = "seco", require_tool: bool = False,
              min_palabras_usuario: int = 3, is_chess: bool = False,
              scenario: str | None = None, permitir_spanglish: bool = False,
              prohibir_tool: bool = False,
-             permitir_preguntas: bool = False) -> list[str]:
+             permitir_preguntas: bool = False,
+             ancla_payload: str | None = None) -> list[str]:
     """Devuelve la lista de problemas. VACIA = el sample pasa.
 
     Cada regla existe por un defecto MEDIDO en el dataset actual.
@@ -571,6 +572,36 @@ def validate(sample: str, *, voice: str = "seco", require_tool: bool = False,
             and all(bool(t) and t.endswith("?") for t in turnos_voz)):
         errs.append("pregunta_en_todos_los_turnos")
 
+    # fix121: anclaje del bit al estímulo. Si el escenario define `ancla_payload`
+    # (el fragmento de video / evento que la voz tiene que comentar), la voz tiene
+    # que COMPARTE vocabulario de contenido con ese ancla: un bit gracioso pero
+    # despegado del payload es exactamente el "absurdo no motivado" que se queria
+    # erradicar. Mide palabras de contenido compartidas, no forma.
+    if ancla_payload:
+        _STOPWORDS_ANCLA = {
+            "que", "para", "como", "esta", "este", "esto", "dice", "todo", "nada",
+            "sobre", "nunca", "sigue", "porque", "pero", "todos", "todas", "luego",
+            "mientras", "tiene", "tienen", "hace", "hacer", "decir", "dicho",
+            "cuando", "donde", "cual", "cuales", "sino", "aunque", "tambien",
+            "entonces", "despues", "antes", "mismo", "misma", "solamente", "solos",
+        }
+        def _norm(w: str) -> str:
+            return (w.lower().replace("á", "a").replace("é", "e").replace("í", "i")
+                    .replace("ó", "o").replace("ú", "u").replace("ü", "u"))
+        palabras_ancla = {
+            _norm(w) for w in re.findall(r"[a-záéíóúüñ]+", ancla_payload.lower())
+            if len(w) >= 5 and _norm(w) not in _STOPWORDS_ANCLA
+        }
+        for t_v in turnos_voz:
+            palabras_voz = {_norm(w) for w in re.findall(r"[a-záéíóúüñ]+", t_v.lower())}
+            n_ancla = len(palabras_ancla & palabras_voz)
+            if n_ancla >= 2:
+                break
+        else:
+            n_ancla = 0
+        if n_ancla < 2:
+            errs.append(f"sin_anclaje_en_payload({n_ancla}/2)")
+
     check_chess = is_chess or (scenario == "chess_uci")
     if check_chess:
         turnos_u = [m.group(1).strip() for m in re.finditer(r"<\|im_user\|>(.*?)<\|im_end\|>", sample, re.S)]
@@ -712,6 +743,26 @@ SCENARIOS: list[dict] = [
      "txt": "El usuario pide una accion de minecraft pero NO estan en minecraft (o el skill no esta "
             "habilitado). El tool_result da 'Error: unknown tool'. seco lo acepta con su voz y "
             "sigue la charla sin insistir."},
+    # fix121: bits estilo "dagger" sobre estímulos que llegan solos. La regla
+    # `ancla_payload` en validate() obliga a que el bit comparta vocabulario con
+    # el estímulo: eso convierte "el bit es gracioso" en "el bit está pegado".
+    {"id": "bit_sobre_video", "cat": "A", "tools": 2,
+     "ancla_payload": "el flaco del video dice que el mate lavado es culpa de la yerbera que nunca cambia "
+                      "de marca y que el termo se banca todo",
+     "txt": "El usuario pide un dato de un video indexado. seco usa `summarize` (o `answer`) y despues "
+            "COMENTA el fragmento que le volvio con un BIT propio en la forma de siempre: diagnostico seco, "
+            "una analogia mundana y concreta construida sobre un detalle de ESE fragmento, y un cierre "
+            "tajante que NO termina en pregunta. El fragmento que tiene que devolver el `tool_result` es "
+            "EXACTAMENTE este texto, textual y sin agregar datos: el flaco del video dice que el mate lavado "
+            "es culpa de la yerbera que nunca cambia de marca y que el termo se banca todo. PROHIBIDO inventar "
+            "datos del video. PROHIBIDO explicar o aclarar el chiste despues."},
+    {"id": "bit_sobre_evento", "cat": "C", "contraparte": "evento", "tools": 0,
+     "ancla_payload": "bloque de juego de 20:00 a 22:00, despues corte para cenar",
+     "txt": "El voice manager dispara un evento programado, no una persona: bloque de juego de 20:00 a 22:00, "
+            "despues corte para cenar. seco REACCIONA al evento con un BIT en la forma de siempre: diagnostico "
+            "seco, analogia mundana y concreta apoyada en ESE evento, y cierre tajante sin pregunta. NO lo lee "
+            "como robot, NO lo repite textual, NO pregunta si hay que hacer algo, NO avisa que es un recordatorio."},
+
 ]
 
 
@@ -818,6 +869,15 @@ REGLAS:
   todos los turnos con "?" o con una invitacion a seguir ("queres algo mas?", "que opinas?"). Cuando
   el usuario no pide nada, el turno termina en una afirmacion, una opinion o un remate, y se planta.
 - NO repitas la misma frase ni la misma idea dos veces.
+- FORMA DEL BIT (cuando comentas algo que acaba de llegar, un resultado de tool o un evento):
+  (1) diagnostico seco primero, una sentencia corta que ya toma postura;
+  (2) UNA analogia mundana y concreta sobre un detalle de lo que llego (un objeto, una escena
+      cotidiana, una maquina, una comida): la analogia EXPLICA lo que llego, no es decoracion;
+  (3) cierre tajante, sentencia docente. PROHIBIDO terminar el bit con una pregunta.
+  PROHIBIDO explicar o aclarar el chiste despues ("era un chiste", "posta que es gracioso").
+  PROHIBIDO el absurdo suelto sin relacion con lo que llego.
+  El insulto va a la idea o a la actitud del que pregunta ("pedazo de adoquin", "genio"), NUNCA a la
+  familia, al cuerpo, a la identidad ni a la fe de nadie.
 
 Devolve SOLO las dos lineas con el separador ###, nada mas."""
     if hint:
@@ -925,6 +985,15 @@ REGLAS DURAS:
 {tools_txt}
 - NUNCA inventes el resultado de una tool. Si falla, el tool_result lleva el error real.
 - NO escribas codigo, NO expliques arquitectura, NO des tutoriales.
+- FORMA DEL BIT (cuando comentas algo que acaba de llegar, un resultado de tool o un evento):
+  (1) diagnostico seco primero, una sentencia corta que ya toma postura;
+  (2) UNA analogia mundana y concreta sobre un detalle de lo que llego (un objeto, una escena
+      cotidiana, una maquina, una comida): la analogia EXPLICA lo que llego, no es decoracion;
+  (3) cierre tajante, sentencia docente. PROHIBIDO terminar el bit con una pregunta.
+  PROHIBIDO explicar o aclarar el chiste despues ("era un chiste", "posta que es gracioso").
+  PROHIBIDO el absurdo suelto sin relacion con lo que llego.
+  El insulto va a la idea o a la actitud del que pregunta ("pedazo de adoquin", "genio"), NUNCA a la
+  familia, al cuerpo, a la identidad ni a la fe de nadie.
 - No todas las respuestas son texto. Esta permitido y a veces es lo correcto NO hablar: la respuesta
   es exactamente `<|no_response|>`. NO cierres todos los turnos con una pregunta. Prohibido terminar
   todos los turnos con "?" o con una invitacion a seguir ("queres algo mas?", "que opinas?"). Cuando
@@ -1268,7 +1337,10 @@ def main(argv: list[str] | None = None) -> int:
                                 require_tool=tool_oblig,
                                 prohibir_tool=sc.get("prohibir_tool", False),
                                 is_chess=sc.get("is_chess", sc.get("id") == "chess_uci"),
-                                permitir_spanglish=sc.get("permitir_spanglish", False))
+                                permitir_spanglish=sc.get("permitir_spanglish", False),
+                                # fix121: solo los escenarios de bit definen el ancla;
+                                # en los demas queda None y la regla no corre.
+                                ancla_payload=sc.get("ancla_payload"))
 
             errs = _validar(txt)
             # --- reintento UNICO por sin_tool_call (fix119) ---
