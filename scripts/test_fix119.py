@@ -57,7 +57,7 @@ def test_turno_limpio_y_permitir_spanglish():
 
 def test_prompt_con_tools_exige_tool():
     p = gen.build_pair_prompt(SC_TOOLS, "seco", [], 3, "  - list_videos()",
-                              permite_tools=True)
+                              permite_tools=True, tool_obligatoria=True)
     assert "ESTE ESCENARIO EXIGE TOOL" in p
     assert "sin tool_call se" in p
     assert "escribi solo tu mensaje" not in p
@@ -86,7 +86,8 @@ def test_validate_sample_ok_sigue_pasando():
 def test_main_reintenta_sin_tool_call(tmp_path, monkeypatch):
     llamadas: list[str] = []
 
-    def fake_paired(sc, voice, teacher, n_ex, tools_txt, *, max_retries=3, hint=""):
+    def fake_paired(sc, voice, teacher, n_ex, tools_txt, *, max_retries=3, hint="",
+                    tool_obligatoria=True):
         llamadas.append(hint)
         return _muestra(sin_tool=len(llamadas) == 1)
 
@@ -109,7 +110,8 @@ def test_main_reintenta_sin_tool_call(tmp_path, monkeypatch):
 def test_main_no_reintenta_otros_errores(tmp_path, monkeypatch):
     llamadas: list[str] = []
 
-    def fake_paired(sc, voice, teacher, n_ex, tools_txt, *, max_retries=3, hint=""):
+    def fake_paired(sc, voice, teacher, n_ex, tools_txt, *, max_retries=3, hint="",
+                    tool_obligatoria=True):
         llamadas.append(hint)
         return "<|im_user|>che<|im_end|>"  # falla por varios motivos, no solo sin_tool_call
 

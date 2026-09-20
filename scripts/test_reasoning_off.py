@@ -65,7 +65,7 @@ def test_main_passes_reasoning_to_generate(monkeypatch, captured_body):
 
     fake_key = "freellmapi-" + "a" * 48
     monkeypatch.setattr(gen, "get_freellm_key", lambda: fake_key)
-    def fake_paired(sc, voice, maestro, n_ex, tools_txt):
+    def fake_paired(sc, voice, maestro, n_ex, tools_txt, *, tool_obligatoria=True):
         maestro("p")  # fuerza la llamada real al teacher, como haria paired
         return "<|im_user|> x<|im_end|>"
 

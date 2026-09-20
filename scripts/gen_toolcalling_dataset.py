@@ -392,7 +392,9 @@ RX_CITAS = re.compile(r'"[^"]*"|\'[^\']*\'|«[^»]*»')
 def validate(sample: str, *, voice: str = "seco", require_tool: bool = False,
              min_turns: int = 2, require_voseo: bool = True,
              min_palabras_usuario: int = 3, is_chess: bool = False,
-             scenario: str | None = None, permitir_spanglish: bool = False) -> list[str]:
+             scenario: str | None = None, permitir_spanglish: bool = False,
+             prohibir_tool: bool = False,
+             permitir_preguntas: bool = False) -> list[str]:
     """Devuelve la lista de problemas. VACIA = el sample pasa.
 
     Cada regla existe por un defecto MEDIDO en el dataset actual.
@@ -552,6 +554,23 @@ def validate(sample: str, *, voice: str = "seco", require_tool: bool = False,
     if require_tool and not llamadas:
         errs.append("sin_tool_call")
 
+    # --- prohibir_tool (fix120): algunos escenarios el punto ES NO llamar nada
+    # (pregunta trivial que se contesta directo o de memoria). Si la muestra trae
+    # alguna llamada, es un fallo: la tool estaba disponible pero no hacia falta.
+    if prohibir_tool:
+        for nombre, _ in llamadas:
+            errs.append(f"tool_no_permitida({nombre})")
+
+    # --- pregunta_en_todos_los_turnos (fix120): cerrar TODOS los turnos de la voz
+    # con '?' es un tic de charla muerta (cada respuesta es una pregunta nueva y
+    # nunca se planta). Con MENOS de 3 turnos de voz no aplica: dos preguntas
+    # seguidas es charla normal. Opt-out por escenario con `permitir_preguntas`.
+    turnos_voz = [m.group(1).strip()
+                  for m in re.finditer(rf"<\|im_start\|>{re.escape(voice)}\s*(.*?)<\|im_end\|>", sample, re.S)]
+    if (not permitir_preguntas and len(turnos_voz) >= 3
+            and all(bool(t) and t.endswith("?") for t in turnos_voz)):
+        errs.append("pregunta_en_todos_los_turnos")
+
     check_chess = is_chess or (scenario == "chess_uci")
     if check_chess:
         turnos_u = [m.group(1).strip() for m in re.finditer(r"<\|im_user\|>(.*?)<\|im_end\|>", sample, re.S)]
@@ -626,6 +645,12 @@ SCENARIOS: list[dict] = [
     {"id": "no_tool_when_not_needed", "cat": "B", "tools": 0,
      "txt": "El usuario charla de algo trivial. El contexto del sistema tiene tools disponibles, "
             "pero seco NO usa ninguna: no hacen falta. Eso es tan importante como usarlas bien."},
+    {"id": "pregunta_trivial_sin_tool", "cat": "B", "tools": 2, "tool_obligatoria": False,
+     "prohibir_tool": True,
+     "txt": "El usuario hace una pregunta corta y trivial que se contesta de una: una cuenta simple "
+            "('cuanto es 2+2', 'que es el 20% de 300'), el significado de una palabra o un dato basico. "
+            "seco responde DIRECTO, con su voz y su opinion, SIN llamar ninguna tool. Si llama una tool, "
+            "la muestra se descarta."},
     {"id": "fuente_otra_voz", "cat": "C", "tools": 0, "contraparte": "agente",
      "txt": "El turno NO lo abre el usuario: lo abre otra voz (viene como rol developer, "
             "identificada). seco le contesta A ELLA como par, no como subordinado. Puede estar en "
@@ -645,6 +670,19 @@ SCENARIOS: list[dict] = [
     {"id": "si_responde_indirecto", "cat": "F", "tools": 0,
      "txt": "CASO LIMITE: parece al aire pero SI es para seco (pregunta indirecta, pedido implicito, "
             "ironia dirigida). seco NO manda <|no_response|>: responde de verdad."},
+    {"id": "no_llenar_silencio", "cat": "F", "tools": 0,
+     "min_turns": 1, "voseo": False, "n_ex": 1, "min_palabras_usuario": 1,
+     "forzar_respuesta": ["<|no_response|>"],
+     "txt": "El usuario emite un reconocimiento corto que NO pide nada ('aja', 'claro', 'mm', 'si', 'ok'): "
+            "sigue mirando el video o esta pensando. seco NO acusa recibo, NO pregunta de nuevo y NO "
+            "inventa tema: se queda callado. La respuesta es exactamente `<|no_response|>` y nada mas."},
+    {"id": "silencio_charla_cerrada", "cat": "F", "tools": 0,
+     "min_turns": 1, "voseo": True, "n_ex": 2,
+     "forzar_respuesta": [None, "<|no_response|>"],
+     "txt": "La conversacion YA se cerro: el usuario se despidio ('buenas noches', 'me voy a dormir', "
+            "'despues te cuento') y seco le contesto la despedida. En el intercambio siguiente el usuario "
+            "emite un ruido de fondo sin dirigirse a seco ('mmm', 'uy', un suspiro). seco NO vuelve a "
+            "arrancar la charla: la respuesta es exactamente `<|no_response|>`."},
     {"id": "wait_asr_incompleto", "cat": "G", "tools": 0, "min_turns": 1, "n_ex": 2,
      "forzar_respuesta": ["<|wait|>", None],
      "txt": "La transcripcion esta CORTADA: 'che y entonces...' sin cierre. seco responde solo "
@@ -713,7 +751,7 @@ def get_contrato_escenario(sc: dict) -> dict:
 
 def build_pair_prompt(sc: dict, voice: str, historial: list[tuple[str, str]], n_ex: int,
                       tools_txt: str = "", permite_tools: bool = False,
-                      *, hint: str = "") -> str:
+                      *, hint: str = "", tool_obligatoria: bool = True) -> str:
     """Pide el turno del usuario Y el de la voz en UNA sola llamada.
 
     Por que: el modo turnwise pide un mensaje por llamada, o sea 2*n_ex llamadas por
@@ -728,14 +766,24 @@ def build_pair_prompt(sc: dict, voice: str, historial: list[tuple[str, str]], n_
     transcript = "\n".join(f"{etiqueta if q == 'user' else 'VOS'}: {t}"
                            for q, t in historial) or "(todavia no hablo nadie)"
     if permite_tools:
-        forma_voz = (
-            "En la linea VOS podes incluir llamadas a tools asi:\n"
-            "  primero tu comentario, despues `tool_call <nombre>: <json>` (JSON valido y en UNA\n"
-            "  sola linea), despues `tool_result <nombre>: <resultado>` y despues tu comentario.\n"
-            f"  Tools disponibles (nombre IDENTICO):\n{tools_txt}\n"
-            "  ESTE ESCENARIO EXIGE TOOL: la linea VOS tiene que incluir al menos un ``tool_call <nombre>: <json>``\n"
-            "  con el nombre EXACTO de la lista, seguido de su ``tool_result``. Una respuesta sin tool_call se\n"
-            "  descarta entera, no se guarda.")
+        if tool_obligatoria:
+            forma_voz = (
+                "En la linea VOS podes incluir llamadas a tools asi:\n"
+                "  primero tu comentario, despues `tool_call <nombre>: <json>` (JSON valido y en UNA\n"
+                "  sola linea), despues `tool_result <nombre>: <resultado>` y despues tu comentario.\n"
+                f"  Tools disponibles (nombre IDENTICO):\n{tools_txt}\n"
+                "  ESTE ESCENARIO EXIGE TOOL: la linea VOS tiene que incluir al menos un ``tool_call <nombre>: <json>``\n"
+                "  con el nombre EXACTO de la lista, seguido de su ``tool_result``. Una respuesta sin tool_call se\n"
+                "  descarta entera, no se guarda.")
+        else:
+            forma_voz = (
+                "En la linea VOS podes incluir llamadas a tools asi:\n"
+                "  primero tu comentario, despues `tool_call <nombre>: <json>` (JSON valido y en UNA\n"
+                "  sola linea), despues `tool_result <nombre>: <resultado>` y despues tu comentario.\n"
+                f"  Tools disponibles (nombre IDENTICO):\n{tools_txt}\n"
+                "  Si no hace falta ninguna tool, escribi solo tu mensaje. Si el usuario pregunta algo simple\n"
+                "  (una cuenta, un dato que sabes de memoria, el significado de una palabra), CONTESTA DIRECTO\n"
+                "  sin llamar ninguna tool.")
     else:
         forma_voz = "Solo tu mensaje, sin marcadores de ningun tipo."
     base = f"""Estas escribiendo dos lineas de una conversacion para un dataset de Kateto: un
@@ -765,6 +813,10 @@ REGLAS:
   "soy un modelo", ni ofrecer ayuda servilmente. Toma postura, opina, discute si no coincides.
 {contrato['regla']}
 - {forma_voz}
+- No todas las respuestas son texto. Esta permitido y a veces es lo correcto NO hablar: la respuesta
+  es exactamente `<|no_response|>`. NO cierres todos los turnos con una pregunta. Prohibido terminar
+  todos los turnos con "?" o con una invitacion a seguir ("queres algo mas?", "que opinas?"). Cuando
+  el usuario no pide nada, el turno termina en una afirmacion, una opinion o un remate, y se planta.
 - NO repitas la misma frase ni la misma idea dos veces.
 
 Devolve SOLO las dos lineas con el separador ###, nada mas."""
@@ -873,6 +925,10 @@ REGLAS DURAS:
 {tools_txt}
 - NUNCA inventes el resultado de una tool. Si falla, el tool_result lleva el error real.
 - NO escribas codigo, NO expliques arquitectura, NO des tutoriales.
+- No todas las respuestas son texto. Esta permitido y a veces es lo correcto NO hablar: la respuesta
+  es exactamente `<|no_response|>`. NO cierres todos los turnos con una pregunta. Prohibido terminar
+  todos los turnos con "?" o con una invitacion a seguir ("queres algo mas?", "que opinas?"). Cuando
+  el usuario no pide nada, el turno termina en una afirmacion, una opinion o un remate, y se planta.
 
 ESCENARIO A GENERAR:
 {sc['txt']}
@@ -986,7 +1042,8 @@ def generate_turnwise(sc: dict, voice: str, teacher, n_ex: int, tools_txt: str =
 
 
 def generate_paired(sc: dict, voice: str, teacher, n_ex: int, tools_txt: str = "",
-                    *, max_retries: int = 3, hint: str = "") -> str:
+                    *, max_retries: int = 3, hint: str = "",
+                    tool_obligatoria: bool = True) -> str:
     """Genera la conversacion de a PARES (usuario + voz) en una sola llamada.
 
     La mitad de llamadas que `generate_turnwise` (n_ex en vez de 2*n_ex), o sea la
@@ -998,7 +1055,7 @@ def generate_paired(sc: dict, voice: str, teacher, n_ex: int, tools_txt: str = "
     min_len_v = 4 if sc.get("is_chess") or sc.get("id") == "chess_uci" else 8
     for i in range(n_ex):
         prompt = build_pair_prompt(sc, voice, historial, n_ex, tools_txt, permite_tools=con_tools,
-                                   hint=hint)
+                                   hint=hint, tool_obligatoria=tool_obligatoria)
         # respuestas forzadas por diseño (centinelas), por indice de intercambio
         forzadas = sc.get("forzar_respuesta", [])
         linea_u = linea_v = ""
@@ -1149,6 +1206,10 @@ def main(argv: list[str] | None = None) -> int:
     with out_path.open("a", encoding="utf-8") as fo, rej_path.open("a", encoding="utf-8") as fr:
         for i, sc in enumerate(escenarios):
             n_ex = sc.get("n_ex", 1 if sc.get("min_turns", 2) == 1 else 3)
+            # fix120: la obligacion de tool es POR ESCENARIO. Con el default se
+            # comporta igual que antes (tools>0 => obligatoria). Los escenarios con
+            # tools pero SIN obligar (pregunta trivial) la apagan con el flag.
+            tool_oblig = sc.get("tool_obligatoria", sc.get("tools", 0) > 0)
             prompt = build_prompt(sc, tools_txt, args.voice, n_ex)
             ultimo_raw = ""
             try:
@@ -1167,7 +1228,8 @@ def main(argv: list[str] | None = None) -> int:
                     return res
 
                 if args.mode == "paired":
-                    txt = generate_paired(sc, args.voice, maestro, n_ex, tools_txt)
+                    txt = generate_paired(sc, args.voice, maestro, n_ex, tools_txt,
+                                          tool_obligatoria=tool_oblig)
                     if not txt:
                         raise RuntimeError("paired no consiguio armar la conversacion")
                 elif args.mode == "turnwise":
@@ -1200,9 +1262,11 @@ def main(argv: list[str] | None = None) -> int:
                                 min_turns=sc.get("min_turns", 2),
                                 require_voseo=sc.get("voseo", True),
                                 min_palabras_usuario=sc.get("min_palabras_usuario", 3),
-                                # si el escenario pide tools, la muestra TIENE que traerlas:
-                                # sin esto pasa texto lindo que no hizo la tarea.
-                                require_tool=sc.get("tools", 0) > 0,
+                                # si el escenario PIDE tool obligatoria, la muestra
+                                # TIENE que traerlas: sin esto pasa texto lindo que no
+                                # hizo la tarea. En los de tool OPCIONAL no se exige.
+                                require_tool=tool_oblig,
+                                prohibir_tool=sc.get("prohibir_tool", False),
                                 is_chess=sc.get("is_chess", sc.get("id") == "chess_uci"),
                                 permitir_spanglish=sc.get("permitir_spanglish", False))
 
@@ -1210,9 +1274,10 @@ def main(argv: list[str] | None = None) -> int:
             # --- reintento UNICO por sin_tool_call (fix119) ---
             # El prompt de tools decia "escribi solo tu mensaje" y el validador
             # exigia tool_call: el 62% de los rechazos era eso. Si TODOS los
-            # errores son sin_tool_call y el escenario tiene tools, se rehace UNA
-            # sola vez con la pista. Ningun otro motivo de rechazo se reintenta.
-            if errs and all(e == "sin_tool_call" for e in errs) and sc.get("tools", 0) > 0:
+            # errores son sin_tool_call y la tool es OBLIGATORIA, se rehace UNA
+            # sola vez con la pista. Si la tool es OPCIONAL no hay sin_tool_call:
+            # una respuesta sin tool es VALIDA, no hay nada que reintentar.
+            if errs and all(e == "sin_tool_call" for e in errs) and tool_oblig:
                 try:
                     if args.mode == "paired":
                         txt2 = generate_paired(sc, args.voice, maestro, n_ex, tools_txt, hint=HINT_TOOLS)
@@ -1231,7 +1296,7 @@ def main(argv: list[str] | None = None) -> int:
                     razones[e.split(":")[0].split("(")[0]] += 1
                 record_rejection(fr, sc["id"], errs, raw=raw or "", text=txt)
                 print(f"[{i+1}/{len(escenarios)}] {sc['id']}: RECHAZADA -> {errs}"
-                      + (" (retry con pista)" if all(e == "sin_tool_call" for e in errs) and sc.get("tools", 0) > 0 else ""))
+                      + (" (retry con pista)" if all(e == "sin_tool_call" for e in errs) and tool_oblig else ""))
             else:
                 ok += 1
                 fo.write(json.dumps({"text": txt, "scenario": sc["id"], "cat": sc["cat"],
