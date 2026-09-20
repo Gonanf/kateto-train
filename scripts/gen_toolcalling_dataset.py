@@ -395,7 +395,8 @@ def validate(sample: str, *, voice: str = "seco", require_tool: bool = False,
              scenario: str | None = None, permitir_spanglish: bool = False,
              prohibir_tool: bool = False,
              permitir_preguntas: bool = False,
-             ancla_payload: str | None = None) -> list[str]:
+             ancla_payload: str | None = None,
+             ancla_min: int = 2) -> list[str]:
     """Devuelve la lista de problemas. VACIA = el sample pasa.
 
     Cada regla existe por un defecto MEDIDO en el dataset actual.
@@ -592,15 +593,20 @@ def validate(sample: str, *, voice: str = "seco", require_tool: bool = False,
             _norm(w) for w in re.findall(r"[a-záéíóúüñ]+", ancla_payload.lower())
             if len(w) >= 5 and _norm(w) not in _STOPWORDS_ANCLA
         }
+        # fix122: el bit se mide sobre la PROSA de la voz, no sobre el material que
+        # llega. El `tool_result` es lo que el bit TIENE que comentar, no es bit en
+        # si: contarlo hacia la regla VACUA (19/19 con umbral 2 -> 15/19 sin el
+        # material). `ancla_min` es por escenario: el ancla del evento es corta y el
+        # teacher parafrasea, con umbral 2 no pasa NINGUNA (medido 0/11).
+        n_ancla = 0
         for t_v in turnos_voz:
-            palabras_voz = {_norm(w) for w in re.findall(r"[a-záéíóúüñ]+", t_v.lower())}
-            n_ancla = len(palabras_ancla & palabras_voz)
-            if n_ancla >= 2:
+            t_v_prosa = re.sub(r"(?m)^\s*tool_(call|result)\b.*$", "", t_v)
+            palabras_voz = {_norm(w) for w in re.findall(r"[a-záéíóúüñ]+", t_v_prosa.lower())}
+            n_ancla = max(n_ancla, len(palabras_ancla & palabras_voz))
+            if n_ancla >= ancla_min:
                 break
-        else:
-            n_ancla = 0
-        if n_ancla < 2:
-            errs.append(f"sin_anclaje_en_payload({n_ancla}/2)")
+        if n_ancla < ancla_min:
+            errs.append(f"sin_anclaje_en_payload({n_ancla}/{ancla_min})")
 
     check_chess = is_chess or (scenario == "chess_uci")
     if check_chess:
@@ -758,10 +764,17 @@ SCENARIOS: list[dict] = [
             "datos del video. PROHIBIDO explicar o aclarar el chiste despues."},
     {"id": "bit_sobre_evento", "cat": "C", "contraparte": "evento", "tools": 0,
      "ancla_payload": "bloque de juego de 20:00 a 22:00, despues corte para cenar",
+     # fix122: el ancla del evento es corta (bloque/juego/corte/cenar) y el teacher
+     # PARAFRASEA en vez de repetir: con umbral 2 no pasa NINGUNA (medido 0/11),
+     # con 1 pasan 5/11. El prompt de abajo pide UNA palabra textual; la regla
+     # apunta al mismo lado.
+     "ancla_min": 1,
      "txt": "El voice manager dispara un evento programado, no una persona: bloque de juego de 20:00 a 22:00, "
             "despues corte para cenar. seco REACCIONA al evento con un BIT en la forma de siempre: diagnostico "
             "seco, analogia mundana y concreta apoyada en ESE evento, y cierre tajante sin pregunta. NO lo lee "
-            "como robot, NO lo repite textual, NO pregunta si hay que hacer algo, NO avisa que es un recordatorio."},
+            "como robot, NO lo repite textual, NO pregunta si hay que hacer algo, NO avisa que es un recordatorio. "
+            "Apoya el comentario en al menos UNA palabra textual del evento ('bloque', 'juego', 'corte', 'cenar'): "
+            "el bit tiene que engancharse en algo concreto de lo que llego."},
 
 ]
 
@@ -1340,7 +1353,11 @@ def main(argv: list[str] | None = None) -> int:
                                 permitir_spanglish=sc.get("permitir_spanglish", False),
                                 # fix121: solo los escenarios de bit definen el ancla;
                                 # en los demas queda None y la regla no corre.
-                                ancla_payload=sc.get("ancla_payload"))
+                                ancla_payload=sc.get("ancla_payload"),
+                                # fix122: umbral de anclaje por escenario. El ancla del
+                                # evento es corta y el teacher parafrasea (1); el video
+                                # se queda en el default 2.
+                                ancla_min=sc.get("ancla_min", 2))
 
             errs = _validar(txt)
             # --- reintento UNICO por sin_tool_call (fix119) ---
