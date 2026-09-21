@@ -281,7 +281,6 @@ class KatetoInferenceEngine:
                 self.dtype = torch.float32
 
         if self.device == "cpu":
-            import os
             torch.set_num_threads(os.cpu_count() or 4)
 
         try:
