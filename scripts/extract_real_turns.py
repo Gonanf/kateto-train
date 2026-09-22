@@ -8,7 +8,6 @@ import argparse
 import json
 import re
 import sys
-from collections import Counter
 from pathlib import Path
 
 KEYWORDS = ("cliente", "warmatch", "cliente", "podcast", "entrevista")
@@ -81,7 +80,7 @@ def es_ruido(t):
     if any(k in low for k in CLOSING):
         return True
     toks = ALPHA_RE.findall(low)
-    if toks and max(Counter(toks).values()) >= 4:
+    if 4 <= len(toks) <= 8 and len(set(toks)) == 1:
         return True
     return False
 

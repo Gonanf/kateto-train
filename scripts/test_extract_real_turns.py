@@ -5,6 +5,7 @@ Transcripts sinteticos en tmp dirs (no toca el index real).
 Directo: python3 scripts/test_extract_real_turns.py
 Pytest:  python3 -m pytest scripts/test_extract_real_turns.py -q
 """
+import importlib.util
 import json
 import re
 import subprocess
@@ -14,9 +15,26 @@ import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).with_name("extract_real_turns.py")
+_spec = importlib.util.spec_from_file_location("extract_real_turns", SCRIPT)
+_er = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_er)
 FMT = re.compile(
     r"<\|im_user\|>.+<\|im_end\|>\n<\|im_start\|>seco\n"
     r"<\|(?:no_response|wait)\|><\|im_end\|>", re.S)
+
+FRASES_REALES = [
+    "Propiedad asociativa. No importa que agrupes algunos términos en una "
+    "suma, el resultado sigue siendo el mismo.",
+    "La raíz de 50 es 5 raíz 2, la raíz de 72 es 6 raíz 2 y la raíz de 90 "
+    "es 3 raíz 10.",
+    "Por ejemplo, el modelo tenía que hacer paso por paso, o varios modelos "
+    "tenían que hacer paso por paso.",
+]
+RUIDO_REAL = [
+    "No, no, no, no.",
+    "Gracias por ver el video.",
+    "Más información en www.ejemplo.com",
+]
 
 
 def write_tr(path, segs, name="vid.transcript.json"):
@@ -46,6 +64,30 @@ def lines(p):
 
 
 class TestExtract(unittest.TestCase):
+    def test_es_ruido_falsos_positivos(self):
+        for f in FRASES_REALES:
+            self.assertFalse(_er.es_ruido(f), f)
+
+    def test_es_ruido_detecta_ruido(self):
+        for f in RUIDO_REAL:
+            self.assertTrue(_er.es_ruido(f), f)
+
+    def test_no_response_emision_real(self):
+        with tempfile.TemporaryDirectory() as d:
+            idx, out = Path(d) / "i", Path(d) / "o"
+            idx.mkdir()
+            rep = Path(d) / "r.json"
+            segs = [(t, i * 2.0, i * 2.0 + 1.5)
+                    for i, t in enumerate(FRASES_REALES + RUIDO_REAL)]
+            write_tr(idx, segs, "c.transcript.json")
+            r = run(idx, out, rep)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            emitidas = [x["text"] for x in lines(out / "real_no_response.jsonl")]
+            for f in FRASES_REALES:
+                self.assertFalse(any(f in t for t in emitidas), f)
+            for f in RUIDO_REAL:
+                self.assertTrue(any(f in t for t in emitidas), f)
+
     def test_no_response_y_wait_formato(self):
         with tempfile.TemporaryDirectory() as d:
             idx, out = Path(d) / "i", Path(d) / "o"

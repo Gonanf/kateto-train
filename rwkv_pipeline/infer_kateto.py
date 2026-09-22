@@ -37,6 +37,11 @@ except ImportError:  # invocacion como script directo (python rwkv_pipeline/infe
 # la que se entreno. Los estados viejos (2026-09-06) no la tienen -> no verificados.
 META_KEY = "__kateto_meta__"
 
+# Centinelas de silencio del dataset (turno de la voz). El modelo entrena con
+# estos marcadores como respuesta; con allow_no_response=False se convierten en
+# el texto de fallback.
+SILENCE_SENTINELS = ("<|no_response|>", "<|wait|>")
+
 
 def base_fingerprint(base_path: "str | None"):
     """Huella corta de la base: sha256(resolve|mtime_ns|size) — barato, sin hashear el .pth.
@@ -362,8 +367,8 @@ class KatetoInferenceEngine:
         voice = "seco" if voice == "none" else voice
         parts = []
         for u, a in (history or [])[-max_history:]:
-            parts.append(f"<|im_user|>{u.strip()}\n<|im_start|>{voice}\n{a.strip()}<|im_end|>\n")
-        parts.append(f"<|im_user|>{prompt.strip()}\n<|im_start|>{voice}\n")
+            parts.append(f"<|im_user|>{u.strip()}<|im_end|>\n<|im_start|>{voice}\n{a.strip()}<|im_end|>")
+        parts.append(f"<|im_user|>{prompt.strip()}<|im_end|>\n<|im_start|>{voice}\n")
         return "".join(parts)
 
     def generate(self, prompt: str, voice: str = "none", max_tokens: int = 120, temperature: float = 0.7, top_p: float = 0.65, alpha_presence: float = 0.6, alpha_frequency: float = 0.5, history: "list[tuple[str, str]] | None" = None, max_history: int = 4, allow_no_response: bool = False, ngram_n: int = 3, ngram_repeat_max: int = 12) -> str:
@@ -384,9 +389,13 @@ class KatetoInferenceEngine:
         stop_reason = None
         for step in range(max_tokens):
             logits = out.clone()
-            if not allow_no_response and step == 0:
-                # Evitar que <NO_RESPONSE> se dispare como primer token en chat conversacional
-                logits[61] -= 15.0
+            # Ojo: el hack viejo (logits[61] -= 15 en step 0) penalizaba el token
+            # equivocado. Medicion: <|no_response|> -> [61,125,2073,96,54316,125,63]
+            # y <|wait|> -> [61,125,27444,125,63]: son MULTItoken, sin id unico, y
+            # el 61 es el '<' compartido por todos los marcadores (<|im_end|>, etc).
+            # Penalizar un logit no puede apuntar al centinela -> se elimino; el
+            # corte por <|im_end|>/<|im_user|> y la comparacion de SILENCE_SENTINELS
+            # abajo ya cubren el caso.
             tok = sample_logits(logits, temperature=temperature, top_p=top_p, occurrence=occurrence, alpha_presence=alpha_presence, alpha_frequency=alpha_frequency)
             if tok == 0:
                 stop_reason = "eos"
@@ -431,7 +440,7 @@ class KatetoInferenceEngine:
             if stop_marker in full_output:
                 full_output = full_output.split(stop_marker)[0]
         cleaned = full_output.strip()
-        if not allow_no_response and (cleaned == "<NO_RESPONSE>" or not cleaned):
+        if not allow_no_response and (cleaned in SILENCE_SENTINELS or not cleaned):
             return "Che, no te entendí bien, ¿me repetís?"
         return cleaned
 
@@ -495,7 +504,7 @@ def save_voice_state_with_base(state_dict: dict, out_path: str, base_path: "str 
     return payload[META_KEY]["base"] or ""
 
 
-def chat_loop(engine, voice: str, max_history: int):
+def chat_loop(engine, voice: str, max_history: int, allow_no_response: bool = False):
     try:
         import readline  # noqa: edición de línea e historial con flechas gratis
     except ImportError:
@@ -526,9 +535,9 @@ def chat_loop(engine, voice: str, max_history: int):
             history.clear()
             print(f"[Kateto] ahora hablo como '{voice}'. Historial reiniciado.")
             continue
-        ans = engine.generate(msg, voice=voice, history=history, max_history=max_history, allow_no_response=False)
+        ans = engine.generate(msg, voice=voice, history=history, max_history=max_history, allow_no_response=allow_no_response)
         print(f"[Kateto]: {ans}")
-        if ans and ans != "<NO_RESPONSE>":
+        if ans and ans not in SILENCE_SENTINELS:
             history.append((msg, ans))
 
 
@@ -540,6 +549,7 @@ def main():
     parser.add_argument("--force_state", action="store_true", help="Cargar el estado aun si su metadata de base no coincide con la base cargada")
     parser.add_argument("--device", type=str, default=None, choices=["cuda", "cpu"], help="Dispositivo para inferencia (cuda o cpu)")
     parser.add_argument("--prompt", type=str, default=None, help="Prompt a evaluar (one-shot). Sin --prompt ni --test_suite entra a chat interactivo.")
+    parser.add_argument("--allow_no_response", action="store_true", help="Dejar pasar los centinelas de silencio (<|no_response|>/<|wait|>) como respuesta, en vez de convertirlos en el texto de fallback")
     parser.add_argument("--chat", action="store_true", help="Forzar modo chat interactivo con historial temporal")
     parser.add_argument("--max_history", type=int, default=10, help="Turnos previos a incluir como contexto en chat")
     parser.add_argument("--test_suite", action="store_true", help="Ejecutar batería de preguntas clave")
@@ -582,10 +592,10 @@ def main():
             print(f"[Kateto]: {ans}")
             print("-" * 40)
     elif args.chat or args.prompt is None:
-        chat_loop(engine, voice, args.max_history)
+        chat_loop(engine, voice, args.max_history, allow_no_response=args.allow_no_response)
     else:
         print(f"\n[Prompt]: {args.prompt}")
-        ans = engine.generate(args.prompt, voice=voice)
+        ans = engine.generate(args.prompt, voice=voice, allow_no_response=args.allow_no_response)
         print(f"[Kateto]: {ans}\n")
 
 if __name__ == "__main__":
