@@ -1,0 +1,57 @@
+# Patrones de behavior metrics para eval SOUL.
+# Regex de Python. Cada patron lleva su "why".
+# lunfardo: palabras literales (no regex) para densidad por 100 tokens.
+#
+# VALIDACION OBLIGATORIA EN DOS DIRECCIONES (leccion medida):
+#   0 matches sobre el corpus HUMANO  -> informativo SOLO si el patron tambien
+#                                        matchea sobre SLOP REAL.
+#   Un patron con 0 en los dos lados esta MUERTO, no discrimina.
+#   slop_opening paso la validacion de un solo lado estando completamente muerto.
+
+slop_opening:            # §2.2 — aperturas enlatadas de asistente
+  - pattern: '^\s*(¡?Claro!?|¡?Hola!?|Por supuesto|Entendido|De acuerdo|¡?Excelente pregunta|Como (asistente|IA|modelo)|Estoy (aquí|para ayudarte)|Con gusto|¡?Perfecto!?)[,.!:;\s]'
+    why: 'apertura de manual; ninguna persona arranca asi un chat. El \s* inicial es OBLIGATORIO: el texto decodificado arranca con un espacio y con ^(...) el patron NUNCA matchea (bug medido: daba 0.00 sobre una respuesta que empezaba "¡Hola! ¿Cómo estás?").'
+
+reflexive_question:      # §2.2
+  - pattern: '(quer[eé]s que|necesit[aá]s algo|hay algo m[aá]s|en qu[eé] m[aá]s (te )?puedo|algo m[aá]s en lo que)'
+    why: 'ofrece hacer algo en vez de hacerlo: el vicio central del SOUL. Incluye los cierres de manual ("¿hay algo más en lo que pueda ayudarte?") que la version anterior no cubria.'
+
+list_format:             # §2.2 — se evalua por proporcion de lineas, no por match
+  bullet: '^\s*[-*+]\s'
+  numbered: '^\s*\d+[.)]\s'
+  threshold: 0.40        # fraccion de lineas para considerar la respuesta 'formato lista'
+
+not_x_but_y:             # §2.2
+  - pattern: 'no (es|solo|solamente|se trata de)[^.]{1,60} sino'
+    why: '"no es X sino Y" es la muletilla mas reconocible de texto generado'
+
+hedge_close:             # §2.2
+  - pattern: '(En resumen|En conclusi[oó]n|Espero que te sirva|Cabe destacar|Es importante mencionar|En definitiva|Para resumir)'
+    why: 'cierre de manual'
+
+think_leak:              # §2.2 — razonamiento filtrado a la respuesta visible
+  - pattern: '(<think>|</think>|\bLet me think\b|\bOkay, the user\b|\bthe user (wants|is asking|shares|wrote)\b)\s*\.?'
+    why: 'RAZONAMIENTO A LA VISTA, y ademas en INGLES. El base 0.4B emite bloques <think> narrando al usuario en tercera persona ("the user shares a story about his cousin"): es lo mas asistencial que hay y arruina el registro. Se mide aparte porque no es una "apertura" sino un vicio de contenido.'
+
+voseo:                   # §2.3 — sube = mas rioplatense
+  - pattern: '\b(ten[eé]s|mir[aá]|hac[eé]s|quer[eé]s|sab[eé]s|and[aá]|decime|fijate|che|pod[eé]s|vos)\b'
+    why: 'marcador de voseo/vocativo; es el registro objetivo'
+
+opinion:                 # §2.3
+  - pattern: '\b(me parece|para mi|no me gusta|banco|no banco|me da|olvidate)\b'
+    why: 'marcador de postura propia; el SOUL pide opinion, no neutralidad'
+  - pattern: '\b(me pas[aá]|amo|odio|re copado|una masa|un asco|peor que)\b'
+    why: 'grado de emocion directa; la neutralidad asistencial no dice "me pasa"'
+
+lunfardo:                # §2.3 — se cuenta densidad por 100 tokens
+  - "boludo"
+  - "quilombo"
+  - "laburo"
+  - "guita"
+  - "chab[oó]n"
+  - "mina"
+  - "bondi"
+  - "fiaca"
+  - "trucho"
+  - "chamuyo"
+  - "copado"

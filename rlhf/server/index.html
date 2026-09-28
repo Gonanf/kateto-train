@@ -1,0 +1,54 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kateto RLHF — preferencias</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1100px;margin:1em auto;padding:0 1em}
+#prompt{background:#f4f4f4;padding:1em;white-space:pre-wrap;border-radius:8px}
+.cols{display:flex;gap:1em}
+.card{flex:1;border:1px solid #ccc;border-radius:8px;padding:.7em;min-width:0}
+.card h3{margin:.2em 0}
+.txt{max-height:40vh;overflow:auto;white-space:pre-wrap;background:#fafafa;padding:.5em}
+.sel{margin:.5em 0}.sel button{margin-right:.3em}
+button{padding:.4em .8em;cursor:pointer}
+#barra{margin:1em 0;display:flex;gap:.5em;flex-wrap:wrap;align-items:center}
+.mejor{border-color:#000}
+</style></head><body>
+<h1>Kateto RLHF — elegí la mejor</h1>
+<div id="info"></div>
+<div id="prompt"></div>
+<div class="cols" id="cols"></div>
+<div id="barra">
+<button id="empate">Empate</button>
+<button id="votar">Votar</button>
+<button id="deshacer">Deshacer última</button>
+<button id="exportar">Exportar pares ORPO</button>
+<span id="estado"></span>
+</div>
+<script>
+let ACT=null, PUNT=[], MEJOR=null;
+async function j(u,o){const r=await fetch(u,o);const t=await r.json();if(!r.ok)throw new Error(t.error||r.status);return t;}
+async function cargar(){const d=await j('/api/data');ACT=d.actual;PUNT=[];MEJOR=null;
+ document.getElementById('info').textContent=d.actual?`Votos: ${d.votos}/${d.total} · pendientes: ${d.pendientes}`:'Listo: no quedan candidatos.';
+ if(!ACT){document.getElementById('prompt').textContent='';document.getElementById('cols').innerHTML='';return;}
+ document.getElementById('prompt').textContent='PROMPT ['+ACT.id+']\n'+ACT.prompt;
+ const cols=document.getElementById('cols');cols.innerHTML='';
+ ACT.respuestas.forEach((t,i)=>{PUNT[i]=3;
+  const d2=document.createElement('div');d2.className='card';d2.id='c'+i;
+  d2.innerHTML=`<h3>Respuesta ${i+1}</h3><div class="txt"></div><div class="sel"></div><button>Elegir mejor</button>`;
+  d2.querySelector('.txt').textContent=t;
+  const sel=d2.querySelector('.sel');
+  [1,2,3,4,5].forEach(p=>{const b=document.createElement('button');b.textContent=p;
+   b.onclick=()=>{PUNT[i]=p;[...sel.children].forEach(x=>x.style.fontWeight='');b.style.fontWeight='bold';};sel.appendChild(b);});
+  d2.querySelector('button:last-child').onclick=()=>{MEJOR=i;
+   ACT.respuestas.forEach((_,k)=>document.getElementById('c'+k).classList.toggle('mejor',k===i));};
+  cols.appendChild(d2);});
+ refrescar();}
+async function refrescar(){const e=await j('/api/estado');
+ document.getElementById('estado').textContent=`votos:${e.votos} empates:${e.empates} pares:${e.pares_exportados} pendientes:${e.pendientes}`;}
+document.getElementById('votar').onclick=async()=>{try{await j('/api/votar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:ACT.id,puntajes:PUNT,mejor:MEJOR,empate:false})});await cargar();await refrescar();}catch(e){alert(e.message);}};
+document.getElementById('empate').onclick=async()=>{const p=prompt('Puntaje único 1-5 para todas:', '3');if(p===null)return;PUNT=ACT.respuestas.map(()=>+p);
+ try{await j('/api/votar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:ACT.id,puntajes:PUNT,mejor:null,empate:true})});await cargar();await refrescar();}catch(e){alert(e.message);}};
+document.getElementById('deshacer').onclick=async()=>{try{await j('/api/deshacer',{method:'POST'});await cargar();await refrescar();}catch(e){alert(e.message);}};
+document.getElementById('exportar').onclick=async()=>{const r=await j('/api/export',{method:'POST'});alert(`pares: ${r.pares} · prompts: ${r.prompts}`);await refrescar();};
+cargar().then(refrescar);
+</script></body></html>

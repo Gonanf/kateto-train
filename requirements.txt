@@ -1,0 +1,37 @@
+# ==============================================================================
+# kateto-train-public - Dependencias del Proyecto
+# ==============================================================================
+
+# --- 1. Inferencia y Model Serving (Runtime Nativo) ---
+torch>=2.1.0
+safetensors>=0.4.0
+transformers>=4.40.0
+peft>=0.10.0
+piper-tts>=1.2.0           # O binario standalone 'piper' en PATH para TTS streaming
+
+# NOTA SOBRE EL KERNEL RWKV-7:
+# El operador WKV de RWKV-7 no es un paquete estándar de PyPI.
+# Para ejecución con aceleración GPU (CUDA/ROCm), requiere Triton o FLA:
+#   1. Backend Triton (utilizado en este repo con WKV=triton):
+triton>=2.1.0
+#   2. Backend FLA alternativo (WKV=fla):
+#      Requiere compilar/instalar flash-linear-attention y rwkv-fla:
+#      pip install rwkv-fla flash-linear-attention --no-build-isolation
+#   3. En modo fallback CPU, infer_kateto.py ejecuta sin Triton ni GPU.
+
+# --- 2. Preparación de Datos y Comunicación con Teachers ---
+jinja2>=3.1.0              # Renderizado de chat_template y prompts
+pyyaml>=6.0                # Configs YAML (config/*.yaml)
+httpx>=0.25.0              # Cliente HTTP asíncrono/síncrono para eval y teachers
+openai>=1.10.0             # SDK cliente para APIs compatibles de teachers (OpenCode, Hermes)
+datasets>=2.18.0           # Ingesta y manipulación de datasets HuggingFace
+pyarrow>=14.0.0            # Lectura de datasets en formato Parquet
+pandas>=2.0.0              # Análisis y preparación de datos tabulares
+huggingface_hub>=0.20.0    # Descarga de tokenizadores y bases de modelos
+
+# --- 3. Entrenamiento y Fine-Tuning Avanzado ---
+# unsloth                  # Requerido únicamente para train_qwen_2stage.py (según hardware)
+# trl>=0.8.0               # Soporte DPO/ORPO en pipelines HuggingFace
+
+# --- 4. Testing y Calidad de Código ---
+pytest>=7.4.0

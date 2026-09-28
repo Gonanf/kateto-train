@@ -1,0 +1,17 @@
+# State-tuning (Capa 2) hyperparams — SPEC §2.3.
+# NOTE (todo 15): created here due to parallel race with todo 13 (which owns
+# pissa/orpo configs). Todo 13 may extend this file; the keys below are the
+# SPEC §2.3 contract and must be kept.
+optimizer: adamw
+lr_init: 1.0e-2      # agresivo para desplazar el atractor dinámico
+lr_final: 1.0e-4
+schedule: cosine
+warmup_steps: 50
+weight_decay: 0.0    # WD no aplica a S0; usar L2 custom
+s0_l2_gamma: 5.0e-4  # L_total = L_CE + gamma * ||S0||^2 (solo state-train)
+epochs_per_voice:
+  doktor: 15
+  jane: 12
+  whisperer: 10
+  streamer: 15
+  seco: 5            # mantenimiento

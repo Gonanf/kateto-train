@@ -1,0 +1,76 @@
+# ==============================================================================
+# kateto-train-public .gitignore
+# ==============================================================================
+
+# Entornos virtuales
+venv/
+venv-*/
+env/
+.venv/
+
+# Caches y compilaciones de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+unsloth_compiled_cache/
+
+# Pesos de modelos, checkpoints y cuantizaciones
+*.pth
+*.pt
+*.bin
+*.safetensors
+*.gguf
+*.onnx
+*.onnx.json
+*.whl
+*.tar*
+*.zip
+*.gz
+
+# Archivos de volcado y crash
+gpucore*
+core.*
+
+# Bases de datos y archivos de estado pesados
+*.db
+*.sqlite*
+*.part
+*.bak*
+*_backup.*
+*.log
+log.json
+
+# Directorios de datos y artefactos de entrenamiento
+data/
+base/
+out/
+models/
+tmp_download/
+cpu-debug/
+**/.cache/
+
+# Repositorios externos clonados y kernels
+RWKV-LM/
+RWKV-PEFT/
+rwkv-mobile/
+kaggle_v2/
+kaggle_upload/
+kaggle_kernel_v*/
+
+# Archivos generados en caliente por el servidor RLHF (datos de corrida)
+rlhf/server/candidatos.jsonl
+rlhf/server/preferencias.jsonl
+rlhf/server/pares_orpo.jsonl
+
+# Scratch y metadatos de agentes/IDE
+mempalace.yaml
+entities.json
+.codegraph/
+.omh/
+.omo/
+.DS_Store
+.idea/
+.vscode/
+scratch_help.txt
