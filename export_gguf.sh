@@ -1,6 +1,23 @@
 #!/bin/bash
 # Post-training: merge LoRA -> pth -> GGUF -> imatrix -> Q4_K_M -> validacion.
 # Uso: ./export_gguf.sh <adapter_dir> <nombre_salida>
+#
+# ============================================================================
+# OJO — FUERA DEL CAMINO CRITICO (ver docs/decision-gguf-vs-nativo.md).
+# Este export es solo BENCH/experimento en otra maquina. NO sirve para Kateto:
+#   * GGUF no acepta estados externos -> las voces de la Capa 2 (state-tuning)
+#     son inutilizables aca; no hay forma de inyectar el S_0 entrenado.
+#   * ROSA es estructura de runtime (rosa_module.py), no se serializa a GGUF.
+#   * Cambiar entre agentes exige recargar el modelo entero (segundos) en vez
+#     del swap nativo medido en 48-135 ms.
+# El camino de servicio y de verificacion es el nativo:
+#   rwkv_pipeline/infer_kateto.py (.pth + out/rwkv_states/<voz>/ + ROSA)
+# ----------------------------------------------------------------------------
+# CORREGIDO 2026-10-01: esto es falso a nivel API. La inyeccion de estado existe
+# (llama_state_seq_set_data) y esta medida: ver docs/gguf-estado-roundtrip.md (RESULTADO: PASS).
+# El texto de arriba se conserva como historia de la premisa, no como estado actual.
+# ----------------------------------------------------------------------------
+# ============================================================================
 set -e
 TDIR=/run/media/chaos/terciario/proyectos/kateto-train
 ADAPTER="$1"

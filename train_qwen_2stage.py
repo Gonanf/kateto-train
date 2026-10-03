@@ -10,6 +10,7 @@ import os
 os.environ.setdefault("HSA_OVERRIDE_GFX_VERSION", "10.3.0")
 os.environ["TORCH_COMPILE_DISABLE"] = "1"
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["UNSLOTH_CE_LOSS_N_CHUNKS"] = "16"
 
 import json, glob
 from pathlib import Path
@@ -18,9 +19,9 @@ if hasattr(torch, "_dynamo"):
     torch._dynamo.disable()
 
 PROJECT = Path(__file__).parent
-DATA_SFT_TRAIN = PROJECT / "data/sft_out/sft_train.jsonl"
-DATA_SFT_EVAL  = PROJECT / "data/sft_out/sft_eval.jsonl"
-DATA_KATETO    = PROJECT / "data/toolcalling_kateto_v2.jsonl"
+DATA_SFT_TRAIN = PROJECT / "data/kateto_v2_combined_train.jsonl"
+DATA_SFT_EVAL  = PROJECT / "data/kateto_v2_combined_eval.jsonl"
+DATA_KATETO    = PROJECT / "data/kateto_v2_combined_train.jsonl"
 # Raw stage1 sources
 RAW_SOURCES = [
     "data/raw/argentina-news/data/*.parquet",
@@ -33,7 +34,7 @@ MODEL_ID = "Qwen/Qwen3.5-0.8B"
 OUTPUT_DIR = PROJECT / "out/qwen35-0.8b-kateto-2stage"
 
 COMMON_ARGS = dict(
-    max_seq_length=1024,
+    max_seq_length=512,
     dtype=None,  # auto
     load_in_4bit=True,
 )
@@ -44,7 +45,7 @@ LORA_CONFIG = dict(
     lora_dropout=0,
     target_modules=["q_proj","k_proj","v_proj","o_proj","gate_proj","up_proj","down_proj"],
     bias="none",
-    use_gradient_checkpointing=False,
+    use_gradient_checkpointing="unsloth",
     random_state=3407,
 )
 
@@ -57,6 +58,7 @@ TRAIN_ARGS_STAGE1 = dict(
     weight_decay=0.01,
     optim="adamw_8bit",
     lr_scheduler_type="cosine",
+    gradient_checkpointing=True,
     logging_steps=10,
     save_steps=50,
     eval_strategy="no",
@@ -65,6 +67,7 @@ TRAIN_ARGS_STAGE1 = dict(
 
 TRAIN_ARGS_STAGE2 = dict(
     per_device_train_batch_size=1,
+    per_device_eval_batch_size=1,
     gradient_accumulation_steps=8,
     learning_rate=8e-5,
     num_train_epochs=2,
@@ -72,11 +75,12 @@ TRAIN_ARGS_STAGE2 = dict(
     weight_decay=0.01,
     optim="adamw_8bit",
     lr_scheduler_type="cosine",
-    logging_steps=5,
-    save_steps=20,
+    gradient_checkpointing=True,
+    logging_steps=10,
+    save_steps=50,
     eval_strategy="steps",
-    eval_steps=20,
-    save_total_limit=2,
+    eval_steps=100,
+    save_total_limit=3,
     output_dir=str(OUTPUT_DIR / "stage2"),
 )
 
@@ -285,7 +289,11 @@ def train_stage(stage=1, model=None, tokenizer=None):
         instruction_part="<|im_start|>user\n",
         response_part="<|im_start|>assistant\n",
     )
-    trainer.train()
+    checkpoints = sorted(glob.glob(str(out / "checkpoint-*")), key=lambda p: int(p.split("-")[-1]) if p.split("-")[-1].isdigit() else 0)
+    resume = checkpoints[-1] if checkpoints else None
+    if resume:
+        print(f"Reanudando entrenamiento desde checkpoint: {resume}")
+    trainer.train(resume_from_checkpoint=resume)
     trainer.save_model(str(out))
     tokenizer.save_pretrained(str(out))
     print(f"Stage {stage} guardado exitosamente en {out}")
@@ -375,17 +383,14 @@ def export_to_gguf_and_imatrix(stage2_dir=None, merged_dir=None):
     f16_gguf = PROJECT / "out/qwen35-0.8b-kateto-f16.gguf"
     imatrix_dat = PROJECT / "out/qwen35-0.8b-kateto.imatrix.dat"
     q4_gguf = PROJECT / "out/qwen35-0.8b-kateto-Q4_K_M.gguf"
-    calib_file = PROJECT / "data/sft_out/calib.txt"
+    calib_file = PROJECT / "data/kateto_v2_calib.txt" if (PROJECT / "data/kateto_v2_calib.txt").exists() else PROJECT / "data/sft_out/calib.txt"
     converter_script = Path("/run/media/chaos/terciario/Backup/Proyectos/kateto/llama.cpp/convert_hf_to_gguf.py")
 
     print(f"\n{'='*50}\n=== EXPORTANDO A GGUF E IMATRIX ===\n{'='*50}")
 
     # 1. Merge LoRA a 16-bit
-    if not (merged_dir / "model.safetensors").exists():
-        print(f"--- 1/5 Merge LoRA matemático directo a 16-bit en {merged_dir} ---")
-        merge_lora_direct(MODEL_ID, stage2_dir, merged_dir)
-    else:
-        print(f"Modelo merged 16-bit ya existe en {merged_dir}")
+    print(f"--- 1/5 Merge LoRA matemático directo a 16-bit en {merged_dir} ---")
+    merge_lora_direct(MODEL_ID, stage2_dir, merged_dir)
 
     # 2. Convertir a GGUF F16
     print(f"--- 2/5 Convertir a GGUF F16: {f16_gguf} ---")
