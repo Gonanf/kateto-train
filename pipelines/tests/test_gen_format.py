@@ -31,6 +31,7 @@ import gen_toolcalling_dataset as ref  # noqa: E402
 VOZ = "seco"
 # El marcador REAL de un turno de voz. Contar con esto, no con heuristicas.
 MARCADOR = g.MARCADOR_VOZ.format(voz=VOZ)
+CLOSURE = g.IM_END + "\n"
 
 HIST = [("user", "che seco, del video largo de ayer"), (VOZ, "dale, vi algo")]
 TXT = g.ensamblar(HIST, VOZ)
@@ -39,8 +40,7 @@ TXT = g.ensamblar(HIST, VOZ)
 def comprobar_formato(txt: str, voice: str = VOZ) -> None:
     """La asercion de formato. La mutacion tiene que romper ESTA."""
     assert txt.startswith(g.IM_USER), "el texto no arranca en el marcador de usuario"
-    assert txt.endswith(g.IM_END), "el texto no cierra en el marcador de fin"
-    assert not txt.endswith("\n"), "sobro un \\n: el dato no lo lleva"
+    assert txt.endswith(CLOSURE), f"el texto no cierra en {CLOSURE!r}: {txt[-20:]!r}"
     bloques = g.desarmar(txt)
     assert len(bloques) >= 2, f"no hay bloques que re-armar: {bloques}"
     for cab, cuerpo in bloques:
@@ -111,23 +111,22 @@ def test_empieza_en_marcador_de_usuario() -> None:
     assert TXT.startswith(g.IM_USER)
 
 
-def test_termina_en_marcador_de_fin_sin_sobras() -> None:
-    assert TXT.endswith(g.IM_END)
-    assert not TXT.endswith("\n")
+def test_termina_en_el_cierre_canonico() -> None:
+    assert TXT.endswith(CLOSURE)
 
 
 def test_linea_jsonl_termina_en_nueva_linea(tmp_path: Path) -> None:
-    """El `endswith("\\n")` del brief es el de la LINEA del jsonl, no el del texto.
+    """El `text` cierra en `<|im_end|>\\n` (R4) y la linea del jsonl en `\\n`.
 
-    Medido sobre ~180 shards de produccion: ningun texto termina en `\\n`; lo que
-    termina en `\\n` es la linea del jsonl. Si algum dia el `text` lleva `\\n`
-    final, el formateador de ahi abajo se desalinea del shard.
+    Los dos saltos son de cosas distintas: el del `text` es formato del dato, el
+    de la linea es del jsonl. Con los dos, `json.loads` de la linea devuelve el
+    texto con su cierre y el archivo sigue siendo un jsonl valido.
     """
     out = tmp_path / "d.jsonl"
     out.write_text(json.dumps({"text": TXT}, ensure_ascii=False) + "\n", encoding="utf-8")
     linea = out.read_text(encoding="utf-8")
     assert linea.endswith("\n")
-    assert json.loads(linea)["text"].endswith(g.IM_END)
+    assert json.loads(linea)["text"].endswith(CLOSURE)
 
 
 def test_cuenta_bloques_con_el_marcador_real() -> None:
@@ -318,22 +317,125 @@ def test_validador_rechaza_un_escenario_desconocido() -> None:
 
 
 def test_validador_acepta_una_muestra_del_smoke() -> None:
-    """Si el smoke real dejo muestras, tienen que pasar el gate."""
-    smoke = PIPELINES / "smoke" / "tc_r2.jsonl"
-    if not smoke.exists():
+    """Si el smoke real dejo muestras, tienen que pasar el gate.
+
+    El A/B de R4 (`registro-on/`, `registro-off/`). Los dos brazos se validan
+    igual: el registro cambia el PROMPT, no la forma del dato.
+    """
+    vistas = [p for p in (PIPELINES / "smoke" / d / "muestras.jsonl"
+                          for d in ("registro-on", "registro-off")) if p.exists()]
+    if not vistas:
         pytest.skip("sin smoke: la suite esta entera")
-    filas = [json.loads(l) for l in smoke.read_text(encoding="utf-8").splitlines() if l.strip()]
-    assert filas, "el smoke no dejo ninguna muestra"
-    for fila in filas:
-        comprobar_formato(fila["text"], fila["voice"])
-        assert g.validar(fila["text"], fila["scenario"], fila["voice"]) == [], fila["scenario"]
+    for path in vistas:
+        filas = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert filas, f"{path} no dejo ninguna muestra"
+        for fila in filas:
+            comprobar_formato(fila["text"], fila["voice"])
+            assert g.validar(fila["text"], fila["scenario"], fila["voice"]) == [], fila["scenario"]
+
+
+# --------------------------------------------------------------------------- #
+# R4: el registro entra en TODOS los escenarios, y la receta de tres partes
+# deja de ser requisito
+# --------------------------------------------------------------------------- #
+ESCENARIO_CHARLA = {
+    "id": "charla_comun", "cat": "B", "tools": 0, "txt": "Dos personas que se cuentan el dia.",
+    "voseo": True,
+}
+# 4 turnos = 2 intercambios. Todos >= MIN_LINEA_VOZ: un turno corto dispara el
+# reintento del juez y se corre la lista del stub.
+TURNOS_CHARLA = [
+    "che seco, que onda",
+    "todo bien, medio bored pero zafa",
+    "buenisimo, que me contaste",
+    "nada raro. un mate y se arranca",
+]
+# Como se distinguen los dos roles en el prompt (texto de `build_turn_prompt`):
+# el del simulador dice "la PERSONA que mira el stream", el de la voz, "la voz `seco`".
+ES_USUARIO = "que le toca a la PERSONA"
+ES_VOZ = "que le toca a la voz"
+
+
+def _prompts(escenario: dict, *, usar_registro: bool = True) -> list[str]:
+    teacher, llamadas = teacher_stub(TURNOS_CHARLA)
+    g.generar_muestra(escenario, VOZ, teacher, n_ex=2, usar_registro=usar_registro)
+    return llamadas
+
+
+def test_el_registro_va_byte_a_byte_en_el_prompt_de_la_voz() -> None:
+    """La asercion del brief: contra el ARCHIVO, no contra una copia del texto."""
+    archivo = g.REGISTRO_PATH.read_text(encoding="utf-8")
+    voz = [p for p in _prompts(ESCENARIO_CHARLA) if ES_VOZ in p]
+    assert voz, "no se built ningun prompt de voz"
+    for p in voz:
+        assert archivo in p, "el registro no esta verbatim en el prompt de la voz"
+
+
+def test_el_registro_no_trae_el_andamiaje_ni_exclamaciones() -> None:
+    """El andamiaje de la receta se colaba al dialogo; `purga` lo rechaza."""
+    for p in _prompts(ESCENARIO_CHARLA):
+        assert "Diagnóstico:" not in p
+        assert "Cierre:" not in p
+        assert "¡" not in p, "registro con exclamacion: se filtra al dialogo"
+
+
+def test_el_registro_no_entra_en_el_prompt_del_simulador_de_usuario() -> None:
+    """El registro es la ficha de KATETO: al que tiene que PREGUNTAR lo vuelve
+    un clon de Kateto."""
+    usuario = [p for p in _prompts(ESCENARIO_CHARLA) if ES_USUARIO in p]
+    assert usuario, "no se built ningun prompt de usuario"
+    for p in usuario:
+        assert g.registro() not in p
+
+
+def test_sin_registro_no_inyecta_nada() -> None:
+    """El brazo OFF del A/B: mismo loop, sin el archivo dentro."""
+    for p in _prompts(ESCENARIO_CHARLA, usar_registro=False):
+        assert g.registro() not in p
+
+
+@pytest.mark.parametrize("sid", ["bit_sobre_video", "bit_sobre_evento"])
+def test_la_receta_de_tres_partes_no_es_requisito(sid: str) -> None:
+    """La comedia pasa a ser registro, no estructura: el `txt` del escenario ya
+    no pide las tres partes etiquetadas."""
+    sc = next(s for s in ref.SCENARIOS if s["id"] == sid)
+    assert "en la forma de siempre" in sc["txt"], "el fixture no seria lo que se prueba"
+
+    limpio = g.sin_receta(sc["txt"])
+    assert "en la forma de siempre" not in limpio
+    assert "analogia mundana" not in limpio
+    assert "cierre tajante" not in limpio
+    # lo que NO era receta se conserva: el prefijo del escenario, intacto
+    prefijo = sc["txt"][: sc["txt"].index("con un BIT")]
+    assert limpio.startswith(prefijo)
+
+
+def test_el_escenario_sin_receta_llega_al_prompt() -> None:
+    teacher, llamadas = teacher_stub(TURNOS_CHARLA)
+    sc = dict(
+        ESCENARIO_CHARLA,
+        txt="seco REACCIONA con un BIT en la forma de siempre: diagnostico seco, "
+            "analogia mundana y cierre tajante sin pregunta. NO lo lee como robot.",
+    )
+    g.generar_muestra(sc, VOZ, teacher, n_ex=1)
+    for p in llamadas:
+        assert "forma de siempre" not in p
+        assert "analogia mundana" not in p
+        assert "NO lo lee como robot" in p, "sanear se comio texto que no era receta"
+
+
+def test_el_tope_del_simil_va_escrito_en_el_prompt() -> None:
+    """Una comparacion por conversacion, nunca en turnos consecutivos."""
+    assert "nunca en dos turnos seguidos" in g.registro(), "el tope no esta en el archivo"
+    voz = [p for p in _prompts(ESCENARIO_CHARLA) if ES_VOZ in p]
+    assert voz and all("nunca en dos turnos seguidos" in p for p in voz)
 
 
 # --------------------------------------------------------------------------- #
 # mutacion: el armado roto tiene que hacer caer el gate de formato
 # --------------------------------------------------------------------------- #
 def test_mutacion_sacar_el_cierre_rompe_el_formato() -> None:
-    roto = g.ensamblar(HIST, VOZ)[: -len(g.IM_END)]
+    roto = g.ensamblar(HIST, VOZ)[: -len(CLOSURE)]
     with pytest.raises(AssertionError):
         comprobar_formato(roto)
 
@@ -343,7 +445,7 @@ def test_mutacion_ensamblar_roto_hace_caer_la_suite(monkeypatch) -> None:
 
     def roto(historial, voice):
         txt = original(historial, voice)
-        return txt[: -len(g.IM_END)] if txt.endswith(g.IM_END) else txt
+        return txt[: -len(CLOSURE)] if txt.endswith(CLOSURE) else txt
 
     monkeypatch.setattr(g, "ensamblar", roto)
     roto_txt = roto(HIST, VOZ)

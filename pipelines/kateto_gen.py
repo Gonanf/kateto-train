@@ -53,6 +53,7 @@ import time
 import urllib.error
 from collections import Counter
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -266,6 +267,31 @@ class ToolState:
 # 3. Prompts. Los de la referencia se reusan; solo el turno de la voz CON tools
 # cambia de protocolo (no escribe el resultado), y ese es el nucleo del port.
 # --------------------------------------------------------------------------- #
+REGISTRO_PATH = REPO / "prompts" / "prompt-compartido.md"
+# La receta de tres partes (`Diagnóstico:` -> analogia -> `Cierre:`) vivia en el
+# `txt` de los escenarios `bit_*`. R4: la comedia es REGISTRO, no estructura — el
+# andamiaje se filtraba al dialogo y por eso existe `purga.andamiaje_en_dialogo`.
+# La referencia (`scripts/gen_toolcalling_dataset.py`) es de otro owner y no se
+# toca, asi que la clausula se saca aca, en el prompt, y no en el archivo.
+RX_RECETA = re.compile(r"con un BIT (?:propio )?en la forma de siempre:[^.]*\.")
+
+
+@lru_cache(maxsize=1)
+def registro() -> str:
+    """`prompts/prompt-compartido.md` VERBATIM. El archivo es la especificacion:
+    copiarlo al codigo lo desalinearia en silencio en la primera edicion."""
+    return REGISTRO_PATH.read_text(encoding="utf-8")
+
+
+def sin_receta(txt: str) -> str:
+    """El `txt` del escenario sin las tres partes etiquetadas.
+
+    Un solo regex para los dos `bit_*`: los dos textos arrancan la clausula en
+    `en la forma de siempre:` y la terminan en `pregunta.`, sin puntos adentro.
+    """
+    return RX_RECETA.sub("en la voz de Kateto.", txt)
+
+
 def tools_txt() -> str:
     return "\n".join(f"  - {n}({', '.join(ref.firmas(n))})" for n in ref.ALL_TOOLS)
 
@@ -400,19 +426,33 @@ def _turno_valido(texto: str, min_len: int) -> bool:
 
 
 def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
-                    n_ex: int, *, max_retries: int = MAX_INTENTOS) -> tuple[str, ToolState]:
+                    n_ex: int, *, max_retries: int = MAX_INTENTOS,
+                    usar_registro: bool = True) -> tuple[str, ToolState]:
     """Arma UNA conversacion turno por turno. Devuelve `(texto, estado)`.
 
     El transcript lo arma este codigo: no hay marcador que el modelo pueda
     romper, ni turnos desbalanceados, ni falta de cierre. Los centinelas los
     pone el codigo por indice de intercambio, nunca se los pide al modelo.
+
+    `usar_registro=False` es el brazo OFF del A/B: mismo loop, mismo teacher,
+    mismo escenario, sin el registro inyectado.
     """
+    sc = {**sc, "txt": sin_receta(sc["txt"])}
     estado = ToolState(voces_vivas=(voice,))
     estado.sembrar(sc)
     con_tools = sc.get("tools", 0) > 0
     min_len_v = 4 if sc.get("is_chess") or sc.get("id") == "chess_uci" else MIN_LINEA_VOZ
     min_len_u = 1 if sc.get("min_palabras_usuario") == 1 else 8
     forzadas = sc.get("forzar_respuesta", [])
+
+    def de_kateto(prompt: str) -> str:
+        """El registro va en los prompts donde HABLA Kateto.
+
+        No en el del simulador de usuario: `prompt-compartido.md` es la ficha del
+        personaje ("Sos Kateto", "Cerrás sin preguntar"), y metersela a quien
+        tiene que PREGUNTAR leense la propia voz y deja de hacer su trabajo.
+        """
+        return f"{registro()}\n\n{prompt}" if usar_registro else prompt
 
     historial: list[tuple[str, str]] = []
     for i in range(n_ex):
@@ -433,7 +473,7 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         # --- ROL 2: la voz (Kateto) --------------------------------------- #
         if not con_tools:
             linea_v = _un_turno(
-                teacher, ref.build_turn_prompt(sc, voice, historial, voice, n_ex),
+                teacher, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
                 min_len=min_len_v, con_tools=False, max_retries=max_retries,
             )
             if not linea_v:
@@ -445,9 +485,11 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         crudo = ""
         for _ in range(max_retries):
             crudo = ref.normalize_backticks(
-                _limpiar_linea(teacher(build_voice_tool_prompt(sc, voice, historial,
-                                                                n_ex, estado)),
-                               con_tools=True)
+                _limpiar_linea(
+                    teacher(de_kateto(build_voice_tool_prompt(sc, voice, historial,
+                                                             n_ex, estado))),
+                    con_tools=True,
+                )
             )
             if _turno_valido(crudo, min_len_v):
                 break
@@ -479,7 +521,7 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         bloque = "\n".join(lineas)
         historial.append((voice, bloque))
         comentario = _un_turno(
-            teacher, ref.build_turn_prompt(sc, voice, historial, voice, n_ex),
+            teacher, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
             min_len=min_len_v, con_tools=False, max_retries=max_retries,
         )
         if not comentario:
@@ -502,6 +544,14 @@ def _un_turno(teacher: Callable[[str], str], prompt: str, *, min_len: int,
 def ensamblar(historial: list[tuple[str, str]], voice: str) -> str:
     """El texto final, con el formato exacto del dato. Sin modelo adentro.
 
+    El cierre del ultimo bloque lleva salto: `<|im_end|>\\n` es el canonico (R4).
+    Ojo con el otro lado de la moneda: MEDIDO, ningun texto del corpus termina en
+    `\\n` — 0 de 55.137 del train set, 0 de los shards, 0 de los turnos reales.
+    El `\\n` va ENTRE bloques (`<|im_end|>\\n<|im_start|>`), que es lo que este
+    `join` ya hacia. El salto final es inerte para el entrenamiento
+    (`build_labels` revierte a -100 todo lo que sigue al `<|im_end|>`), asi que
+    no filtra gradiente: es consistencia de forma, noaprendizaje.
+
     ponytail: 4 concatenaciones. Si el formato del dato cambia, se toca aca y en
     las 4 constantes de arriba; no hay otro lugar que arme bloques.
     """
@@ -509,7 +559,7 @@ def ensamblar(historial: list[tuple[str, str]], voice: str) -> str:
         f"{IM_USER}{t}{IM_END}" if q == "user" else f"{IM_START}{voice}\n{t}{IM_END}"
         for q, t in historial
     ]
-    return "\n".join(partes)
+    return "\n".join(partes) + "\n"
 
 
 # Escape hatch de mutacion para los tests: GEN_MUTAR=armado saca el cierre del
@@ -519,7 +569,7 @@ if os.environ.get("GEN_MUTAR") == "armado":
 
     def ensamblar(historial: list[tuple[str, str]], voice: str) -> str:  # noqa: F811
         txt = _orig_ensamblar(historial, voice)
-        return txt[: -len(IM_END)] if txt.endswith(IM_END) else txt
+        return txt[: -len(IM_END + "\n")] if txt.endswith(IM_END + "\n") else txt
 
 
 def desarmar(txt: str) -> list[tuple[str, str]]:
@@ -535,10 +585,11 @@ def desarmar(txt: str) -> list[tuple[str, str]]:
 def rearmar(txt: str) -> str:
     """`desarmar` y volver a `ensamblar`. Da el mismo texto si el formato cierra.
 
-    El separador `\n` entre bloques no lo captura `RX_BLOQUE` (cae entre el cierre
-    de uno y la cabecera del siguiente), asi que se pone al re-armar.
+    El separador `\\n` entre bloques no lo captura `RX_BLOQUE` (cae entre el cierre
+    de uno y la cabecera del siguiente), asi que se pone al re-armar. El del
+    cierre final tambien: es parte del formato.
     """
-    return "\n".join(f"{cab}{cuerpo}{IM_END}" for cab, cuerpo in desarmar(txt))
+    return "\n".join(f"{cab}{cuerpo}{IM_END}" for cab, cuerpo in desarmar(txt)) + "\n"
 
 
 # --------------------------------------------------------------------------- #
@@ -566,6 +617,7 @@ class GenerarMuestras(Step):
     teacher_key: str | None = None
     reasoning: str = "none"
     n_ex: int | None = None
+    sin_registro: bool = False
 
     @property
     def inputs(self) -> "StepColumns":
@@ -583,7 +635,8 @@ class GenerarMuestras(Step):
                 n_ex = self.n_ex or sc.get(
                     "n_ex", 1 if sc.get("min_turns", 2) == 1 else 3
                 )
-                txt, _ = generar_muestra(sc, self.voice, teacher, n_ex)
+                txt, _ = generar_muestra(sc, self.voice, teacher, n_ex,
+                                         usar_registro=not self.sin_registro)
                 row["text"] = txt
                 row["scenario"] = sc["id"]
                 row["cat"] = sc["cat"]
@@ -764,6 +817,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--rejects", default=None, help="default: <out>_rejects.jsonl")
     ap.add_argument("--reasoning", default="none", choices=["none", "minimal", "low", "medium", "high"])
     ap.add_argument("--seed", type=int, default=None)
+    ap.add_argument("--sin-registro", action="store_true",
+                    help="brazo OFF del A/B: no inyecta prompts/prompt-compartido.md")
     ap.add_argument("--scenario", action="append", default=None,
                     help="id de escenario, repetible. Ignora --n (smoke reproducible).")
     args = ap.parse_args(argv)
@@ -784,6 +839,7 @@ def main(argv: list[str] | None = None) -> int:
         generar = GenerarMuestras(
             name="generar_turnwise", input_batch_size=4, voice=args.voice,
             base_url=args.base_url, model=args.model, teacher_key=key, reasoning=args.reasoning,
+            sin_registro=args.sin_registro,
         )
         gate = AnotarValidacion(name="anotar_validacion", input_batch_size=4)
         sink = EscribirDataset(
