@@ -87,6 +87,9 @@ RX_TOOL_BLOCK = re.compile(r"(?m)^\s*tool_(?:call|result)\b.*$")
 MAX_LINEA = 2000
 MIN_LINEA_VOZ = 8
 MAX_INTENTOS = 3
+# Reintentos del TURNO DE USUARIO cuando sale eco de la voz (R9). Uno solo
+# alcanza para la mayoria: si el teacher reformula una vez, reformula otra.
+MAX_ECOS = 1
 REINTENTOS_401 = 4
 
 # El teacher del brief es `auto` de freellmapi y esta prohibido pinear otro.
@@ -296,6 +299,18 @@ def tools_txt() -> str:
     return "\n".join(f"  - {n}({', '.join(ref.firmas(n))})" for n in ref.ALL_TOOLS)
 
 
+def build_user_prompt(sc: dict, voice: str, historial: list[tuple[str, str]],
+                      n_ex: int) -> str:
+    """`ref.build_turn_prompt` del turno del usuario + la regla anti-eco.
+
+    La referencia no se toca (es de otro owner). Lo unico que le falta al prompt
+    del usuario es `REGLA_ANTIECO`: sin ella el teacher ve `VOS: <frase>` en el
+    transcript y la reformula, que es lo medido en R5.
+    """
+    base = ref.build_turn_prompt(sc, voice, historial, "user", n_ex)
+    return base.replace("- RIOPLATENSE:", f"{REGLA_ANTIECO}\n- RIOPLATENSE:", 1)
+
+
 def transcript(sc: dict, historial: list[tuple[str, str]]) -> str:
     """Lo dicho hasta ahora, con la etiqueta de contrato del escenario.
 
@@ -425,9 +440,77 @@ def _turno_valido(texto: str, min_len: int) -> bool:
     return bool(texto) and min_len <= len(texto) <= MAX_LINEA
 
 
+# --------------------------------------------------------------------------- #
+# 4 bis. El simulador de usuario que copia a la voz (R9)
+#
+# MEDIDO en las 4 muestras de `smoke/teacher-pool` (R5, brazo pool), sobre los 7
+# pares (turno de usuario, turno de voz anterior) que se pueden leer:
+#
+#   eco, calco casi literal   jaccard3 = 1.000   arranque6 = True
+#   eco, calco casi literal   jaccard3 = 1.000   arranque6 = True
+#   eco, parafraseado        jaccard3 = 0.483   arranque6 = False
+#   charla real              jaccard3 = 0.310   arranque6 = False
+#   charla real              jaccard3 = 0.085   arranque6 = False
+#   charla real              jaccard3 = 0.027   arranque6 = False
+#   charla real              jaccard3 = 0.000   arranque6 = False
+#
+# El hueco esta entre 0.310 y 0.483, asi que el umbral va en el medio (0.40) con
+# margen a los dos lados. Con 7 pares el intervalo es finito: si despues el umbral
+# deja pasar ecos o mata charla real, se sube o se baja ACA, con estos numeros a
+# la vista, no a ojo.
+#
+# Los DOS detectores hacen falta: el parafraseo no comparte arranque pero comparte
+# la cola (`que andas tan seco que aca el stream esta mas quieto que un muerto`),
+# y el calco corto comparte arranque pero no llega a la cola.
+ECO_TRIGRAMAS = 0.40
+ECO_ARRANQUE = 6
+
+
+def _tokens(texto: str) -> list[str]:
+    """Palabras normalizadas. Reusa `purge.sin_acentos`: una sola definicion de
+    "como se compara texto" en el repo."""
+    return re.findall(r"[a-z0-9']+", purge.sin_acentos(texto))
+
+
+def es_eco(turno_u: str, turno_v: str) -> str | None:
+    """El usuario es casi-copia de la voz anterior? Devuelve el MOTIVO
+    (`trigramas` / `arranque`) o `None`. Sin el motivo, "rechazado por eco" no se
+    distingue de "vacio" ni de "corto", que son otros tres filtros del loop."""
+    if not turno_u or not turno_v:
+        return None
+    u, v = _tokens(turno_u), _tokens(turno_v)
+    if not u or not v:
+        return None
+
+    if len(u) >= ECO_ARRANQUE and u[:ECO_ARRANQUE] == v[:ECO_ARRANQUE]:
+        return "arranque"
+
+    if len(u) >= 3 and len(v) >= 3:
+        tu = {tuple(u[i : i + 3]) for i in range(len(u) - 2)}
+        tv = {tuple(v[i : i + 3]) for i in range(len(v) - 2)}
+        inter = len(tu & tv)
+        if inter / len(tu | tv) >= ECO_TRIGRAMAS:
+            return "trigramas"
+    return None
+
+
+# La regla del prompt, en el unico lugar que pide el turno del usuario. El
+# detector de arriba es el que decide; esto es para que el teacher no produzca el
+# eco en primer lugar. Se enumera lo que NO puede hacer porque la instruccion
+# positiva ("se original") la resuelve el modelo copiando.
+REGLA_ANTIECO = """\
+- NO copies a la voz: estas HABLANDO con ella, no resumiendo lo que acaba de decir.
+  PROHIBIDO reusar sus palabras, sus frases, su arranque o su remate. Si lo que
+  te dijo te sirve, contestale a ESO con tus palabras, no con las suyas.
+- El usuario AVANZA la conversacion: responde a un punto concreto, contale algo
+  tuyo, cambia de tema o metele un palo. NO reformules, NO repitas y NO digas
+  "che, pero no te creas que..." para devolverle su propia frase."""
+
+
 def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
                     n_ex: int, *, max_retries: int = MAX_INTENTOS,
-                    usar_registro: bool = True) -> tuple[str, ToolState]:
+                    usar_registro: bool = True, max_ecos: int = MAX_ECOS,
+                    stats: dict[str, Any] | None = None) -> tuple[str, ToolState]:
     """Arma UNA conversacion turno por turno. Devuelve `(texto, estado)`.
 
     El transcript lo arma este codigo: no hay marcador que el modelo pueda
@@ -436,6 +519,10 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
 
     `usar_registro=False` es el brazo OFF del A/B: mismo loop, mismo teacher,
     mismo escenario, sin el registro inyectado.
+
+    `stats`, si se pasa, se llena con `ecos` (int) y `motivos_eco` (dict). Es un
+    out-param y no un valor de retorno para no romper los 8 call sites que
+    desarman la tupla de dos.
     """
     sc = {**sc, "txt": sin_receta(sc["txt"])}
     estado = ToolState(voces_vivas=(voice,))
@@ -444,6 +531,16 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
     min_len_v = 4 if sc.get("is_chess") or sc.get("id") == "chess_uci" else MIN_LINEA_VOZ
     min_len_u = 1 if sc.get("min_palabras_usuario") == 1 else 8
     forzadas = sc.get("forzar_respuesta", [])
+    # `stats` es el acumulador, no un reporte que se arma al final: hay 5 `return`
+    # en esta funcion y llenarlo en cada uno es un lugar mas para olvidarse.
+    if stats is None:
+        stats = {}
+    stats.update(ecos=0, motivos_eco={}, corte_eco=False)
+
+    def anotar_eco(motivo: str) -> None:
+        stats["ecos"] += 1
+        motivos: dict[str, int] = stats["motivos_eco"]
+        motivos[motivo] = motivos.get(motivo, 0) + 1
 
     def de_kateto(prompt: str) -> str:
         """El registro va en los prompts donde HABLA Kateto.
@@ -454,15 +551,31 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         """
         return f"{registro()}\n\n{prompt}" if usar_registro else prompt
 
+    def ultima_voz(h: list[tuple[str, str]]) -> str:
+        return next((t for q, t in reversed(h) if q != "user"), "")
+
     historial: list[tuple[str, str]] = []
     for i in range(n_ex):
-        # --- ROL 1: simulador de usuario ---------------------------------- #
-        linea_u = _un_turno(
-            teacher, ref.build_turn_prompt(sc, voice, historial, "user", n_ex),
-            min_len=min_len_u, con_tools=False, max_retries=max_retries,
-        )
+        # --- ROL 1: simulador de usuario, con la guardia de eco ------------ #
+        linea_u = ""
+        for _ in range(max_ecos + 1):
+            cand = _un_turno(
+                teacher, build_user_prompt(sc, voice, historial, n_ex),
+                min_len=min_len_u, con_tools=False, max_retries=max_retries,
+            )
+            if not cand:
+                return "", estado
+            motivo = es_eco(cand, ultima_voz(historial))
+            if motivo is None:
+                linea_u = cand
+                break
+            anotar_eco(motivo)
         if not linea_u:
-            return "", estado
+            # Se agotaron los reintentos de eco. La conversacion se CORTA en el
+            # ultimo turno de voz: se guarda lo que hay, que esta bien formado,
+            # y no el eco. `stats["corte_eco"]` deja el corte en la corrida.
+            stats["corte_eco"] = True
+            return ensamblar(historial, voice), estado
         historial.append(("user", linea_u))
 
         # --- centinela: lo pone el codigo, por indice de intercambio ------ #
@@ -618,6 +731,7 @@ class GenerarMuestras(Step):
     reasoning: str = "none"
     n_ex: int | None = None
     sin_registro: bool = False
+    max_ecos: int = MAX_ECOS
 
     @property
     def inputs(self) -> "StepColumns":
@@ -625,7 +739,7 @@ class GenerarMuestras(Step):
 
     @property
     def outputs(self) -> "StepColumns":
-        return ["text", "scenario", "cat", "voice", "fallo"]
+        return ["text", "scenario", "cat", "voice", "fallo", "ecos", "motivos_eco"]
 
     def process(self, *inputs: StepInput) -> "StepOutput":
         teacher = TeacherHTTP(self.base_url, self.model, self.teacher_key, self.reasoning)
@@ -635,13 +749,19 @@ class GenerarMuestras(Step):
                 n_ex = self.n_ex or sc.get(
                     "n_ex", 1 if sc.get("min_turns", 2) == 1 else 3
                 )
+                st: dict[str, Any] = {}
                 txt, _ = generar_muestra(sc, self.voice, teacher, n_ex,
-                                         usar_registro=not self.sin_registro)
+                                         usar_registro=not self.sin_registro,
+                                         max_ecos=self.max_ecos, stats=st)
                 row["text"] = txt
                 row["scenario"] = sc["id"]
                 row["cat"] = sc["cat"]
                 row["voice"] = self.voice
                 row["fallo"] = "" if txt else "no_se_pudo_armar"
+                row["ecos"] = st["ecos"]
+                row["motivos_eco"] = st["motivos_eco"]
+                if st["corte_eco"]:
+                    row["fallo"] = "usuario_eco"
             yield rows
 
 
@@ -708,10 +828,12 @@ class EscribirDataset(Step):
     _ok: int = PrivateAttr(default=0)
     _rech: int = PrivateAttr(default=0)
     _motivos: Counter = PrivateAttr(default_factory=Counter)
+    _ecos: int = PrivateAttr(default=0)
+    _motivos_eco: Counter = PrivateAttr(default_factory=Counter)
 
     @property
     def inputs(self) -> "StepColumns":
-        return ["text", "scenario", "cat", "voice", "_errores"]
+        return ["text", "scenario", "cat", "voice", "_errores", "ecos", "motivos_eco"]
 
     @property
     def outputs(self) -> "StepColumns":
@@ -727,6 +849,9 @@ class EscribirDataset(Step):
         if self._out is None:
             self._abrir()
         for row in inputs:
+            self._ecos += row.get("ecos", 0)
+            for m, n in (row.get("motivos_eco") or {}).items():
+                self._motivos_eco[m] += n
             errs = row["_errores"]
             if errs:
                 self._rech += 1
@@ -754,7 +879,9 @@ class EscribirDataset(Step):
         stats.write_text(
             json.dumps(
                 {"aceptadas": self._ok, "rechazadas": self._rech,
-                 "motivos": dict(self._motivos)},
+                 "motivos": dict(self._motivos),
+                 "ecos_rechazados": self._ecos,
+                 "motivos_eco": dict(self._motivos_eco)},
                 ensure_ascii=False, indent=2,
             ) + "\n",
             encoding="utf-8",
@@ -821,6 +948,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="brazo OFF del A/B: no inyecta prompts/prompt-compartido.md")
     ap.add_argument("--scenario", action="append", default=None,
                     help="id de escenario, repetible. Ignora --n (smoke reproducible).")
+    ap.add_argument("--max-ecos", type=int, default=MAX_ECOS,
+                    help=f"reintentos del turno de usuario cuando sale eco de la voz (default {MAX_ECOS})")
     args = ap.parse_args(argv)
 
     rejects = args.rejects or str(Path(args.out).with_suffix("")) + "_rejects.jsonl"
@@ -839,7 +968,7 @@ def main(argv: list[str] | None = None) -> int:
         generar = GenerarMuestras(
             name="generar_turnwise", input_batch_size=4, voice=args.voice,
             base_url=args.base_url, model=args.model, teacher_key=key, reasoning=args.reasoning,
-            sin_registro=args.sin_registro,
+            sin_registro=args.sin_registro, max_ecos=args.max_ecos,
         )
         gate = AnotarValidacion(name="anotar_validacion", input_batch_size=4)
         sink = EscribirDataset(
