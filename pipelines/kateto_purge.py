@@ -23,6 +23,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -74,6 +75,45 @@ REPETIDO_RE = re.compile(r"([a-záéíóúüñ])\1{2,}$", re.I)
 # lineas recupera el arreglo; no participa de la decision de purgar.
 REPETIDO_V1_RE = re.compile(r"(\S)\1{2,}$")
 
+# La voz de asistente: aclaracion, disclaimer, leccion y moralina. Frases
+# sueltas, no un clasificador. Se comparan sobre texto normalizado (minusculas,
+# sin acentos, apostrofe ASCII) asi que `estas` y `esta` son el mismo patron y
+# el apostrofo tipografico no se escapa. Una sola tabla: la reusa la medicion de
+# `pipelines/medir_higiene.py`, asi que agregar un patron es agregar un string.
+CHATLA_PATRONES: tuple[str, ...] = (
+    # aclaracion, leccion, moralina
+    "es importante",
+    "tenes que tener en cuenta",
+    "cabe aclarar",
+    "en resumen",
+    "en conclusion",
+    "no dudes en",
+    "recuerda que",
+    "deberias",
+    "espero que",
+    # juicio / valoracion
+    "no esta bien",
+    "esta mal",
+    # autodeclaracion de asistente
+    "como asistente",
+    "como ia",
+    "como modelo de lenguaje",
+    # rechazo y limitacion de capacidad
+    "no puedo ayudarte",
+    "no puedo proporcionar",
+    "no puedo generar",
+    "no tengo acceso",
+    "lo siento, pero",
+    "lo siento",
+    # rechazo en ingles dentro de un turno en espanol
+    "as an ai",
+    "i can't",
+    "i cannot",
+    "i'm unable",
+    "i'm sorry",
+    "i must refuse",
+)
+
 MAX_EJEMPLOS = 3
 EJEMPLO_CHARS = 400
 
@@ -89,6 +129,12 @@ def turnos(text: str) -> list[str]:
 def turnos_voz(text: str) -> list[str]:
     """Respuestas de los turnos de la VOZ (sin el nombre de la voz)."""
     return [resp for _, resp in VOICE_TURN_RE.findall(text)]
+
+
+def sin_acentos(texto: str) -> str:
+    """Minusculas, sin diacríticos y con el apostrofo tipografico ya ASCII."""
+    plano = unicodedata.normalize("NFKD", texto.lower().replace("’", "'"))
+    return "".join(c for c in plano if not unicodedata.combining(c))
 
 
 def _conteo_similes(respuestas: list[str]) -> list[int]:
@@ -158,12 +204,32 @@ def simil_repetido(text: str) -> bool:
     )
 
 
+def charla_disparadores(text: str) -> set[str]:
+    """Que patrones de `CHATLA_PATRONES` dispara el texto.
+
+    Solo mira turnos de la VOZ: el usuario diciendo "no puedo ayudarte" es el
+    usuario, no la voz de asistente que hay que sacar del dataset.
+    """
+    out: set[str] = set()
+    for turno in turnos_voz(text):
+        plano = sin_acentos(turno)
+        out.update(p for p in CHATLA_PATRONES if p in plano)
+    return out
+
+
+def charla_de_asistente(text: str) -> bool:
+    """Turnos de la VOZ que suenan a asistente: aclaracion, disclaimer, leccion
+    o moralina (`como asistente`, `lo siento, pero`, `es importante`)."""
+    return bool(charla_disparadores(text))
+
+
 REGLAS: dict[str, Any] = {
     "placeholder_degenerado": placeholder_degenerado,
     "andamiaje_en_dialogo": andamiaje_en_dialogo,
     "contrato_en_dialogo": contrato_en_dialogo,
     "exclamacion_prosodia": exclamacion_prosodia,
     "simil_repetido": simil_repetido,
+    "charla_de_asistente": charla_de_asistente,
 }
 
 # Escape hatch de mutacion para los tests: PURGE_MUTAR=<regla> invierte ese

@@ -89,6 +89,20 @@ DESCARTE = {
         "<|im_user|>?<|im_end|>\n"
         "<|im_start|>seco\nEs como una piedra.<|im_end|>"
     ),
+    # R8: la voz de asistente (aclaracion + autodeclaracion + rechazo). El patron
+    # va sin acentos a proposito: el texto real trae `importante` con tilde y la
+    # comparacion es sobre texto normalizado.
+    "charla_de_asistente": (
+        "<|im_user|>¿me arreglas la maquina?<|im_end|>\n"
+        "<|im_start|>seco\nEs importante que lo tengas en cuenta: como asistente no "
+        "puedo ayudarte con eso, lo siento, pero.<|im_end|>"
+    ),
+    # R8: rechazo en ingles. El apostrofo va tipografico a proposito ( asi esta en
+    # el dato real): sin normalizar, `I’m sorry` no matchea `i'm sorry`.
+    "charla_de_asistente_en_ingles": (
+        "<|im_user|>¿me arreglas la maquina?<|im_end|>\n"
+        "<|im_start|>seco\nAs an AI, I’m sorry, I cannot help with that.<|im_end|>"
+    ),
 }
 
 # la clave es el nombre de la regla que tiene que disparar
@@ -103,6 +117,10 @@ CASOS = {
     "simil_repetido": [
         DESCARTE["simil_repetido_consecutivo"],
         DESCARTE["simil_repetido_muestra_corta"],
+    ],
+    "charla_de_asistente": [
+        DESCARTE["charla_de_asistente"],
+        DESCARTE["charla_de_asistente_en_ingles"],
     ],
 }
 
@@ -180,6 +198,16 @@ def test_ceiling_placeholder(cola: str, debe_descartar: bool) -> None:
         assert "token_repetido" in ramas, f"no pesco la palabra degenerada: {ramas}"
     else:
         assert "token_repetido" not in ramas, f"pesco puntuacion: {ramas}"
+
+
+def test_charla_solo_mira_la_voz() -> None:
+    """El usuario puede decir "es importante" / "no puedo ayudarte" y no es voz de
+    asistente: la regla se detiene en los turnos de la VOZ."""
+    texto = (
+        "<|im_user|>es importante que sepas que no puedo ayudarte con esto<|im_end|>\n"
+        "<|im_start|>seco\n<|no_response|><|im_end|>"
+    )
+    assert kp.charla_de_asistente(texto) is False
 
 
 def test_mutacion_por_variable_de_entorno() -> None:
