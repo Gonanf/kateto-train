@@ -93,6 +93,17 @@ MAX_INTENTOS = 3
 MAX_ECOS = 1
 REINTENTOS_401 = 4
 
+# R21: el presupuesto es POR ROL, no uno solo. El rol usuario escribe mensajes de
+# chat y le estabamos dando los 2500 tokens de la voz: de ahi que saliera largo y
+# narrativo, y en un teacher local en CPU (2,8 tok/s) son 890 s contra un timeout
+# de 240 s — el primer turno del usuario se comia la muestra entera. Un tope corto
+# lo hace mas realista Y mas rapido; la voz conserva su presupuesto.
+MAX_TOKENS_USUARIO = 220
+MAX_TOKENS_VOZ = 2500
+# Timeout por rol. El default es el de siempre (240 s) para no cambiar el
+# comportamiento del pool; un teacher local en CPU necesita mas (900 en el brief).
+TIMEOUT_S = 240
+
 # El teacher del brief es `auto` de freellmapi y esta prohibido pinear otro.
 DEFAULT_MODEL = {"http": "auto", "opencode": "auto", "cline": "auto"}
 
@@ -459,6 +470,12 @@ def _turno_valido(texto: str, min_len: int) -> bool:
 MOTIVO_SIN_MOTIVO = "descarte_sin_motivo"
 
 
+def _es_timeout(e: BaseException) -> bool:
+    """`urlopen(timeout=)` levanta `TimeoutError`, a veces envuelto en un
+    `URLError`."""
+    return isinstance(e, TimeoutError) or isinstance(getattr(e, "reason", None), TimeoutError)
+
+
 def _llamar(teacher: Callable[[str], str], prompt: str, motivos: dict[str, str]) -> str:
     """La llamada al teacher, protegida. Vacio = fallo, y `motivos` dice por que.
 
@@ -466,13 +483,19 @@ def _llamar(teacher: Callable[[str], str], prompt: str, motivos: dict[str, str])
     entero del Step: las filas perdiadas ni llegaban al sink, asi que el conteo
     de la corrida no cerraba. Aca es un motivo de descarte mas, con el texto
     real de la excepcion, y el resto del lote sigue su curso.
+
+    R21: un TIMEOUT es infra, no un rechazo de contenido, asi que sale con
+    `reintentable` y el loop lo vuelve a pedir. Agotados los `MAX_INTENTOS`, el
+    motivo queda `excepcion_teacher`/`timeout` como cualquier otro descarte.
     """
     motivos.clear()
     try:
         return teacher(prompt)
     except Exception as e:
-        motivos["motivo"] = "excepcion_teacher"
-        motivos["detalle"] = f"{type(e).__name__}: {e}"
+        if _es_timeout(e):
+            motivos.update(motivo="excepcion_teacher", detalle="timeout", reintentable=True)
+        else:
+            motivos.update(motivo="excepcion_teacher", detalle=f"{type(e).__name__}: {e}")
         return ""
 
 
@@ -563,12 +586,19 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
                     n_ex: int, *, max_retries: int = MAX_INTENTOS,
                     usar_registro: bool = True, max_ecos: int = MAX_ECOS,
                     stats: dict[str, Any] | None = None,
-                    intento: int = 0) -> tuple[str, ToolState]:
+                    intento: int = 0,
+                    teacher_voz: Callable[[str], str] | None = None,
+                    ) -> tuple[str, ToolState]:
     """Arma UNA conversacion turno por turno. Devuelve `(texto, estado)`.
 
     El transcript lo arma este codigo: no hay marcador que el modelo pueda
     romper, ni turnos desbalanceados, ni falta de cierre. Los centinelas los
     pone el codigo por indice de intercambio, nunca se los pide al modelo.
+
+    `teacher` es el del rol USUARIO y `teacher_voz` el de Kateto (R21: cada rol
+    tiene su presupuesto de tokens y su timeout; por default es el mismo
+    teacher, que es lo que hacen los stubs de la suite). Ninguno de los dos
+    necesita saber que rol es: la separacion va en el callable.
 
     `usar_registro=False` es el brazo OFF del A/B: mismo loop, mismo teacher,
     mismo escenario, sin el registro inyectado.
@@ -585,6 +615,7 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
     la `etapa` de cada descarte, para que el archivo se pueda ordenar.
     """
     sc = {**sc, "txt": sin_receta(sc["txt"])}
+    voz = teacher if teacher_voz is None else teacher_voz
     estado = ToolState(voces_vivas=(voice,))
     estado.sembrar(sc)
     con_tools = sc.get("tools", 0) > 0
@@ -708,7 +739,7 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         if not con_tools:
             linea_v, motivo_v, detalle_v = turno_de_voz(
                 lambda m: _un_turno(
-                    teacher, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
+                    voz, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
                     min_len=min_len_v, con_tools=False, max_retries=max_retries, motivos=m,
                 ),
                 previa_u,
@@ -723,15 +754,16 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         def pedir_voz(m: dict[str, str]) -> str:
             for _ in range(max_retries):
                 crudo = _llamar(
-                    teacher, de_kateto(build_voice_tool_prompt(sc, voice, historial,
+                    voz, de_kateto(build_voice_tool_prompt(sc, voice, historial,
                                                                n_ex, estado)), m,
                 )
-                if m.get("motivo") == "excepcion_teacher":
+                if m.get("motivo") == "excepcion_teacher" and not m.get("reintentable"):
                     return ""
                 cand = ref.normalize_backticks(_limpiar_linea(crudo, con_tools=True))
                 if _turno_valido(cand, min_len_v):
                     return cand
-                _motivo_de(cand, min_len_v, m)
+                if not m.get("reintentable"):
+                    _motivo_de(cand, min_len_v, m)
             return ""
 
         # ponytail: el eco se mide sobre prosa+tool_call, no sobre la prosa sola: el
@@ -769,7 +801,7 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         historial.append((voice, bloque))
         comentario, motivo_c, detalle_c = turno_de_voz(
             lambda m: _un_turno(
-                teacher, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
+                voz, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
                 min_len=min_len_v, con_tools=False, max_retries=max_retries, motivos=m,
             ),
             previa_u,
@@ -795,12 +827,14 @@ def _un_turno(teacher: Callable[[str], str], prompt: str, *, min_len: int,
     m: dict[str, str] = {} if motivos is None else motivos
     for _ in range(max_retries):
         crudo = _llamar(teacher, prompt, m)
-        if m.get("motivo") == "excepcion_teacher":
+        if m.get("motivo") == "excepcion_teacher" and not m.get("reintentable"):
             return ""
         cand = _limpiar_linea(crudo, con_tools=con_tools)
         if _turno_valido(cand, min_len):
             return cand
-        _motivo_de(cand, min_len, m)
+        # un timeout no se reescribe como `turno_vacio`: es el motivo real.
+        if not m.get("reintentable"):
+            _motivo_de(cand, min_len, m)
     return ""
 
 
@@ -882,6 +916,10 @@ class GenerarMuestras(Step):
     n_ex: int | None = None
     sin_registro: bool = False
     max_ecos: int = MAX_ECOS
+    max_tokens_usuario: int = MAX_TOKENS_USUARIO
+    max_tokens_voz: int = MAX_TOKENS_VOZ
+    timeout_usuario: int = TIMEOUT_S
+    timeout_voz: int = TIMEOUT_S
 
     _intento: int = PrivateAttr(default=0)
 
@@ -895,7 +933,9 @@ class GenerarMuestras(Step):
                 "voz_eco", "motivos_eco_voz", "descartes"]
 
     def process(self, *inputs: StepInput) -> "StepOutput":
-        teacher = TeacherHTTP(self.base_url, self.model, self.teacher_key, self.reasoning)
+        t = lambda mt, to: TeacherHTTP(  # noqa: E731
+            self.base_url, self.model, self.teacher_key, self.reasoning,
+            max_tokens=mt, timeout=to)
         for rows in inputs:
             for row in rows:
                 sc = row["escenario"]
@@ -903,10 +943,13 @@ class GenerarMuestras(Step):
                     "n_ex", 1 if sc.get("min_turns", 2) == 1 else 3
                 )
                 st: dict[str, Any] = {}
-                txt, _ = generar_muestra(sc, self.voice, teacher, n_ex,
-                                         usar_registro=not self.sin_registro,
-                                         max_ecos=self.max_ecos, stats=st,
-                                         intento=self._intento)
+                txt, _ = generar_muestra(
+                    sc, self.voice, t(self.max_tokens_usuario, self.timeout_usuario), n_ex,
+                    usar_registro=not self.sin_registro,
+                    max_ecos=self.max_ecos, stats=st,
+                    intento=self._intento,
+                    teacher_voz=t(self.max_tokens_voz, self.timeout_voz),
+                )
                 self._intento += 1
                 row["text"] = txt
                 row["scenario"] = sc["id"]
@@ -1101,18 +1144,25 @@ class TeacherHTTP:
     `auto` rota proveedor upstream, asi que un 401 es TRANSITORIO: el mismo
     pedido al mismo instante responde 200. `ref.generate` re-lanza el 401 (solo
     reintenta 429/502/503), asi que el reintento va aca.
+
+    R21: `max_tokens`/`timeout` son POR ROL y viajan hasta el request. Hay dos
+    instancias de esta clase por corrida, una por rol, y no es una indireccion
+    para nada: el tope del usuario es lo que hace que escriba corto.
     """
 
     base_url: str
     model: str
     key: str | None
     reasoning: str = "none"
+    max_tokens: int = MAX_TOKENS_VOZ
+    timeout: int = TIMEOUT_S
 
     def __call__(self, prompt: str) -> str:
         for intento in range(REINTENTOS_401):
             try:
                 return ref.generate(self.base_url, self.model, prompt, self.key,
-                                    reasoning=self.reasoning)
+                                    reasoning=self.reasoning,
+                                    max_tokens=self.max_tokens, timeout=self.timeout)
             except urllib.error.HTTPError as e:
                 if e.code != 401 or intento == REINTENTOS_401 - 1:
                     raise
@@ -1152,6 +1202,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-ecos", type=int, default=MAX_ECOS,
                     help=f"reintentos cuando un turno sale eco del anterior, en los dos lados "
                          f"(usuario calcando a la voz, voz calcando al usuario) (default {MAX_ECOS})")
+    ap.add_argument("--max-tokens-usuario", type=int, default=MAX_TOKENS_USUARIO,
+                    help=f"tope de tokens del turno del USUARIO (default {MAX_TOKENS_USUARIO}). "
+                         f"El usuario escribe mensajes de chat; darle los 2500 de la voz lo hace "
+                         f"escribir largo y narrativo")
+    ap.add_argument("--max-tokens-voz", type=int, default=MAX_TOKENS_VOZ,
+                    help=f"tope de tokens del turno de la voz (default {MAX_TOKENS_VOZ})")
+    ap.add_argument("--timeout-usuario", type=int, default=TIMEOUT_S,
+                    help=f"timeout en segundos del turno del USUARIO (default {TIMEOUT_S})")
+    ap.add_argument("--timeout-voz", type=int, default=TIMEOUT_S,
+                    help=f"timeout en segundos del turno de la voz (default {TIMEOUT_S})")
     args = ap.parse_args(argv)
 
     rejects = args.rejects or str(Path(args.out).with_suffix("")) + "_rejects.jsonl"
@@ -1172,6 +1232,8 @@ def main(argv: list[str] | None = None) -> int:
             name="generar_turnwise", input_batch_size=4, voice=args.voice,
             base_url=args.base_url, model=args.model, teacher_key=key, reasoning=args.reasoning,
             sin_registro=args.sin_registro, max_ecos=args.max_ecos,
+            max_tokens_usuario=args.max_tokens_usuario, max_tokens_voz=args.max_tokens_voz,
+            timeout_usuario=args.timeout_usuario, timeout_voz=args.timeout_voz,
         )
         gate = AnotarValidacion(name="anotar_validacion", input_batch_size=4)
         sink = EscribirDataset(
