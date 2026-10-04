@@ -442,6 +442,53 @@ def _turno_valido(texto: str, min_len: int) -> bool:
 
 
 # --------------------------------------------------------------------------- #
+# 4 bis. Por que se descarta una muestra (R19)
+#
+# Antes una muestra se perdia en silencio: el bucle la tiraba y nadie anotaba,
+# asi que la corrida cerraba con `aceptadas: 0` y `rechazadas: 0` A LA VEZ, que
+# no distingue "el modelo no sirve" de "el loop se la comio". Cada descarte deja
+# una linea en `descartadas.jsonl` con el motivo con nombre propio.
+#
+# `motivos` es el bus de un intento: se llena con `motivo`/`detalle` y se lo lee
+# en el punto de descarte. Es un dict y no un valor de retorno para no cambiar
+# la firma de los 5 call sites de `_un_turno`.
+# --------------------------------------------------------------------------- #
+# El motivo del canario: una muestra sin texto tiene que tener un descarte. Si
+# alguna vez no lo tiene, el bug esta en otro lado y ESTE nombre lo delata en la
+# stats en vez de volver a cerrar el conteo sin querer.
+MOTIVO_SIN_MOTIVO = "descarte_sin_motivo"
+
+
+def _llamar(teacher: Callable[[str], str], prompt: str, motivos: dict[str, str]) -> str:
+    """La llamada al teacher, protegida. Vacio = fallo, y `motivos` dice por que.
+
+    Antes la excepcion del teacher se escapaba del loop y se llevaba el LOTE
+    entero del Step: las filas perdiadas ni llegaban al sink, asi que el conteo
+    de la corrida no cerraba. Aca es un motivo de descarte mas, con el texto
+    real de la excepcion, y el resto del lote sigue su curso.
+    """
+    motivos.clear()
+    try:
+        return teacher(prompt)
+    except Exception as e:
+        motivos["motivo"] = "excepcion_teacher"
+        motivos["detalle"] = f"{type(e).__name__}: {e}"
+        return ""
+
+
+def _motivo_de(turno: str, min_len: int, motivos: dict[str, str]) -> None:
+    """Por que `turno` no sirve. Gana el del ULTIMO intento fallido."""
+    if not turno:
+        motivos.update(motivo="turno_vacio", detalle="el teacher no devolvio texto")
+    elif len(turno) < min_len:
+        motivos.update(motivo="turnos_insuficientes",
+                       detalle=f"{len(turno)} caracteres, el minimo es {min_len}")
+    else:
+        motivos.update(motivo="formato_invalido",
+                       detalle=f"{len(turno)} caracteres, el maximo es {MAX_LINEA}")
+
+
+# --------------------------------------------------------------------------- #
 # 4 bis. El simulador de usuario que copia a la voz (R9)
 #
 # MEDIDO en las 4 muestras de `smoke/teacher-pool` (R5, brazo pool), sobre los 7
@@ -515,7 +562,8 @@ REGLA_ANTIECO = """\
 def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
                     n_ex: int, *, max_retries: int = MAX_INTENTOS,
                     usar_registro: bool = True, max_ecos: int = MAX_ECOS,
-                    stats: dict[str, Any] | None = None) -> tuple[str, ToolState]:
+                    stats: dict[str, Any] | None = None,
+                    intento: int = 0) -> tuple[str, ToolState]:
     """Arma UNA conversacion turno por turno. Devuelve `(texto, estado)`.
 
     El transcript lo arma este codigo: no hay marcador que el modelo pueda
@@ -531,6 +579,10 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
     R10). Los contadores van separados porque los defectos son distintos y se
     miden por separado. Es un out-param y no un valor de retorno para no romper
     los 8 call sites que desarman la tupla de dos.
+
+    `descartes` (R19) es la lista de motivos por los que esta muestra no salio:
+    vacia si se armo. `intento` es el indice de la muestra en la corrida y va en
+    la `etapa` de cada descarte, para que el archivo se pueda ordenar.
     """
     sc = {**sc, "txt": sin_receta(sc["txt"])}
     estado = ToolState(voces_vivas=(voice,))
@@ -544,7 +596,10 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
     if stats is None:
         stats = {}
     stats.update(ecos=0, motivos_eco={}, corte_eco=False,
-                 voz_eco=0, motivos_eco_voz={}, descarte_voz_eco=False)
+                 voz_eco=0, motivos_eco_voz={}, descarte_voz_eco=False,
+                 descartes=[])
+
+    historial: list[tuple[str, str]] = []
 
     def anotar_eco(motivo: str, *, voz: bool = False) -> None:
         if voz:
@@ -555,7 +610,19 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
             motivos = stats["motivos_eco"]
         motivos[motivo] = motivos.get(motivo, 0) + 1
 
-    def turno_de_voz(pedir: Callable[[], str], previa: str) -> str:
+    def descartar(motivo: str, rol: str, turno: int, detalle: str = "") -> None:
+        """Todo camino de descarte pasa por aca. Sin esto la muestra se perdia
+        en silencio y la corrida cerraba con `aceptadas: 0` y `rechazadas: 0` a
+        la vez."""
+        stats["descartes"].append({
+            "motivo": motivo,
+            "etapa": {"intento": intento, "rol": rol, "turno": turno},
+            "detalle": detalle,
+            "texto": ensamblar(historial, voice),
+        })
+
+    def turno_de_voz(pedir: Callable[[dict[str, str]], str],
+                     previa: str) -> tuple[str, str, str]:
         """Un turno de la voz con la guardia SIMETRICA (R10): si el turno sale
         casi-copia del usuario que acaba de hablar, se rechaza y se vuelve a
         pedir, con el mismo `max_ecos` del lado del usuario.
@@ -566,22 +633,27 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         anexarlo, asi que el transcript no cambio — igual que en el lado del
         usuario.
 
-        Devuelve "" si no se pudo, y el motivo queda en `stats`. OJO: acá el eco
-        NO se corta y se guarda lo que hay como hace el lado del usuario. Alli el
-        ultimo bloque es un turno de voz ya sano; aqui seria el turno calcado, o
-        la muestra terminaria en un turno de usuario sin respuesta. Se descarta
-        entera (`descarte_voz_eco`) y el motivo sale en el `fallo` de la fila.
+        Devuelve `(turno, motivo, detalle)`. Motivo vacio = salio bien; si no
+        sale, el motivo es con nombre propio y va derecho al archivo de
+        descartadas. OJO: acá el eco NO se corta y se guarda lo que hay como hace
+        el lado del usuario. Alli el ultimo bloque es un turno de voz ya sano;
+        aqui seria el turno calcado, o la muestra terminaria en un turno de
+        usuario sin respuesta. Se descarta entera (`descarte_voz_eco`) y el
+        motivo sale en el `fallo` de la fila.
         """
+        ultimo = ""
         for _ in range(max_ecos + 1):
-            cand = pedir()
+            m: dict[str, str] = {}
+            cand = pedir(m)
             if not cand:
-                return ""
+                return "", m.get("motivo") or "turno_vacio", m.get("detalle", "")
             motivo = es_eco(cand, previa)
             if motivo is None:
-                return cand
+                return cand, "", ""
+            ultimo = motivo
             anotar_eco(motivo, voz=True)
         stats["descarte_voz_eco"] = True
-        return ""
+        return "", "eco_voz", f"la voz calco al usuario por {ultimo}: {previa[:80]!r}"
 
     def de_kateto(prompt: str) -> str:
         """El registro va en los prompts donde HABLA Kateto.
@@ -595,16 +667,17 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
     def ultima_voz(h: list[tuple[str, str]]) -> str:
         return next((t for q, t in reversed(h) if q != "user"), "")
 
-    historial: list[tuple[str, str]] = []
     for i in range(n_ex):
         # --- ROL 1: simulador de usuario, con la guardia de eco ------------ #
         linea_u = ""
         for _ in range(max_ecos + 1):
+            m: dict[str, str] = {}
             cand = _un_turno(
                 teacher, build_user_prompt(sc, voice, historial, n_ex),
-                min_len=min_len_u, con_tools=False, max_retries=max_retries,
+                min_len=min_len_u, con_tools=False, max_retries=max_retries, motivos=m,
             )
             if not cand:
+                descartar(m.get("motivo") or "turno_vacio", "usuario", i + 1, m.get("detalle", ""))
                 return "", estado
             motivo = es_eco(cand, ultima_voz(historial))
             if motivo is None:
@@ -615,6 +688,9 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
             # Se agotaron los reintentos de eco. La conversacion se CORTA en el
             # ultimo turno de voz: se guarda lo que hay, que esta bien formado,
             # y no el eco. `stats["corte_eco"]` deja el corte en la corrida.
+            # NO es un descarte: la muestra sale con texto y la cuenta el gate
+            # como aceptada o rechazada. Por eso `eco_usuario` no aparece nunca
+            # en `descartadas.jsonl` — el `eco_*` que descarta es el de la voz.
             stats["corte_eco"] = True
             return ensamblar(historial, voice), estado
         historial.append(("user", linea_u))
@@ -630,30 +706,32 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
 
         # --- ROL 2: la voz (Kateto) --------------------------------------- #
         if not con_tools:
-            linea_v = turno_de_voz(
-                lambda: _un_turno(
+            linea_v, motivo_v, detalle_v = turno_de_voz(
+                lambda m: _un_turno(
                     teacher, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
-                    min_len=min_len_v, con_tools=False, max_retries=max_retries,
+                    min_len=min_len_v, con_tools=False, max_retries=max_retries, motivos=m,
                 ),
                 previa_u,
             )
             if not linea_v:
+                descartar(motivo_v, "voz", i + 1, detalle_v)
                 return "", estado
             historial.append((voice, linea_v))
             continue
 
         # --- ROL 2 + 3: prosa y tool_call del teacher, resultado del pipeline #
-        def pedir_voz() -> str:
+        def pedir_voz(m: dict[str, str]) -> str:
             for _ in range(max_retries):
-                cand = ref.normalize_backticks(
-                    _limpiar_linea(
-                        teacher(de_kateto(build_voice_tool_prompt(sc, voice, historial,
-                                                                 n_ex, estado))),
-                        con_tools=True,
-                    )
+                crudo = _llamar(
+                    teacher, de_kateto(build_voice_tool_prompt(sc, voice, historial,
+                                                               n_ex, estado)), m,
                 )
+                if m.get("motivo") == "excepcion_teacher":
+                    return ""
+                cand = ref.normalize_backticks(_limpiar_linea(crudo, con_tools=True))
                 if _turno_valido(cand, min_len_v):
                     return cand
+                _motivo_de(cand, min_len_v, m)
             return ""
 
         # ponytail: el eco se mide sobre prosa+tool_call, no sobre la prosa sola: el
@@ -661,8 +739,9 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         # eco parafraseado; el calco literal lo sigue cazando `arranque`, que mira
         # los primeros 6 tokens y no ve el JSON). Si alguna vez se mide eco de voz
         # en escenarios con tools, comparar `_solo_prosa(crudo)`.
-        crudo = turno_de_voz(pedir_voz, previa_u)
+        crudo, motivo_v, detalle_v = turno_de_voz(pedir_voz, previa_u)
         if not crudo:
+            descartar(motivo_v, "voz", i + 1, detalle_v)
             return "", estado
 
         llamadas = _bloques_tools(_solo_tool_calls(crudo))
@@ -688,14 +767,15 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         # --- ROL 2 bis: la voz comenta el resultado que acaba de llegar ---- #
         bloque = "\n".join(lineas)
         historial.append((voice, bloque))
-        comentario = turno_de_voz(
-            lambda: _un_turno(
+        comentario, motivo_c, detalle_c = turno_de_voz(
+            lambda m: _un_turno(
                 teacher, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
-                min_len=min_len_v, con_tools=False, max_retries=max_retries,
+                min_len=min_len_v, con_tools=False, max_retries=max_retries, motivos=m,
             ),
             previa_u,
         )
         if not comentario:
+            descartar(motivo_c, "voz", i + 1, detalle_c)
             return "", estado
         historial[-1] = (voice, f"{bloque}\n{comentario}")
 
@@ -703,12 +783,24 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
 
 
 def _un_turno(teacher: Callable[[str], str], prompt: str, *, min_len: int,
-              con_tools: bool, max_retries: int) -> str:
-    """Un mensaje del teacher, con reintentos. Vacio = no se pudo."""
+              con_tools: bool, max_retries: int,
+              motivos: dict[str, str] | None = None) -> str:
+    """Un mensaje del teacher, con reintentos. Vacio = no se pudo.
+
+    `motivos`, si se pasa, queda con el por que del ULTIMO intento fallido
+    (`motivo`/`detalle`), que es lo que va al archivo de descartadas. Una
+    excepcion del teacher no se reintenta: no es un turno invalido, y antes de
+    R19 se escapaba del loop y peridia el lote entero.
+    """
+    m: dict[str, str] = {} if motivos is None else motivos
     for _ in range(max_retries):
-        cand = _limpiar_linea(teacher(prompt), con_tools=con_tools)
+        crudo = _llamar(teacher, prompt, m)
+        if m.get("motivo") == "excepcion_teacher":
+            return ""
+        cand = _limpiar_linea(crudo, con_tools=con_tools)
         if _turno_valido(cand, min_len):
             return cand
+        _motivo_de(cand, min_len, m)
     return ""
 
 
@@ -791,6 +883,8 @@ class GenerarMuestras(Step):
     sin_registro: bool = False
     max_ecos: int = MAX_ECOS
 
+    _intento: int = PrivateAttr(default=0)
+
     @property
     def inputs(self) -> "StepColumns":
         return ["escenario"]
@@ -798,7 +892,7 @@ class GenerarMuestras(Step):
     @property
     def outputs(self) -> "StepColumns":
         return ["text", "scenario", "cat", "voice", "fallo", "ecos", "motivos_eco",
-                "voz_eco", "motivos_eco_voz"]
+                "voz_eco", "motivos_eco_voz", "descartes"]
 
     def process(self, *inputs: StepInput) -> "StepOutput":
         teacher = TeacherHTTP(self.base_url, self.model, self.teacher_key, self.reasoning)
@@ -811,7 +905,9 @@ class GenerarMuestras(Step):
                 st: dict[str, Any] = {}
                 txt, _ = generar_muestra(sc, self.voice, teacher, n_ex,
                                          usar_registro=not self.sin_registro,
-                                         max_ecos=self.max_ecos, stats=st)
+                                         max_ecos=self.max_ecos, stats=st,
+                                         intento=self._intento)
+                self._intento += 1
                 row["text"] = txt
                 row["scenario"] = sc["id"]
                 row["cat"] = sc["cat"]
@@ -822,6 +918,7 @@ class GenerarMuestras(Step):
                 row["motivos_eco"] = st["motivos_eco"]
                 row["voz_eco"] = st["voz_eco"]
                 row["motivos_eco_voz"] = st["motivos_eco_voz"]
+                row["descartes"] = st["descartes"]
                 if st["corte_eco"]:
                     row["fallo"] = "usuario_eco"
             yield rows
@@ -883,16 +980,22 @@ def validar(txt: str, escenario_id: str, voice: str) -> list[str]:
 
 
 class EscribirDataset(Step):
-    """Sink: escribe el dataset aceptado y los rechazos con su motivo."""
+    """Sink: escribe el dataset aceptado, los rechazos con su motivo y las
+    descartadas con el motivo del descarte (R19)."""
 
     out_path: str
     rejects_path: str
+    descarta_path: str
 
     _out: Any = PrivateAttr(default=None)
     _rej: Any = PrivateAttr(default=None)
+    _desc: Any = PrivateAttr(default=None)
+    _n: int = PrivateAttr(default=0)
     _ok: int = PrivateAttr(default=0)
     _rech: int = PrivateAttr(default=0)
+    _descartadas: int = PrivateAttr(default=0)
     _motivos: Counter = PrivateAttr(default_factory=Counter)
+    _motivos_desc: Counter = PrivateAttr(default_factory=Counter)
     _ecos: int = PrivateAttr(default=0)
     _motivos_eco: Counter = PrivateAttr(default_factory=Counter)
     _voz_eco: int = PrivateAttr(default=0)
@@ -901,28 +1004,45 @@ class EscribirDataset(Step):
     @property
     def inputs(self) -> "StepColumns":
         return ["text", "scenario", "cat", "voice", "_errores", "ecos", "motivos_eco",
-                "voz_eco", "motivos_eco_voz"]
+                "voz_eco", "motivos_eco_voz", "descartes"]
 
     @property
     def outputs(self) -> "StepColumns":
         return []
 
     def _abrir(self) -> None:
-        Path(self.out_path).parent.mkdir(parents=True, exist_ok=True)
-        Path(self.rejects_path).parent.mkdir(parents=True, exist_ok=True)
+        for p in (self.out_path, self.rejects_path, self.descarta_path):
+            Path(p).parent.mkdir(parents=True, exist_ok=True)
         self._out = Path(self.out_path).open("w", encoding="utf-8")
         self._rej = Path(self.rejects_path).open("w", encoding="utf-8")
+        self._desc = Path(self.descarta_path).open("w", encoding="utf-8")
 
     def process(self, inputs: StepInput) -> "StepOutput":
         if self._out is None:
             self._abrir()
         for row in inputs:
+            self._n += 1
             self._ecos += row.get("ecos", 0)
             for m, n in (row.get("motivos_eco") or {}).items():
                 self._motivos_eco[m] += n
             self._voz_eco += row.get("voz_eco", 0)
             for m, n in (row.get("motivos_eco_voz") or {}).items():
                 self._motivos_eco_voz[m] += n
+            if not row["text"]:
+                # Sin texto no hay nada que validar: la muestra esta DESCARTADA,
+                # y el motivo con nombre propio va a `descartadas.jsonl`. Antes
+                # caia en el de rechazos con `errors: ["no_se_pudo_armar"]`, que
+                # no distingue "el modelo no sirve" de "el loop se la comio".
+                # El canario: una muestra sin texto SIEMPRE tiene descarte.
+                for d in row.get("descartes") or [
+                    {"motivo": MOTIVO_SIN_MOTIVO, "etapa": {}, "detalle": "", "texto": ""}
+                ]:
+                    self._motivos_desc[d["motivo"]] += 1
+                    self._desc.write(
+                        json.dumps({"scenario": row["scenario"], **d}, ensure_ascii=False) + "\n"
+                    )
+                self._descartadas += 1
+                continue
             errs = row["_errores"]
             if errs:
                 self._rech += 1
@@ -941,7 +1061,7 @@ class EscribirDataset(Step):
         yield inputs
 
     def unload(self) -> None:
-        for fh in (self._out, self._rej):
+        for fh in (self._out, self._rej, self._desc):
             if fh is not None:
                 fh.flush()
                 fh.close()
@@ -949,8 +1069,11 @@ class EscribirDataset(Step):
         stats = Path(self.out_path).with_suffix(".stats.json")
         stats.write_text(
             json.dumps(
-                {"aceptadas": self._ok, "rechazadas": self._rech,
+                {"intentos": self._n,
+                 "aceptadas": self._ok, "rechazadas": self._rech,
+                 "descartadas": self._descartadas,
                  "motivos": dict(self._motivos),
+                 "motivos_descarte": dict(self._motivos_desc),
                  # `ecos_rechazados` es el lado del usuario, como en R9. Los dos
                  # contadores con nombre van juntos: la guardia es simetrica y el
                  # titular de R10 son las DOS tasas.
@@ -963,7 +1086,7 @@ class EscribirDataset(Step):
             ) + "\n",
             encoding="utf-8",
         )
-        self._out = self._rej = None
+        self._out = self._rej = self._desc = None
         super().unload()
 
 
@@ -1019,6 +1142,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--key", default=None, help="default: la lee del log de freellmapi")
     ap.add_argument("--out", default="pipelines/smoke/tc_r2.jsonl")
     ap.add_argument("--rejects", default=None, help="default: <out>_rejects.jsonl")
+    ap.add_argument("--descartes", default=None, help="default: <out>_descartadas.jsonl")
     ap.add_argument("--reasoning", default="none", choices=["none", "minimal", "low", "medium", "high"])
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--sin-registro", action="store_true",
@@ -1031,6 +1155,7 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     rejects = args.rejects or str(Path(args.out).with_suffix("")) + "_rejects.jsonl"
+    descartes = args.descartes or str(Path(args.out).with_suffix("")) + "_descartadas.jsonl"
     key = args.key or ref.get_freellm_key()
     if not key:
         print("[!] no encontre la key de freellmapi; pasala con --key", flush=True)
@@ -1051,13 +1176,14 @@ def main(argv: list[str] | None = None) -> int:
         gate = AnotarValidacion(name="anotar_validacion", input_batch_size=4)
         sink = EscribirDataset(
             name="escribir_dataset", input_batch_size=4,
-            out_path=args.out, rejects_path=rejects,
+            out_path=args.out, rejects_path=rejects, descarta_path=descartes,
         )
         load >> generar >> gate >> sink
     pipeline.run(use_cache=False)
 
     stats = Path(args.out).with_suffix(".stats.json")
-    print(f"\n=== resumen ===\n  dataset: {args.out}\n  rechazos: {rejects}\n  {stats.read_text()}",
+    print(f"\n=== resumen ===\n  dataset: {args.out}\n  rechazos: {rejects}"
+          f"\n  descartadas: {descartes}\n  {stats.read_text()}",
           flush=True)
     return 0
 
