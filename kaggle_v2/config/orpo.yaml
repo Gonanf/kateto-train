@@ -1,0 +1,6 @@
+# ORPO single-model (SPEC §2.5): L = L_SFT(chosen) + lambda_or * L_OR
+lambda_or: 0.1
+lr: 5.0e-05
+epochs: 2
+batch: 1
+accum: 8

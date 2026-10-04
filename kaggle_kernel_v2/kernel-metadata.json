@@ -1,0 +1,17 @@
+{
+  "id": "gabrielsolotorevsky/kateto-train-v2-2xt4",
+  "title": "kateto-train-v2-2xt4",
+  "code_file": "kateto_train_v2_2xt4.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "machine_shape": "NvidiaTeslaT4x2",
+  "dataset_sources": [
+    "gabrielsolotorevsky/kateto-sft"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}
