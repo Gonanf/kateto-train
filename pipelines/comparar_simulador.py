@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
-"""R9 — Antes/despues del simulador de usuario: la tasa de eco.
+"""R10 — La guardia anti-eco en las DOS direcciones: la tasa de eco del usuario y
+la de la voz.
 
     env -u PYTHONPATH -u VIRTUAL_ENV \
       /run/media/chaos/secundario/venvs/distilabel/bin/python pipelines/comparar_simulador.py
 
-Lee los dos brazos y escribe `pipelines/smoke/comparacion-simulador.json`:
-"antes" = `smoke/teacher-pool` (R5, sin la guardia), "despues" = `smoke/teacher-pool-v2`
-(R9, con la regla anti-eco en el prompt y la guardia en el loop).
+Lee los dos brazos y escribe `pipelines/smoke/comparacion-simulador-v2.json`:
+"antes" = `smoke/teacher-pool-v2` (R9, la guardia del usuario), "despues" =
+`smoke/teacher-pool-v3` (R10, la misma guardia simetrica en los dos lados). El
+titular son las DOS tasas.
 
-La medicion de eco la hace `kateto_gen.es_eco` en LOS DOS lados: la misma funcion,
-el mismo umbral. Si el antes y el despues usaran umbrales distintos, la
-diferencia mediria el detector y no el prompt.
+La medicion de eco la hace `kateto_gen.es_eco` en LOS DOS lados y en las DOS
+direcciones: la misma funcion, el mismo umbral. Si el antes y el despues usaran
+umbrales distintos, la diferencia mediria el detector y no la guarda.
 
-Y se corre `estilo/metricas_estilo.py` de verdad (no se recalcula aca): el
-script se llama como modulo y su JSON se levanta del archivo. Los numeros de
-cliches y trigramas que salen en el reporte son los que escribio el instrumento.
-
-Los tres brazos de R5 (`teacher-orion`, `teacher-qwen38`) no se repiten: la
-variable de R9 es el simulador de usuario, no el modelo, asi que el unico modelo
-que se mide es el pool (`auto`).
+Los brazos de R5 (`teacher-orion`, `teacher-qwen38`) y el `registro` on/off de R4
+no se repiten: la variable de R10 es la guarda de eco, no el modelo ni el
+registro.
 """
 
 import json
@@ -38,11 +36,15 @@ import comparar_teachers as r5  # noqa: E402  el largo de los turnos de voz
 import kateto_gen as g  # noqa: E402  es_eco: el detector, misma funcion a ambos lados
 
 SMOKE = PIPELINES / "smoke"
-OUT = SMOKE / "comparacion-simulador.json"
+OUT = SMOKE / "comparacion-simulador-v2.json"
 N_MUESTRAS = 3
 
-ANTES = "teacher-pool"
-DESPUES = "teacher-pool-v2"
+# R10: el "antes" es el brazo de R9 (la guardia del usuario ya esta) y el
+# "despues" es el mismo pipeline con la guardia simetrica. La UNICA variable es la
+# direccion voz->usuario.
+ANTES = "teacher-pool-v2"
+DESPUES = "teacher-pool-v3"
+LADOS = ("usuario", "voz")
 
 # El corpus humano purgado de R1. Es el mismo contra el que se midio la brecha de
 # R7 (humano-humano 63,60% de trigramas compartidos, otra voz 17,35%).
@@ -70,35 +72,57 @@ def _filas(path: Path) -> list[dict]:
     return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
-def tasa_eco(textos: list[str]) -> dict:
-    """Turnos de usuario casi-copia del turno de voz anterior / turnos de usuario.
+def tasa_eco(textos: list[str], lado: str = "usuario") -> dict:
+    """Turnos de `lado` casi-copia del turno del otro rol, sobre los turnos de `lado`.
 
-    Sobre TODOS los turnos de usuario de los textos dados, con el primer turno
-    de la conversacion en el denominador (no tiene voz previa, no puede ser eco).
+    `lado="usuario"`: el turno de usuario contra el turno de voz anterior (R9).
+    `lado="voz"`: el turno de voz contra el turno de usuario anterior (R10). Es el
+    MISMO detector en las dos direcciones — `es_eco` no mira quien habla — y el
+    primer turno de la conversacion queda en el denominador sin ser medible.
+
     `pares_medibles` queda a la vista para que se vea cuantos pares hubo.
     """
     total = con_eco = medibles = 0
     motivos: dict[str, int] = {}
+    mio = (lambda cab: cab == g.IM_USER) if lado == "usuario" else (lambda cab: cab != g.IM_USER)
     for txt in textos:
-        voz = ""
+        previa = ""
         for cab, cuerpo in g.desarmar(txt):
-            if cab == g.IM_USER:
-                total += 1
-                if voz:
-                    medibles += 1
-                    motivo = g.es_eco(cuerpo, voz)
-                    if motivo:
-                        con_eco += 1
-                        motivos[motivo] = motivos.get(motivo, 0) + 1
-            else:
-                voz = cuerpo
+            if not mio(cab):
+                previa = cuerpo
+                continue
+            total += 1
+            if previa:
+                medibles += 1
+                motivo = g.es_eco(cuerpo, previa)
+                if motivo:
+                    con_eco += 1
+                    motivos[motivo] = motivos.get(motivo, 0) + 1
     return {
-        "turnos_de_usuario": total,
+        "lado": lado,
+        "turnos": total,
         "pares_medibles": medibles,
         "turnos_con_eco": con_eco,
         "tasa": round(con_eco / total, 4) if total else None,
         "motivos": motivos,
     }
+
+
+def con_eco(textos: list[str], lado: str = "usuario") -> list[str]:
+    """Solo los textos que tienen un turno de `lado` en eco. Es la evidencia cruda
+    de la direccion: los 3 que se citan en el reporte salen de aca."""
+    mio = (lambda cab: cab == g.IM_USER) if lado == "usuario" else (lambda cab: cab != g.IM_USER)
+    out: list[str] = []
+    for txt in textos:
+        previa = ""
+        for cab, cuerpo in g.desarmar(txt):
+            if not mio(cab):
+                previa = cuerpo
+                continue
+            if previa and g.es_eco(cuerpo, previa):
+                out.append(txt)
+                break
+    return out
 
 
 def brazo(carpeta: str) -> dict:
@@ -127,16 +151,91 @@ def brazo(carpeta: str) -> dict:
         "rechazadas": stats.get("rechazadas", len(caidas)),
         "motivos": stats.get("motivos", {}),
         "motivos_de_rechazo": motivos,
-        "ecos_rechazados_por_la_guardia": stats.get("ecos_rechazados", 0),
+        # Los dos contadores de la guardia, con nombre. `ecos_rechazados` sigue
+        # siendo el lado del usuario (R9); `voz_eco` es el nuevo (R10).
+        "usuario_eco": stats.get("usuario_eco", stats.get("ecos_rechazados", 0)),
+        "voz_eco": stats.get("voz_eco", 0),
         "motivos_eco": stats.get("motivos_eco", {}),
-        "tasa_eco": tasa_eco(todos),
-        "tasa_eco_solo_aceptadas": tasa_eco(solo_ok),
+        "motivos_eco_voz": stats.get("motivos_eco_voz", {}),
+        "tasa_eco": {lado: tasa_eco(todos, lado) for lado in LADOS},
+        "tasa_eco_solo_aceptadas": {lado: tasa_eco(solo_ok, lado) for lado in LADOS},
         "similes_por_turno_de_voz": r4.tasa_similes(solo_ok),
         "largo_turnos_de_voz": r5.largo_turnos_de_voz(solo_ok),
         "muestras_crudas": [
             {"scenario": f["scenario"], "voice": f["voice"], "text": f["text"]}
             for f in aceptadas[:N_MUESTRAS]
         ],
+    }
+
+
+def crudas_de_una_direccion(carpeta: str, lado: str) -> list[dict]:
+    """Las `N_MUESTRAS` filas (con su `text` entero) que tienen eco de `lado`.
+
+    Primero las que lo tienen —la evidencia del defecto— y, si no alcanzan, las
+    aceptadas: el reporte tiene que poder citar las 3 aunque el "despues" ya no
+    tenga ninguna.
+    """
+    d = SMOKE / carpeta
+    aceptadas = _filas(d / "muestras.jsonl")
+    fila_por_txt = {f["text"]: f for f in aceptadas if f.get("text")}
+    crudas: list[dict] = []
+    for txt in con_eco([f["text"] for f in aceptadas if f.get("text")], lado):
+        f = fila_por_txt[txt]
+        crudas.append({"scenario": f["scenario"], "voice": f["voice"], "text": f["text"]})
+        if len(crudas) == N_MUESTRAS:
+            return crudas
+    for f in aceptadas[:N_MUESTRAS]:
+        if f["text"] not in {c["text"] for c in crudas}:
+            crudas.append({"scenario": f["scenario"], "voice": f["voice"], "text": f["text"]})
+    return crudas[:N_MUESTRAS]
+
+
+def direccion(lado: str, antes: dict, despues: dict) -> dict:
+    """El bloque de UNA direccion de la guardia. El titular de R10 son las dos."""
+    ta, td = antes["tasa_eco"][lado], despues["tasa_eco"][lado]
+    return {
+        "que_mide": (
+            f"turnos de {lado} que son casi-copia del turno del otro rol "
+            f"inmediatamente anterior, sobre el total de turnos de {lado}. "
+            f"Detector: kateto_gen.es_eco en las dos direcciones "
+            f"(jaccard de 3-gramas >= {g.ECO_TRIGRAMAS} o arranque identico de "
+            f"{g.ECO_ARRANQUE} palabras, sobre texto normalizado)."
+        ),
+        "tasa_antes": ta["tasa"],
+        "tasa_despues": td["tasa"],
+        "titular_antes": f"{ta['turnos_con_eco']}/{ta['turnos']}",
+        "titular_despues": f"{td['turnos_con_eco']}/{td['turnos']}",
+        "turnos_antes": ta["turnos"],
+        "turnos_despues": td["turnos"],
+        "pares_medibles_antes": ta["pares_medibles"],
+        "pares_medibles_despues": td["pares_medibles"],
+        "aceptadas": {"antes": antes["aceptadas"], "despues": despues["aceptadas"]},
+        "rechazadas": {"antes": antes["rechazadas"], "despues": despues["rechazadas"]},
+        # Las dos formas de contar el descarte, y son distintas: el motivo que
+        # quedo en la fila (`motivos_de_rechazo`) y el contador de la guardia, que
+        # cuenta los reintentos que hubo aunque la muestra igual haya servido.
+        "rechazadas_con_este_motivo": {
+            "antes": antes["motivos_de_rechazo"].get(lado, 0),
+            "despues": despues["motivos_de_rechazo"].get(lado, 0),
+        },
+        "ecos_rechazados_por_la_guardia": {
+            "antes": antes[lado + "_eco"], "despues": despues[lado + "_eco"],
+        },
+        "motivos_de_la_guardia": {
+            "antes": antes["motivos_eco" if lado == "usuario" else "motivos_eco_voz"],
+            "despues": despues["motivos_eco" if lado == "usuario" else "motivos_eco_voz"],
+        },
+        "similes_por_turno_de_voz": {
+            "antes": antes["similes_por_turno_de_voz"],
+            "despues": despues["similes_por_turno_de_voz"],
+        },
+        "muestras_crudas": {
+            "de_que_brazo": "aceptadas, no el conjunto completo",
+            "nota": "primero las que tienen eco de esta direccion; si no "
+                    "alcanzan 3, se completan con las primeras aceptadas",
+            "antes": crudas_de_una_direccion(ANTES, lado),
+            "despues": crudas_de_una_direccion(DESPUES, lado),
+        },
     }
 
 
@@ -182,41 +281,35 @@ def estilo(carpeta: str) -> dict:
 
 def main() -> int:
     antes, despues = brazo(ANTES), brazo(DESPUES)
-    ta, td = antes["tasa_eco"], despues["tasa_eco"]
-
-    if ta["tasa"] is None or td["tasa"] is None:
-        titular = None
-    elif ta["tasa"] == 0:
-        titular = "0 -> 0 (o el 'antes' no produjo turnos de usuario para medir)"
-    else:
-        titular = round(100.0 * (td["tasa"] / ta["tasa"]), 1) if td["tasa"] else 0.0
+    direcciones = {f"{lado}_eco": direccion(lado, antes, despues) for lado in LADOS}
 
     reporte = {
         "nota": (
-            "Antes = smoke/teacher-pool (R5, sin la guardia). Despues = "
-            "smoke/teacher-pool-v2 (R9: regla anti-eco en el prompt del simulador "
-            "de usuario + guardia de eco en el loop). Mismo teacher (`auto` de "
-            "freellmapi), mismo registro ON, los mismos 3 escenarios de charla de "
-            "R5 (solo_charla / solo_debate / no_tool_when_not_needed), 6 muestras "
-            "cada uno. La UNICA variable es el simulador de usuario."
+            f"Antes = smoke/{ANTES} (R9: la guardia del usuario). Despues = "
+            f"smoke/{DESPUES} (R10: la misma guardia, simetrica, en los dos "
+            "lados). Mismo teacher (`auto` de freellmapi), mismo registro ON, los "
+            "mismos 3 escenarios de charla de R5 (solo_charla / solo_debate / "
+            "no_tool_when_not_needed), 6 muestras cada uno. La UNICA variable es "
+            "la guardia de eco del lado de la voz."
         ),
         "medicion": {
-            "tasa_de_eco": (
-                "turnos de usuario que son casi-copia del turno de voz "
-                "inmediatamente anterior, sobre el total de turnos de usuario. "
-                "Detector: kateto_gen.es_eco, el MISMO a los dos lados "
-                f"(jaccard de 3-gramas >= {g.ECO_TRIGRAMAS} o arranque identico "
-                f"de {g.ECO_ARRANQUE} palabras, sobre texto normalizado)."
+            "las_dos_direcciones": (
+                "La guardia anti-eco es simetrica: el mismo detector "
+                "(kateto_gen.es_eco) corre en las dos direcciones, y el TITULAR son "
+                "las DOS tasas, no una."
             ),
             "medido_en": "muestras aceptadas + rechazadas de cada brazo",
+            "ademas": "cada direccion tambien va sobre las solo aceptadas, "
+                      "que es la base del conteo a mano del dueño",
         },
         "titular": {
-            "tasa_de_eco_antes": ta["tasa"],
-            "tasa_de_eco_despues": td["tasa"],
-            "variacion_pct": titular,
-            "turnos_de_usuario_antes": ta["turnos_de_usuario"],
-            "turnos_de_usuario_despues": td["turnos_de_usuario"],
+            f"tasa_de_eco_{lado}_antes": direcciones[f"{lado}_eco"]["tasa_antes"]
+            for lado in LADOS
+        } | {
+            f"tasa_de_eco_{lado}_despues": direcciones[f"{lado}_eco"]["tasa_despues"]
+            for lado in LADOS
         },
+        "direcciones": direcciones,
         "antes": antes,
         "despues": despues,
         "voz_contra_el_mismo_instrumento": {
@@ -228,9 +321,10 @@ def main() -> int:
     OUT.write_text(json.dumps(reporte, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     print(f"           ANTES      DESPUES")
-    print(f"tasa eco   {ta['tasa']!s:>10}  {td['tasa']!s:>10}")
-    print(f"  turnos   {ta['turnos_de_usuario']:>10}  {td['turnos_de_usuario']:>10}")
-    print(f"  con eco  {ta['turnos_con_eco']:>10}  {td['turnos_con_eco']:>10}")
+    for lado in LADOS:
+        d = direcciones[f"{lado}_eco"]
+        print(f"tasa eco {lado:7} {d['tasa_antes']!s:>10}  {d['tasa_despues']!s:>10}"
+              f"   ({d['titular_antes']} -> {d['titular_despues']})")
     print(f"aceptadas  {antes['aceptadas']:>10}  {despues['aceptadas']:>10}")
     print(f"rechazadas {antes['rechazadas']:>10}  {despues['rechazadas']:>10}")
     print(f"palabras/turno voz  {antes['largo_turnos_de_voz']['palabras_promedio']} -> "

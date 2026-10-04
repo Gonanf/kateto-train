@@ -87,8 +87,9 @@ RX_TOOL_BLOCK = re.compile(r"(?m)^\s*tool_(?:call|result)\b.*$")
 MAX_LINEA = 2000
 MIN_LINEA_VOZ = 8
 MAX_INTENTOS = 3
-# Reintentos del TURNO DE USUARIO cuando sale eco de la voz (R9). Uno solo
-# alcanza para la mayoria: si el teacher reformula una vez, reformula otra.
+# Reintentos cuando un turno sale eco del turno anterior (R9 usuario, R10 voz).
+# Uno solo alcanza para la mayoria: si el teacher reformula una vez, reformula
+# otra. El mismo numero para los dos lados: es el mismo defecto espejado.
 MAX_ECOS = 1
 REINTENTOS_401 = 4
 
@@ -473,9 +474,13 @@ def _tokens(texto: str) -> list[str]:
 
 
 def es_eco(turno_u: str, turno_v: str) -> str | None:
-    """El usuario es casi-copia de la voz anterior? Devuelve el MOTIVO
-    (`trigramas` / `arranque`) o `None`. Sin el motivo, "rechazado por eco" no se
-    distingue de "vacio" ni de "corto", que son otros tres filtros del loop."""
+    """Un turno es casi-copia del otro? Devuelve el MOTIVO (`trigramas` /
+    `arranque`) o `None`. Sin el motivo, "rechazado por eco" no se distingue de
+    "vacio" ni de "corto", que son otros tres filtros del loop.
+
+    Simetrica: `(usuario, voz)` para la guardia de R9 y `(voz, usuario)` para la
+    de R10. Que el par salga por trigramas o por arranque no depende del orden.
+    """
     if not turno_u or not turno_v:
         return None
     u, v = _tokens(turno_u), _tokens(turno_v)
@@ -520,9 +525,12 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
     `usar_registro=False` es el brazo OFF del A/B: mismo loop, mismo teacher,
     mismo escenario, sin el registro inyectado.
 
-    `stats`, si se pasa, se llena con `ecos` (int) y `motivos_eco` (dict). Es un
-    out-param y no un valor de retorno para no romper los 8 call sites que
-    desarman la tupla de dos.
+    `stats`, si se pasa, se llena con los DOS lados de la guardia de eco:
+    `ecos`/`motivos_eco`/`corte_eco` (el usuario calcando a la voz, R9) y
+    `voz_eco`/`motivos_eco_voz`/`descarte_voz_eco` (la voz calcando al usuario,
+    R10). Los contadores van separados porque los defectos son distintos y se
+    miden por separado. Es un out-param y no un valor de retorno para no romper
+    los 8 call sites que desarman la tupla de dos.
     """
     sc = {**sc, "txt": sin_receta(sc["txt"])}
     estado = ToolState(voces_vivas=(voice,))
@@ -535,12 +543,45 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
     # en esta funcion y llenarlo en cada uno es un lugar mas para olvidarse.
     if stats is None:
         stats = {}
-    stats.update(ecos=0, motivos_eco={}, corte_eco=False)
+    stats.update(ecos=0, motivos_eco={}, corte_eco=False,
+                 voz_eco=0, motivos_eco_voz={}, descarte_voz_eco=False)
 
-    def anotar_eco(motivo: str) -> None:
-        stats["ecos"] += 1
-        motivos: dict[str, int] = stats["motivos_eco"]
+    def anotar_eco(motivo: str, *, voz: bool = False) -> None:
+        if voz:
+            stats["voz_eco"] += 1
+            motivos: dict[str, int] = stats["motivos_eco_voz"]
+        else:
+            stats["ecos"] += 1
+            motivos = stats["motivos_eco"]
         motivos[motivo] = motivos.get(motivo, 0) + 1
+
+    def turno_de_voz(pedir: Callable[[], str], previa: str) -> str:
+        """Un turno de la voz con la guardia SIMETRICA (R10): si el turno sale
+        casi-copia del usuario que acaba de hablar, se rechaza y se vuelve a
+        pedir, con el mismo `max_ecos` del lado del usuario.
+
+        `pedir` es el `teacher` ya envuelto (limpieza, `_turno_valido` y los
+        reintentos que ya tenia): la guarda solo mira el resultado y lo cuenta.
+        El reintento llega con el MISMO prompt — el eco se rechazo antes de
+        anexarlo, asi que el transcript no cambio — igual que en el lado del
+        usuario.
+
+        Devuelve "" si no se pudo, y el motivo queda en `stats`. OJO: acá el eco
+        NO se corta y se guarda lo que hay como hace el lado del usuario. Alli el
+        ultimo bloque es un turno de voz ya sano; aqui seria el turno calcado, o
+        la muestra terminaria en un turno de usuario sin respuesta. Se descarta
+        entera (`descarte_voz_eco`) y el motivo sale en el `fallo` de la fila.
+        """
+        for _ in range(max_ecos + 1):
+            cand = pedir()
+            if not cand:
+                return ""
+            motivo = es_eco(cand, previa)
+            if motivo is None:
+                return cand
+            anotar_eco(motivo, voz=True)
+        stats["descarte_voz_eco"] = True
+        return ""
 
     def de_kateto(prompt: str) -> str:
         """El registro va en los prompts donde HABLA Kateto.
@@ -577,6 +618,10 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
             stats["corte_eco"] = True
             return ensamblar(historial, voice), estado
         historial.append(("user", linea_u))
+        # El turno de usuario que acaba de anexarse: es contra este contra el que
+        # se mide el eco de la voz. Se captura acá porque en el camino con tools
+        # el ultimo bloque del historial pasa a ser de la voz.
+        previa_u = linea_u
 
         # --- centinela: lo pone el codigo, por indice de intercambio ------ #
         if i < len(forzadas) and forzadas[i]:
@@ -585,9 +630,12 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
 
         # --- ROL 2: la voz (Kateto) --------------------------------------- #
         if not con_tools:
-            linea_v = _un_turno(
-                teacher, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
-                min_len=min_len_v, con_tools=False, max_retries=max_retries,
+            linea_v = turno_de_voz(
+                lambda: _un_turno(
+                    teacher, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
+                    min_len=min_len_v, con_tools=False, max_retries=max_retries,
+                ),
+                previa_u,
             )
             if not linea_v:
                 return "", estado
@@ -595,18 +643,25 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
             continue
 
         # --- ROL 2 + 3: prosa y tool_call del teacher, resultado del pipeline #
-        crudo = ""
-        for _ in range(max_retries):
-            crudo = ref.normalize_backticks(
-                _limpiar_linea(
-                    teacher(de_kateto(build_voice_tool_prompt(sc, voice, historial,
-                                                             n_ex, estado))),
-                    con_tools=True,
+        def pedir_voz() -> str:
+            for _ in range(max_retries):
+                cand = ref.normalize_backticks(
+                    _limpiar_linea(
+                        teacher(de_kateto(build_voice_tool_prompt(sc, voice, historial,
+                                                                 n_ex, estado))),
+                        con_tools=True,
+                    )
                 )
-            )
-            if _turno_valido(crudo, min_len_v):
-                break
-            crudo = ""
+                if _turno_valido(cand, min_len_v):
+                    return cand
+            return ""
+
+        # ponytail: el eco se mide sobre prosa+tool_call, no sobre la prosa sola: el
+        # JSON de la llamada diluye el jaccard de 3-gramas (falso negativo en un
+        # eco parafraseado; el calco literal lo sigue cazando `arranque`, que mira
+        # los primeros 6 tokens y no ve el JSON). Si alguna vez se mide eco de voz
+        # en escenarios con tools, comparar `_solo_prosa(crudo)`.
+        crudo = turno_de_voz(pedir_voz, previa_u)
         if not crudo:
             return "", estado
 
@@ -633,9 +688,12 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         # --- ROL 2 bis: la voz comenta el resultado que acaba de llegar ---- #
         bloque = "\n".join(lineas)
         historial.append((voice, bloque))
-        comentario = _un_turno(
-            teacher, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
-            min_len=min_len_v, con_tools=False, max_retries=max_retries,
+        comentario = turno_de_voz(
+            lambda: _un_turno(
+                teacher, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
+                min_len=min_len_v, con_tools=False, max_retries=max_retries,
+            ),
+            previa_u,
         )
         if not comentario:
             return "", estado
@@ -739,7 +797,8 @@ class GenerarMuestras(Step):
 
     @property
     def outputs(self) -> "StepColumns":
-        return ["text", "scenario", "cat", "voice", "fallo", "ecos", "motivos_eco"]
+        return ["text", "scenario", "cat", "voice", "fallo", "ecos", "motivos_eco",
+                "voz_eco", "motivos_eco_voz"]
 
     def process(self, *inputs: StepInput) -> "StepOutput":
         teacher = TeacherHTTP(self.base_url, self.model, self.teacher_key, self.reasoning)
@@ -757,9 +816,12 @@ class GenerarMuestras(Step):
                 row["scenario"] = sc["id"]
                 row["cat"] = sc["cat"]
                 row["voice"] = self.voice
-                row["fallo"] = "" if txt else "no_se_pudo_armar"
+                row["fallo"] = "voz_eco" if st["descarte_voz_eco"] else (
+                    "" if txt else "no_se_pudo_armar")
                 row["ecos"] = st["ecos"]
                 row["motivos_eco"] = st["motivos_eco"]
+                row["voz_eco"] = st["voz_eco"]
+                row["motivos_eco_voz"] = st["motivos_eco_voz"]
                 if st["corte_eco"]:
                     row["fallo"] = "usuario_eco"
             yield rows
@@ -774,7 +836,7 @@ class AnotarValidacion(Step):
 
     @property
     def inputs(self) -> "StepColumns":
-        return ["text", "escenario"]
+        return ["text", "escenario", "fallo"]
 
     @property
     def outputs(self) -> "StepColumns":
@@ -783,8 +845,11 @@ class AnotarValidacion(Step):
     def process(self, *inputs: StepInput) -> "StepOutput":
         for rows in inputs:
             for row in rows:
+                # `fallo` ya dice POR QUE no hay texto (`usuario_eco` / `voz_eco` /
+                # `no_se_pudo_armar`); sin esto el motivo seria "muestra_vacia" para
+                # las tres y la guardia no se veria en las stats de la corrida.
                 row["_errores"] = (
-                    ["muestra_vacia"]
+                    [row.get("fallo") or "muestra_vacia"]
                     if not row["text"]
                     else validar(row["text"], row["scenario"], row["voice"])
                 )
@@ -830,10 +895,13 @@ class EscribirDataset(Step):
     _motivos: Counter = PrivateAttr(default_factory=Counter)
     _ecos: int = PrivateAttr(default=0)
     _motivos_eco: Counter = PrivateAttr(default_factory=Counter)
+    _voz_eco: int = PrivateAttr(default=0)
+    _motivos_eco_voz: Counter = PrivateAttr(default_factory=Counter)
 
     @property
     def inputs(self) -> "StepColumns":
-        return ["text", "scenario", "cat", "voice", "_errores", "ecos", "motivos_eco"]
+        return ["text", "scenario", "cat", "voice", "_errores", "ecos", "motivos_eco",
+                "voz_eco", "motivos_eco_voz"]
 
     @property
     def outputs(self) -> "StepColumns":
@@ -852,6 +920,9 @@ class EscribirDataset(Step):
             self._ecos += row.get("ecos", 0)
             for m, n in (row.get("motivos_eco") or {}).items():
                 self._motivos_eco[m] += n
+            self._voz_eco += row.get("voz_eco", 0)
+            for m, n in (row.get("motivos_eco_voz") or {}).items():
+                self._motivos_eco_voz[m] += n
             errs = row["_errores"]
             if errs:
                 self._rech += 1
@@ -880,8 +951,14 @@ class EscribirDataset(Step):
             json.dumps(
                 {"aceptadas": self._ok, "rechazadas": self._rech,
                  "motivos": dict(self._motivos),
+                 # `ecos_rechazados` es el lado del usuario, como en R9. Los dos
+                 # contadores con nombre van juntos: la guardia es simetrica y el
+                 # titular de R10 son las DOS tasas.
                  "ecos_rechazados": self._ecos,
-                 "motivos_eco": dict(self._motivos_eco)},
+                 "motivos_eco": dict(self._motivos_eco),
+                 "usuario_eco": self._ecos,
+                 "voz_eco": self._voz_eco,
+                 "motivos_eco_voz": dict(self._motivos_eco_voz)},
                 ensure_ascii=False, indent=2,
             ) + "\n",
             encoding="utf-8",
@@ -949,7 +1026,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--scenario", action="append", default=None,
                     help="id de escenario, repetible. Ignora --n (smoke reproducible).")
     ap.add_argument("--max-ecos", type=int, default=MAX_ECOS,
-                    help=f"reintentos del turno de usuario cuando sale eco de la voz (default {MAX_ECOS})")
+                    help=f"reintentos cuando un turno sale eco del anterior, en los dos lados "
+                         f"(usuario calcando a la voz, voz calcando al usuario) (default {MAX_ECOS})")
     args = ap.parse_args(argv)
 
     rejects = args.rejects or str(Path(args.out).with_suffix("")) + "_rejects.jsonl"
