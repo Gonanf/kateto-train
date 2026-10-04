@@ -58,3 +58,7 @@ rwkv-mobile/
 # MemPalace per-project files (issue #185)
 mempalace.yaml
 entities.json
+# Corpus descargados (se re-bajan, no van a git)
+data/hf/
+*.mp3
+*.parquet
