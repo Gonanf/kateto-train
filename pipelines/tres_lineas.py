@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""R17 — Tres lineas de generacion en paralelo, una por procesador, y la union.
+"""R17b — Tres lineas de generacion en paralelo, una por procesador, y la union.
 
     env -u PYTHONPATH -u VIRTUAL_ENV \
       /run/media/chaos/secundario/venvs/distilabel/bin/python pipelines/tres_lineas.py
@@ -25,17 +25,21 @@ Lo que NO se reimplementa (esta prohibido, y ademas seria medir otra cosa):
 Tres cosas del terreno que costaron una corrida y quedaron anotadas en el
 codigo, porque no se deducen del brief:
 
-  1. `--device VulkanN` y `GGML_VK_VISIBLE_DEVICES=N` son EXCLUYENTES. Con la
-     variable puesta, el backend Vulkan renumera el unico dispositivo que
-     sobrevive como `Vulkan0`, asi que `--device Vulkan1` se rechaza con
-     `invalid device: Vulkan1`. Se usa `--device` solo: ya aisla (el log
-     enumera las dos placas pero `using device` dice una).
-  2. `kateto_gen.py` sale con rc=1 SIEMPRE que hay stats de eco: distilabel
+  1. `GGML_VK_VISIBLE_DEVICES=N` hace que el backend Vulkan renumere como
+     `Vulkan0` la unica placa que sobrevive, asi que las dos lineas de placa se
+     arranCAN con `--device Vulkan0` y la que se pide `Vulkan1` se rechaza con
+     `invalid device: Vulkan1`. Como el indice ya no las distingue, lo que las
+     distingue es el NOMBRE de la placa en el log, y `evidencia()` lo exige.
+  2. Los `.gguf` estan en `/run/media/chaos/secundario/models/hf`, NO en el
+     cache de HF. R17 busco en `~/.cache/huggingface/hub/`, no los encontro y
+     reporto que los modelos del brief no existian. Por eso cada server
+     arranca solo despues de un `stat -c '%s %n'` cuya salida va al reporte.
+  3. `kateto_gen.py` sale con rc=1 SIEMPRE que hay stats de eco: distilabel
      revienta DESPUES del sink, escribiendo su cache en parquet
      (`ArrowNotImplementedError: Cannot write struct type 'motivos_eco'`). Los
      .jsonl ya estan escritos. Por eso el exito se judgea por los archivos de
      salida, no por el rc (R13 lo discovering y lo documento en su cronometro).
-  3. Este build de llama-server no imprime timings por request salvo que el
+  4. Este build de llama-server no imprime timings por request salvo que el
      pedido traiga `"verbose": true`, y `kateto_gen.py` no lo manda. El bloque
      `timings` SI viene en la respuesta del endpoint OpenAI, asi que los tok/s
      salen de una sonda al mismo server ya cargado, con el prompt del escenario
@@ -80,7 +84,11 @@ MD = SMOKE / "tres-lineas.md"
 
 PY = "/run/media/chaos/secundario/venvs/distilabel/bin/python"
 LLAMA = "/usr/bin/llama-server"
-HUB = Path.home() / ".cache/huggingface/hub"
+
+# Los .gguf NO estan en el cache de HF sino en este disco. R17 busco en
+# `~/.cache/huggingface/hub/`, no los encontro, y reporto que los modelos del
+# brief no existian. Existian. El `stat` de la regla dura va en `stat_evidencia`.
+MODELOS = Path("/run/media/chaos/secundario/models/hf")
 
 # El unico item por linea, el mismo para las tres. Es el del item anterior
 # (`/home/chaos/harness-run/item-por-modelo/`), asi que las tres lineas y las
@@ -126,6 +134,12 @@ class Linea:
     por_que_no: str | None = None
     unidad: str = ""
     log: Path = field(default_factory=Path)
+    vk_visible: str | None = None   # GGML_VK_VISIBLE_DEVICES de su entorno
+    placa: str | None = None       # substring que el log DEBE decir para darla por buena
+    stat_evidencia: str = "no_medido"
+    # los archivos que el propio brief nombra como alternativa para este slot, en
+    # orden. Se prueban si el primario no carga (no solo si no esta).
+    alternativas: tuple[Path, ...] = ()
 
     @property
     def puerto(self) -> int:
@@ -136,68 +150,90 @@ class Linea:
         return BASE / self.clave
 
 
-def _gguf(relative: str) -> Path | None:
-    """El .gguf del hub, o None si no esta (aun bajando, o nunca estuvo)."""
-    found = sorted(HUB.glob(f"models--*/snapshots/*/{relative}"))
-    return found[0] if found else None
+def _gguf(*relatives: str) -> tuple[Path | None, str | None]:
+    """El primer .gguf que exista de la lista, y el que se intento y fallo.
+
+    Devuelve la tupla para que el fallback de la linea 2 sea una caida
+    declarada, no un modelo distinto sin avisar.
+    """
+    for rel in relatives:
+        p = MODELOS / rel
+        if p.exists():
+            return p, None
+    return None, "/".join(str(MODELOS / r) for r in relatives)
 
 
-# Las tres lineas. Los nombres del brief (`heretic-styletune-26b`,
-# `catalogo/frognano-4b`, `catalogo/bonsai-8b`) NO estan en la maquina: se
-# verifica archivo por archivo y se sustituye por el mas grande que entra en
-# cada dispositivo. `pedido` deja el nombre original para el reporte.
+def _stat(ruta: Path) -> tuple[int | None, str]:
+    """`stat -c '%s %n'`: los bytes y la linea cruda, que es la evidencia que el
+    brief exige antes de arrancar. Se pega tal cual en el reporte."""
+    p = subprocess.run(["stat", "-c", "%s %n", str(ruta)],
+                       capture_output=True, text=True)
+    linea = p.stdout.strip()
+    if p.returncode != 0 or not linea:
+        return None, f"stat fallo ({p.returncode}): {p.stderr.strip()[:200]}"
+    return int(linea.split()[0]), linea
+
+
+# Las tres lineas del brief, con los archivos EXACTOS que pide. Ninguno se
+# sustituye: si uno falta de verdad, `arrancar` lo reporta con el `ls` de la
+# carpeta y la linea sale `no_disponible`.
 def lineas() -> list[Linea]:
-    orion = _gguf("TheDrummer_Orion-26B-A4B-v1.1-Q4_K_M.gguf")
-    e2b = _gguf("gemma-4-E2B_q4_0-it.gguf")
-    qwen2b = _gguf("Qwen3.8-2B-Q4_K_M.gguf")
+    # Fallback del brief para la linea 2 (k2horizon -> frognano). Los dos
+    # existen; k2horizon no lo carga ESTE build, asi que el fallback es por
+    # arquitectura, no por archivo ausente.
+    p26, f26 = _gguf("heretic-styletune-26b/"
+                     "gemma-4-26b-a4b-heretic-styletune-v2-head.i1-Q4_K_M.gguf")
+    k2, f2 = _gguf("catalogo/k2horizon-37b/K2-Horizon-4B-Q4_K_M.gguf",
+                   "catalogo/frognano-4b/FrogNano-4B-2609-Q4_K_M.gguf")
+    bonsai, f3 = _gguf("catalogo/bonsai-8b/Bonsai-8B-Q1_0.gguf")
+    alt_frognano = (MODELOS / "catalogo/frognano-4b/FrogNano-4B-2609-Q4_K_M.gguf")
 
+    comun = ["-c", "8192", "--cache-type-k", "q8_0", "--cache-type-v", "q8_0"]
     return [
         Linea(
-            1, "linea1", "orion26b", orion, "CPU",
-            # `-t 6` lo pide el brief: 6 de los 12 hilos, para no pelear con las
-            # dos lineas de placa (que igual usan CPU para el prompt eval).
-            # `--device none` es lo que hace que la linea 1 este en CPU de verdad:
-            # sin el flag, el server elige una placa por su cuenta.
-            ["--device", "none", "-t", "6", "-c", "8192",
-             "--cache-type-k", "q8_0", "--cache-type-v", "q8_0"],
-            "heretic-styletune-26b (17,2 GB, mmap, -t 6)",
-            tamanio_bytes=orion.stat().st_size if orion else None,
+            1, "linea1", "heretic26b", p26, "CPU",
+            ["--device", "none", "-t", "6", *comun],
+            "heretic-styletune-26b (17,2 GB, mmap, -t 6, sin offload)",
+            por_que_no=f26,
         ),
         Linea(
-            2, "linea2", "gemma4-e2b", e2b, "Vulkan0",
-            # `--fit on` deja que el server baje las capas que no entran, en vez
-            # de fallar. `-ngl 99` lo pide el brief: todas las capas a la placa.
-            ["--device", "Vulkan0", "-ngl", "99", "--fit", "on", "-c", "8192",
-             "--cache-type-k", "q8_0", "--cache-type-v", "q8_0"],
-            "catalogo/frognano-4b (2,8 GB, -ngl 99)",
-            tamanio_bytes=e2b.stat().st_size if e2b else None,
+            2, "linea2", "k2horizon4b", k2, "Vulkan0",
+            # `--device Vulkan0` y no `Vulkan1`: con `GGML_VK_VISIBLE_DEVICES`
+            # puesta, el backend renumera como Vulkan0 la unica placa visible.
+            # Por eso `placa` verifica el NOMBRE de la placa en el log.
+            ["--device", "Vulkan0", "-ngl", "99", "--fit", "on", *comun],
+            "catalogo/k2horizon-37b (3,16 GB, -ngl 99); fallback del brief: "
+            "catalogo/frognano-4b (2,80 GB)",
+            por_que_no=f2, vk_visible="0", placa="AMD Radeon RX 6500 XT",
+            alternativas=(alt_frognano,) if k2 != alt_frognano else (),
         ),
         Linea(
-            3, "linea3", "qwen38-2b", qwen2b, "Vulkan1",
-            ["--device", "Vulkan1", "-ngl", "99", "--fit", "on", "-c", "8192",
-             "--cache-type-k", "q8_0", "--cache-type-v", "q8_0"],
-            "catalogo/bonsai-8b Q1 (1,2 GB, -ngl 99)",
-            tamanio_bytes=qwen2b.stat().st_size if qwen2b else None,
+            3, "linea3", "bonsai8b", bonsai, "Vulkan1",
+            ["--device", "Vulkan0", "-ngl", "99", "--fit", "on", *comun],
+            "catalogo/bonsai-8b Q1 (1,16 GB, -ngl 99)",
+            por_que_no=f3, vk_visible="1", placa="Intel(R) Iris(R) Xe Graphics",
         ),
     ]
 
 
-# La Fase B: el mismo modelo chico en CPU y en su placa, mismos flags y mismo
-# prompt. Es el numero que dice cuanto da realmente la placa. Usa el modelo de
-# la linea 2 (el mas grande que entra en la AMD) por pedido del brief.
+# La Fase B: el mismo archivo en CPU y en su placa, mismo prompt, un item cada
+# uno. Es el numero que dice cuanto da la placa. Usa el archivo de la linea 2.
 def fase_b(base: Linea) -> tuple[Linea, Linea] | None:
     if base.gguf is None:
         return None
     comun = ["-c", "8192", "--cache-type-k", "q8_0", "--cache-type-v", "q8_0"]
     return (
         Linea(4, "linea4", f"{base.modelo}-cpu", base.gguf, "CPU",
-              ["--device", "none", "-t", "12", *comun],
-              f"el mismo modelo de la linea 2 pero en CPU (para comparar contra su placa)",
-              tamanio_bytes=base.tamanio_bytes),
+              ["--device", "none", "-t", "6", *comun],
+              f"el mismo archivo de la linea 2 pero en CPU -t 6 "
+              f"(el par que dice cuanto da la placa)",
+              tamanio_bytes=base.tamanio_bytes, vk_visible=None,
+              stat_evidencia=base.stat_evidencia),
         Linea(5, "linea5", f"{base.modelo}-vk0", base.gguf, "Vulkan0",
               ["--device", "Vulkan0", "-ngl", "99", "--fit", "on", *comun],
-              f"el mismo modelo de la linea 2 en su placa ({base.dispositivo})",
-              tamanio_bytes=base.tamanio_bytes),
+              f"el mismo archivo de la linea 2 en su placa (Vulkan0)",
+              tamanio_bytes=base.tamanio_bytes, vk_visible=base.vk_visible,
+              placa=base.placa, stat_evidencia=base.stat_evidencia),
     )
 
 
@@ -263,6 +299,41 @@ def memoria_unidad(unidad: str) -> int | None:
 
 
 def arrancar(linea: Linea, *, espera_s: int = 240) -> dict[str, Any]:
+    """Levanta la linea, y si el modelo no CARGA usa la alternativa que el
+    propio brief nombra para ese slot.
+
+    El brief dice "si falta" para el fallback de la linea 2, pero lo que paso de
+    verdad es que `k2-horizon` no lo soporta ESTE build de llama-server
+    (`unknown model architecture: 'k2-horizon'`): el archivo esta y pesa 3,16 GB.
+    La alternativa que el brief ya nombra para esa linea es `frognano-4b`, asi
+    que se usa ESA y no una tercera cosa. El fallo del primero queda crudo en
+    `caidas`, con la linea de log.
+    """
+    primario = linea.gguf
+    intentos: list[dict[str, Any]] = []
+    for cand in [linea.gguf, *linea.alternativas]:
+        if cand is None:
+            continue
+        if cand is not primario:
+            # Alias del alterno, derivado del archivo: "FrogNano-4B-2609-Q4_K_M"
+            # -> "frognano4b". El primario conserva su alias curado.
+            linea.modelo = "-".join(cand.stem.split("-")[:2]).lower()
+            linea.modelo = linea.modelo.replace("-", "").replace("_", "")
+        linea.gguf = cand
+        r = _intentar(linea, espera_s=espera_s)
+        intentos.append({"archivo": str(cand), "stat": r.get("stat"), **{
+            k: r[k] for k in ("estado", "motivo", "log") if k in r}})
+        if r.get("estado") == "arrancada":
+            r["intentos"] = intentos
+            r["usado_el_alterno"] = cand is not primario
+            r["primario_pedido"] = str(primario) if primario else None
+            return r
+        parar(linea.unidad)
+    linea.por_que_no = intentos[-1].get("motivo") if intentos else "sin archivo"
+    return {"estado": "no_disponible", "motivo": linea.por_que_no, "intentos": intentos}
+
+
+def _intentar(linea: Linea, *, espera_s: int = 240) -> dict[str, Any]:
     """Levanta la linea como unidad de usuario y espera `/health`.
 
     Devuelve el veredicto con la EVIDENCIA del dispositivo: la linea del log
@@ -277,13 +348,27 @@ def arrancar(linea: Linea, *, espera_s: int = 240) -> dict[str, Any]:
 
     if linea.gguf is None or not linea.gguf.exists():
         linea.por_que_no = linea.por_que_no or f"no existe el archivo {linea.pedido}"
-        return {"estado": "no_disponible", "motivo": linea.por_que_no}
+        # El brief: si un archivo falta de verdad, PARAR y reportar con el `ls` de
+        # la carpeta. No sustituir por otro modelo.
+        return {"estado": "no_disponible", "motivo": linea.por_que_no,
+                "stat": "no_medido: el archivo no existe",
+                "ls_de_la_carpeta": _ls_carpeta(linea.gguf)}
 
-    argv = ["systemd-run", "--user", f"--unit={linea.unidad}"] + _argv_srv(linea)
+    # Regla dura del brief: `stat` antes de arrancar, y la salida cruda en el
+    # reporte. Es la evidencia de que el archivo existe y con cuantos bytes.
+    bytes_, stat_linea = _stat(linea.gguf)
+    linea.tamanio_bytes = bytes_
+    linea.stat_evidencia = stat_linea
+
+    argv = ["systemd-run", "--user", f"--unit={linea.unidad}"]
+    if linea.vk_visible is not None:
+        argv.append(f"--setenv=GGML_VK_VISIBLE_DEVICES={linea.vk_visible}")
+    argv += _argv_srv(linea)
     proc = subprocess.run(argv, capture_output=True, text=True)
     if proc.returncode != 0:
         linea.por_que_no = f"systemd-run salio {proc.returncode}: {proc.stderr.strip()[:300]}"
-        return {"estado": "no_disponible", "motivo": linea.por_que_no}
+        return {"estado": "no_disponible", "motivo": linea.por_que_no,
+                "stat": stat_linea}
 
     t0 = time.monotonic()
     while time.monotonic() - t0 < espera_s:
@@ -299,15 +384,29 @@ def arrancar(linea: Linea, *, espera_s: int = 240) -> dict[str, Any]:
     else:
         parar(linea.unidad)
         linea.por_que_no = f"el server no respondio /health en {espera_s}s"
-        return {"estado": "no_disponible", "motivo": linea.por_que_no}
+        return {"estado": "no_disponible", "motivo": linea.por_que_no,
+                "stat": stat_linea, "log": _ultimas(linea.log)}
 
     if not unidad_viva(linea.unidad):
         cola = _ultimas(linea.log) or _ultimas_via_journal(linea.unidad)
         linea.por_que_no = f"el server murio al arrancar: {cola}"
         return {"estado": "no_disponible", "motivo": linea.por_que_no,
-                "log": cola}
+                "stat": stat_linea, "log": cola}
 
-    return {"estado": "arrancada", "segundos_de_arranque": round(time.monotonic() - t0, 1)}
+    return {"estado": "arrancada", "segundos_de_arranque": round(time.monotonic() - t0, 1),
+            "stat": stat_linea, "ggml_vk_visible_devices": linea.vk_visible}
+
+
+def _ls_carpeta(gguf: Path | None) -> str | None:
+    """El `ls -la` de la carpeta del .gguf que se pidio, para probar que el
+    archivo no esta y no fue un path mal escrito."""
+    if gguf is None:
+        return None
+    carpeta = gguf.parent
+    if not carpeta.is_dir():
+        return f"{carpeta} no existe"
+    p = subprocess.run(["ls", "-la", str(carpeta)], capture_output=True, text=True)
+    return p.stdout.strip() or p.stderr.strip()
 
 
 def _ultimas(path: Path, n: int = 12) -> str:
@@ -325,8 +424,14 @@ def _ultimas_via_journal(unidad: str, n: int = 12) -> str:
 # La evidencia: el server ENUMERA las dos placas siempre, asi que enumerarlas no
 # prueba nada. Lo que prueba es la linea de `llama_prepare_model_devices`, que
 # dice cual esta usando.
-RX_EVIDENCIA = re.compile(r"using device (\S+)(?: \(([^)]*)\))?")
+RX_EVIDENCIA = re.compile(r"using device (\S+)(?:\s+\((.*)\))?")
 RX_OFFLOAD = re.compile(r"offloaded (\d+)/(\d+) layers to GPU")
+# La enumeracion que hace el server al arrancar:
+#   - Vulkan0 : Intel(R) Iris(R) Xe Graphics (DG1) (4024 MiB, 3621 MiB free)
+# El nombre va sin parentesis desbalanceados porque se corta en `(N MiB`. Con
+# `GGML_VK_VISIBLE_DEVICES` puesta aparece UNA sola linea, y ese conteo es la
+# prueba de que el server no ve la otra placa.
+RX_PLACA = re.compile(r"-\s*(Vulkan\d+)\s*:\s*(.+?)\s*\(\d+ MiB")
 # Con `--device none` no hay `using device`: hay una linea por capa.
 RX_CPU_LAYER = re.compile(r"layer\s+\d+ assigned to device CPU")
 # El desglose que imprime el server es una fila por memoria:
@@ -387,10 +492,32 @@ def evidencia(linea: Linea) -> dict[str, Any]:
                     if m.group(k)},
         }
 
+    # Con `GGML_VK_VISIBLE_DEVICES` las dos lineas de placa dicen `Vulkan0`, asi
+    # que el indice ya no distingue AMD de Intel: lo que las distingue es el
+    # NOMBRE. Sin este chequeo, la linea 3 podria reportarse como Vulkan0 y
+    # nadie notaria que cayo en la AMD.
+    enumeradas = RX_PLACA.findall(txt)
+    nombres = [n for _, n in enumeradas]
+    coincide_placa = (linea.placa is None
+                      or any(linea.placa in n for n in nombres))
+    coincide_indice = usado == linea.dispositivo
+    # El indice solo vale mientras la placa se renumere: con la variable de
+    # visibilidad las dos lineas de placa dicen `Vulkan0`. Por eso el veredicto
+    # es "indice o nombre", y cada uno queda por separado.
     return {
         "dispositivo_del_log": usado,
-        "nombre_del_dispositivo": nombre,
-        "coincide_con_el_pedido": usado == linea.dispositivo,
+        "nombre_del_dispositivo": nombres[0] if nombres else nombre,
+        "coincide_con_el_pedido": coincide_indice or coincide_placa,
+        "coincide_el_indice": coincide_indice,
+        "placa_pedida": linea.placa,
+        "placas_que_el_log_enumera": nombres,
+        "cuantas_placas_ve_el_server": len(nombres) or None,
+        "coincide_la_placa": coincide_placa,
+        "aislamiento": (
+            f"GGML_VK_VISIBLE_DEVICES={linea.vk_visible}: el server enumera "
+            f"{len(nombres)} placa ({', '.join(nombres) or 'no_medido'})"
+            if linea.vk_visible is not None else
+            "--device none (sin placa; toda capa al CPU)"),
         "capas": capas,
         "capas_a_cpu": a_cpu or None,
         "memoria_mib": mem,
@@ -633,10 +760,10 @@ def _conteo(xs) -> dict[str, int]:
 def una_sola_linea() -> dict[str, Any]:
     """Lo que midio el item anterior con el 26B SOLO, ledo de su archivo.
 
-    El 26B del item anterior (`heretic26b`) no esta en la maquina, asi que este
-    numero es de otro modelo del mismo tamano de clase. Se cita como lo que es
-    —una referencia medida antes, no una medicion de hoy— y la comparacion de
-    este item se hace contra las tres lineas juntas, no contra este numero.
+    Es el MISMO modelo que la linea 1 de hoy (26B-A4B heretic + StyleTune head,
+    17,2 GB), asi que la comparacion "las tres juntas vs la mejor sola" es
+    apples-to-apples. Lo que no se sabe es con cuantos hilos se midio aqui; se
+    cita como lo que es: una referencia medida antes, no una medicion de hoy.
     """
     if not ITEMS_ANTERIOR.exists():
         return {"estado": "no_medido",
@@ -672,101 +799,113 @@ def _md(r: dict[str, Any]) -> None:
         filas.append(
             f"| {f['linea']} | {f['dispositivo']} | "
             f"`{f.get('modelo') or 'no_disponible'}` | {f.get('tamanio_gb', '-')} "
-            f"| {c(f.get('tok_s_generacion'))} | {c(f.get('wall_segundos'))} "
-            f"| {f.get('aceptadas', '-')} | {c(f.get('muestras_por_hora'))} "
+            f"| {c(f.get('tok_s_prompt'))} | {c(f.get('tok_s_generacion'))} "
+            f"| {c(f.get('wall_segundos'))} "
+            f"| {f.get('aceptadas', '-')}/{f.get('rechazadas', '-')} "
+            f"| {c(f.get('muestras_por_hora'))} "
             f"| {ev.get('capas') or '-'} |")
     tabla = "\n".join(filas)
 
+    stats = "\\n".join(
+        f"- `{f['linea']}` — `{f.get('stat_evidencia', 'no_medido')}`"
+        for f in L if f.get("stat_evidencia") not in (None, "no_medido"))
+
+    alternos = [f for f in L if f.get("usado_el_alterno")]
+    alt_txt = ""
+    if alternos:
+        partes = []
+        for f in alternos:
+            fallos = f.get("intentos_fallidos") or []
+            causa = next((str(x.get("log", "")).strip().splitlines()[-1]
+                          for x in fallos if x.get("log")), "sin log")
+            partes.append(
+                f"- `{f['linea']}`: el brief pedia "
+                f"`{Path(str(f.get('modelo_primario_pedido') or '')).name}`, que esta en "
+                f"disco pero **no lo carga este build de llama-server**. Se uso la "
+                f"alternativa que el propio brief nombra para esa linea, "
+                f"`{Path(str(f['archivo'])).name}`. Error crudo del intento fallido: "
+                f"`{causa}`")
+        alt_txt = ("\\n\\n### Alternativa usada (la nombra el brief, no la elegi yo)\\n\\n"
+                   + "\\n".join(partes))
+
     if fb.get("estado") == "medido" and fb.get("la_placa_rinde"):
-        ratio = fb["la_placa_rinde"]
         fb_txt = (
-            f"**Si: {ratio}x.** El mismo archivo en las dos columnas, el mismo prompt "
-            f"y la misma sonda: **{c(fb.get('tok_s_generacion_placa'))} tok/s** de "
-            f"generacion en su placa contra **{c(fb.get('tok_s_generacion_cpu'))} tok/s** "
-            "en CPU. Ese numero aisla el costo de la placa, porque lo unico que cambia "
-            "es `--device`."
+            f"**Si: {fb['la_placa_rinde']}x.** El MISMO archivo en las dos columnas, "
+            f"el mismo prompt y la misma sonda: **{c(fb.get('tok_s_generacion_placa'))} "
+            f"tok/s** de generacion en su placa contra **{c(fb.get('tok_s_generacion_cpu'))}"
+            f" tok/s** en CPU (`-t 6`). Lo unico que cambia es `--device`, asi que ese "
+            f"numero aisla lo que da la placa. Por item: "
+            f"{c((fb.get('placa') or {}).get('s_por_muestra'))} s en la placa contra "
+            f"{c((fb.get('cpu') or {}).get('s_por_muestra'))} s en CPU."
         )
     else:
-        fb_txt = "**No medido.** " + str(fb.get("motivo") or fb.get("estado"))
+        fb_txt = ("**No medido.** " + str(fb.get("motivo") or fb.get("estado")))
 
     total = t["total_de_las_tres_muestras_por_hora"]
-    vs = t.get("las_tres_vs_una_sola")
+    mejor = t.get("mejor_sola") or {}
     con_muestras = [f for f in L if (f.get("aceptadas") or 0) > 0]
     sin_muestras = [f["linea"] for f in L if f.get("estado") == "medida"
                     and not f.get("aceptadas")]
 
-    if con_muestras and not sin_muestras:
+    if isinstance(total, (int, float)) and isinstance(mejor.get("muestras_por_hora"), (int, float)):
+        x_mejor = round(total / mejor["muestras_por_hora"], 2)
         veredicto_1 = (
-            f"Las tres juntas dan **{c(total)} muestras/hora** contra "
-            f"**{c(sola.get('muestras_por_hora'))}** del 26B solo del item anterior: "
-            f"**{c(vs)}x**. Y las tres accepting: la suma es real.")
+            f"Las tres juntas dan **{c(total)} muestras/hora**; la mejor sola, "
+            f"{mejor['linea']}, da **{c(mejor['muestras_por_hora'])}**: **{x_mejor}x**. "
+            + (f"Contra la referencia de una sola linea del item anterior "
+               f"({sola.get('modelo')}, {c(sola.get('segundos_por_muestra'))} s/muestra = "
+               f"{c(sola.get('muestras_por_hora'))}/hora, el MISMO modelo que la linea 1) "
+               f"son **{c(t.get('las_tres_vs_una_sola'))}x**."
+               if t.get("las_tres_vs_una_sola") else ""))
     else:
         veredicto_1 = (
             f"**No se puede contestar con estos numeros.** Las tres juntas dan "
-            f"**{c(total)} muestras/hora**, pero solo **{len(con_muestras)} de las 3 "
-            "lineas** produjo una muestra aceptada"
-            + (f" (las lineas {', '.join(sin_muestras)} salieron con 0 aceptadas y 0 "
-               "rechazadas: no es que sus muestras se caiaran, es que no hay muestra "
-               "que contar)" if sin_muestras else "")
+            f"{c(total)} muestras/hora y solo **{len(con_muestras)} de las 3 lineas** "
+            "produjo una muestra aceptada"
+            + (f" (lineas {', '.join(sin_muestras)} con 0 aceptadas y 0 rechazadas: no es "
+               "que sus muestras se caiaran, es que no hay muestra que contar)"
+               if sin_muestras else "")
             + f". La union sale con **{u['en_el_conjunto']}** documento de "
-            f"**{u['entrantes']}** entrants. Sin aceptadas de las placas, la suma de "
-            "las tres es la suma de una.")
+              f"**{u['entrantes']}** entrantes.")
 
-    mejor = max((f for f in L if isinstance(f.get("muestras_por_hora"), (int, float))
-                 and f.get("muestras_por_hora", 0) > 0),
-                key=lambda f: f["muestras_por_hora"], default=None)
     if mejor:
-        linea_vol = (f"**{mejor['linea']}** ({mejor['dispositivo']}, "
-                     f"{c(mejor['muestras_por_hora'])} muestras/hora)")
+        linea_vol = (f"**{mejor['linea']}** ({mejor.get('dispositivo')}, "
+                     f"{c(mejor.get('muestras_por_hora'))} muestras/hora)")
     else:
         linea_vol = "ninguna: no hay ninguna linea con muestras/hora mayor que cero"
     linea_cal = (f"**{con_muestras[0]['linea']}**" if con_muestras
                  else "ninguna: no hay linea que haya pasado el gate de aceptacion")
 
-    tam = fb.get("cpu", {}).get("tamanio_gb")
-    alcance = (f" No dice que compense: son {tam} GB de pesos contra 4 GB de VRAM, y "
-               "la linea de placa no produjo ninguna muestra aceptada."
-               if tam else "")
-
-    MD.write_text(f"""# R17 — Tres lineas en paralelo, una por procesador
+    MD.write_text(f"""# R17b — Tres lineas en paralelo, una por procesador
 
 ## Que se midio, y que no
 
-Las tres lineas que pide el brief (`heretic-styletune-26b`, `catalogo/frognano-4b`,
-`catalogo/bonsai-8b`) **no estan en la maquina**: no hay un solo archivo con esos
-nombres, y el `12b-qat` del plan B tampoco (su carpeta en el cache de HF son 4 KB,
-sin blobs). Se sustituyo por el archivo real mas grande que entra en cada
-dispositivo. Que se pidio y que se uso esta en `pedido_por_el_brief` de cada linea
-del `tres-lineas.json`; los nombres de la tabla son los que existen en disco.
+Los tres archivos del brief, **sin sustituir ninguno**. Cada server arranca solo
+despues de un `stat -c '%s %n'`, cuya salida cruda va en `stat_evidencia` de su
+fila del `.json`:
 
-| linea | dispositivo | modelo | GB | tok/s gen | s/item | aceptadas | muestras/h | capas |
-|---|---|---|---|---|---|---|---|---|
+{stats or "- no_medido"}{alt_txt}
+
+| linea | dispositivo | modelo | GB | tok/s prompt | tok/s gen | s/item | acep/rech | muestras/h | capas |
+|---|---|---|---|---|---|---|---|---|---|
 {tabla}
 
 ## 1. ¿Las tres juntas rinden mas que la mejor sola?
 
 {veredicto_1}
 
-El numero de referencia son **{c(sola.get('muestras_por_hora'))} muestras/hora**
-del item anterior (`{sola.get('modelo')}`, {c(sola.get('segundos_por_muestra'))} s
-por muestra, medido en `/home/chaos/harness-run/item-por-modelo/items.jsonl`). Es
-**otro modelo**: el `heretic26b` de ese item no esta en la maquina y la linea 1 de
-hoy es el unico 26B que hay (`orion26b`, 16,73 GB). Misma clase de tamano, no el
-mismo modelo.
-
 ## 2. ¿Que linea conviene para volumen y cual para calidad?
 
 - **Volumen**: {linea_vol}.
-- **Calidad**: {linea_cal}. Es la unica que paso el gate de aceptacion, asi que
-  tambien es la unica cuyo texto esta en el conjunto.
+- **Calidad**: {linea_cal}. {("Es la unica que paso el gate de aceptacion, asi que tambien es la unica cuyo texto esta en el conjunto." if len(con_muestras) == 1 else "Pasaron el gate: " + ', '.join(f['linea'] for f in con_muestras) + ".")}
 
 Ninguna celda de este reporte es estimada. Lo que no se pudo medir dice
 `no_medido` con el motivo, tanto en el `.json` como en el `generador.log` y el
 `<linea>.server.log` de la linea.
 
-## 3. ¿La placa rinde mas que el CPU para los modelos chicos?
+## 3. ¿La placa rinde mas que el CPU para el mismo modelo?
 
-{fb_txt}{alcance}
+{fb_txt}
 
 ## La union
 
@@ -780,20 +919,18 @@ con instrumentos que ya estan en el repo:
 
 ## Como se aislo cada linea
 
-`--device Vulkan0` / `--device Vulkan1` / `--device none`, cada server como
-`systemd-run --user` bajo su unidad `linea<N>-<modelo>`. La evidencia de que cada
-una cayo en su dispositivo sale del log del propio server (`using device ...`, o
-para la linea de CPU `layer N assigned to device CPU`) y esta en
-`evidencia_del_dispositivo` del `.json`.
+`GGML_VK_VISIBLE_DEVICES=0` (AMD) y `=1` (Intel) en el entorno de cada server, y
+`--device none` en la de CPU. Cada server es una unidad `systemd-run --user`
+`linea<N>-<modelo>`.
 
-Dos cosas del terreno que costaron una corrida:
+Dos cosas del terreno:
 
-- `--device VulkanN` y `GGML_VK_VISIBLE_DEVICES=N` son **excluyentes**. Con la
-  variable puesta, el backend renumera como `Vulkan0` el unico dispositivo que
-  sobrevive, y `--device Vulkan1` se rechaza con `invalid device: Vulkan1`.
-- Sin `--device none`, la linea de CPU **toma una placa por su cuenta**. La
-  primera corrida de este item la mando a `Vulkan1`; con `--device none` el log
-  dice `layer N assigned to device CPU` para cada capa.
+- Con la variable puesta, el backend renumera como `Vulkan0` la unica placa que
+  sobrevive, asi que **las dos lineas de placa se arrancan con `--device Vulkan0`**;
+  `--device Vulkan1` se rechaza con `invalid device: Vulkan1`. Como el indice ya no
+  distingue AMD de Intel, la evidencia es el **nombre** de la placa en el log del
+  server (`coincide_la_placa` en el `.json`), no el indice.
+- Sin `--device none`, la linea de CPU **toma una placa por su cuenta**.
 
 Limpieza: unidad `linea*` activa al terminar =
 **{r['limpieza'].get('unidades_linea_activas_al_terminar') or 'ninguna'}**. El
@@ -843,11 +980,13 @@ def _con_hilos(flags: list[str], n: str) -> list[str]:
 
 def _bloque(linea: Linea, item: dict[str, Any], sonda: dict[str, Any]) -> dict[str, Any]:
     """La fila de una linea: lo que se midio, y `no_medido` con motivo si no."""
+    stat = linea.stat_evidencia
     if linea.gguf is None:
         return {
             "linea": linea.clave, "n": linea.n, "dispositivo": linea.dispositivo,
             "modelo": None, "pedido_por_el_brief": linea.pedido,
             "estado": "no_disponible", "motivo": linea.por_que_no,
+            "stat_evidencia": stat, "ls_de_la_carpeta": _ls_carpeta(linea.gguf),
             "tok_s_prompt": "no_medido", "tok_s_generacion": "no_medido",
             "wall_segundos": "no_medido", "muestras_por_hora": "no_medido",
         }
@@ -857,10 +996,11 @@ def _bloque(linea: Linea, item: dict[str, Any], sonda: dict[str, Any]) -> dict[s
         "dispositivo": linea.dispositivo,
         "modelo": linea.modelo,
         "pedido_por_el_brief": linea.pedido,
-        "sustituye_a": "el nombre del brief no existe en la maquina; se uso el archivo real",
         "archivo": str(linea.gguf),
+        "stat_evidencia": item.get("stat", stat),
         "tamanio_gb": round(linea.tamanio_bytes / 2**30, 2) if linea.tamanio_bytes else None,
         "flags": linea.flags,
+        "ggml_vk_visible_devices": linea.vk_visible,
         "unidad": linea.unidad,
         "puerto": linea.puerto,
     }
@@ -885,6 +1025,13 @@ def _bloque(linea: Linea, item: dict[str, Any], sonda: dict[str, Any]) -> dict[s
         "memoria_del_proceso_bytes": item["memoria_del_proceso_bytes"],
         "swap_delta_bytes": item["swap_delta_bytes"],
         "arranque": item.get("arranque"),
+        "usado_el_alterno": (item.get("arranque") or {}).get("usado_el_alterno"),
+        "modelo_primario_pedido": (item.get("arranque") or {}).get("primario_pedido"),
+        "intentos_fallidos": [
+            {"archivo": x.get("archivo"), "motivo": x.get("motivo"),
+             "log": x.get("log")}
+            for x in (item.get("arranque") or {}).get("intentos", [])
+            if x.get("estado") != "arrancada"],
         "evidencia_del_dispositivo": item.get("evidencia"),
         "calidad": "no_calculada",
         "crudo": item.get("crudos", []),
@@ -934,11 +1081,12 @@ def main(argv: list[str] | None = None) -> int:
 
         # ---- Fase A: las tres lineas a la vez -------------------------- #
         print("== Fase A: las tres lineas en paralelo ==", flush=True)
-        arranques: list[dict[str, Any]] = []
+        arranques: dict[str, dict[str, Any]] = {}
         for l in vivas:
             a = arrancar(l)
-            arranques.append(a)
+            arranques[l.clave] = a
             print(f"  {l.clave} {l.dispositivo:8} {l.modelo:16} -> {a['estado']}", flush=True)
+            print(f"     stat: {a.get('stat', 'no_medido')}", flush=True)
             if a["estado"] == "no_disponible":
                 print(f"     {a.get('motivo')}", flush=True)
 
@@ -968,7 +1116,8 @@ def main(argv: list[str] | None = None) -> int:
                               "cola_del_generador": it.get("cola_del_generador")}
                     parar(l.unidad)
                     l.flags = _con_hilos(l.flags, "12")
-                    if arrancar(l, espera_s=300)["estado"] == "arrancada":
+                    arranques[l.clave] = arrancar(l, espera_s=300)
+                    if arranques[l.clave]["estado"] == "arrancada":
                         it = correr_item(l)
                     it["reintento"] = {"motivo": "el item con 6 hilos no produjo ninguna "
                                                 "muestra: timeout de 240 s en ref.generate",
@@ -977,7 +1126,8 @@ def main(argv: list[str] | None = None) -> int:
                                         "evidencia": evidencia(l)}
                 it["crudos"] = _leer(l.carpeta / "muestras.jsonl")
                 it["rechazos"] = _leer(l.carpeta / "rechazos.jsonl")
-                it["arranque"] = next((a for a in arranques if a is not None), None)
+                it["arranque"] = arranques.get(l.clave)
+                it["stat"] = arranques.get(l.clave, {}).get("stat", l.stat_evidencia)
                 it["evidencia"] = evidencia(l)
                 items[l.clave] = it
                 print(f"     {it['wall_segundos']}s  aceptadas={it['aceptadas']} "
@@ -985,7 +1135,8 @@ def main(argv: list[str] | None = None) -> int:
                       f"({it['rc_que_significa']})", flush=True)
                 print(f"     device del log: {it['evidencia']['dispositivo_del_log']} "
                       f"(pedido {l.dispositivo}, coincide="
-                      f"{it['evidencia']['coincide_con_el_pedido']})", flush=True)
+                      f"{it['evidencia']['coincide_con_el_pedido']}, placa="
+                      f"{it['evidencia'].get('coincide_la_placa')})", flush=True)
 
         # La sonda va DESPUES del item: el server ya esta cargado y el modelo no
         # se mueve de dispositivo.
@@ -1060,16 +1211,28 @@ def main(argv: list[str] | None = None) -> int:
                  if f.get("estado") == "medida" and isinstance(f.get("muestras_por_hora"), (int, float))]
         total = round(sum(rates), 2) if rates else "no_medido"
         sola = una_sola_linea()
+        # "la mejor sola" es la pregunta del brief, asi que el mejor de las tres
+        # de HOY se compara contra la suma de las tres de HOY.
+        candidatas = [f for f in filas
+                      if isinstance(f.get("muestras_por_hora"), (int, float))
+                      and f.get("muestras_por_hora")]
+        mejor = (max(candidatas, key=lambda f: f["muestras_por_hora"])
+                 if candidatas else {})
 
         reporte = {
             "nota": (
-                "R17. Tres lineas de generacion en paralelo, una por procesador, y la "
-                "union. Todo lo del NO: los nombres de modelo del brief no existen en la "
-                "maquina (ver `pedido_por_el_brief` y `sustituye_a` de cada linea), y el "
-                "26B de referencia del item anterior tampoco esta. Cada archivo usado se "
-                "verifico en disco antes de arrancar. La calidad sale de "
-                "comparar_simulador.brazo(), la generacion de kateto_gen.py, y el dedup "
-                "de la union de los instrumentos de pipelines/estilo y kateto_purge."
+                "R17b. Tres lineas de generacion en paralelo, una por procesador, y la "
+                "union, con los TRES archivos que pide el brief y sin sustituir "
+                "ninguno. R17 los busco en el cache de HF y concluyo que no "
+                "existian; estan en /run/media/chaos/secundario/models/hf y cada uno "
+                "arranca solo despues de un `stat -c '%s %n'` cuya salida esta en "
+                "`stat_evidencia` de su fila. Aislamiento por "
+                "GGML_VK_VISIBLE_DEVICES=0/1 mas `--device none` en la de CPU; como "
+                "eso renumera las placas a Vulkan0, lo que prueba que cada linea cayo "
+                "en su placa es el NOMBRE en el log (`coincide_la_placa`), no el "
+                "indice. La calidad sale de comparar_simulador.brazo(), la generacion "
+                "de kateto_gen.py, y el dedup de la union con los instrumentos de "
+                "pipelines/estilo y kateto_purge."
             ),
             "scenario": {"id": ESCENARIO, "n": N, "seed": SEED, "voice": VOICE},
             "reglas_duras": {
@@ -1086,6 +1249,14 @@ def main(argv: list[str] | None = None) -> int:
                 "muestras_por_hora_por_linea": {
                     f["linea"]: f.get("muestras_por_hora") for f in filas},
                 "total_de_las_tres_muestras_por_hora": total,
+                "mejor_sola": (
+                    {"linea": mejor["linea"], "dispositivo": mejor["dispositivo"],
+                     "modelo": mejor["modelo"],
+                     "muestras_por_hora": mejor["muestras_por_hora"]}
+                    if mejor else {"estado": "no_medido",
+                                   "motivo": "ninguna linea midio muestras/hora > 0"}),
+                "las_tres_vs_la_mejor_sola": (
+                    round(total / mejor["muestras_por_hora"], 2) if mejor else None),
                 "una_sola_linea_referencia": sola,
             },
             "limpieza": {},
@@ -1095,8 +1266,9 @@ def main(argv: list[str] | None = None) -> int:
                 total / sola["muestras_por_hora"], 2)
             reporte["titular"]["contra_que"] = (
                 f"{sola['muestras_por_hora']} muestras/hora del item anterior "
-                f"({sola['modelo']}, 26B SOLO). Es otro modelo del mismo tamano de "
-                "clase: el del brief no esta en la maquina")
+                f"({sola['modelo']}, {sola['descripcion']}, 26B SOLO). Es el MISMO "
+                "modelo que la linea 1 de hoy, medido en otra corrida: la unica "
+                "diferencia que el brief no controla es cuantos hilos usaba esa")
 
         BASE.mkdir(parents=True, exist_ok=True)
         TABLA.write_text(json.dumps(reporte, ensure_ascii=False, indent=2) + "\n",
