@@ -523,6 +523,74 @@ RX_SPANGLISH = re.compile(r"\b(worries|worry|okay|okey|whatever|actually|basical
 # voces ajenas ahi adentro y eso no es spanglish del personaje.
 RX_CITAS = re.compile(r'"[^"]*"|\'[^\']*\'|«[^»]*»')
 
+# --------------------------------------------------------------------------
+# R16 — whitelist de términos técnicos
+# --------------------------------------------------------------------------
+# Decisión del dueño: "el spanglish no va, EXCEPTO en términos en donde sus
+# palabras originales sí son inglesas, como RAM, GPU, github, git, huggingface".
+# La lista de arriba NO afloja: sigue rechazando. Lo unico que hace esta lista es
+# excepcionar, palabra por palabra, los préstamos técnicos que en castellano
+# rioplatense se dicen en ingles.
+#
+# CRITERIO (para que la lista no se arme a ojo): entra solo si en castellano
+# rioplatense se dice ASI y no hay traducción de uso. Decimos "el commit", no "la
+# confirmación"; decimos "la RAM", no "la memoria de acceso aleatorio". No entra
+# una palabra en ingles con equivalente corriente: `worry` -> "preocupación",
+# `okay` -> "dale/está bien". Por eso `worries`, `okay` y `okey` SIGUEN en
+# `RX_SPANGLISH`: el dueño los confirmó como spanglish aunque aparezcan en su voz
+# real, y no son términos técnicos.
+#
+# `differente` NO va acá: no es inglés, es una variante del castellano, ya salió
+# de la lista en R12 y no tiene nada que ver con un préstamo técnico.
+#
+# ÚNICA fuente de verdad. La regla de purga (`pipelines/kateto_gen.py::validar`)
+# y las mediciones bajan todas de acá: no hay una segunda copia de la lista.
+TERMINOS_TECNICOS: tuple[str, ...] = (
+    # hardware / infraestructura
+    "ram", "vram", "cpu", "gpu", "ssd", "hdd", "usb", "hdmi", "pc", "vps",
+    "driver", "drivers", "kernel",
+    # desarrollo / control de versiones
+    "git", "github", "gitlab", "huggingface", "python", "docker", "bash", "shell",
+    "terminal", "script", "scripts", "commit", "commits", "push", "pull",
+    "merge", "rebase", "branch", "branches", "repo", "repos", "repositorio",
+    "pull request",
+    # formatos / interfaces
+    "json", "jsonl", "yaml", "toml", "csv", "xml", "markdown",
+    "api", "apis", "sdk", "cli", "gui", "url", "urls", "http", "https",
+    "localhost", "endpoint", "endpoints", "port", "puerto", "xd",
+    # IA / modelo
+    "prompt", "prompts", "token", "tokens", "tokenizer", "chat", "chats",
+    "chatbot", "chat de voz", "stream", "streams", "streaming",
+    "server", "servers", "server-side", "plugin", "plugins",
+    "dataset", "datasets", "benchmark", "fine-tuning", "fine tuning", "lora",
+    "qlora", "adapter", "checkpoint", "checkpoints", "embedding", "embeddings",
+    "llm", "rag", "gguf", "ggml", "cuda", "rocm", "fps",
+    # red / sistemas
+    "dns", "tcp", "udp", "ip", "backup",
+)
+
+# `fullmatch` en `spanglish_en`: el match es por palabra COMPLETA, case-insensitive
+# (`GPU`, `gpu`, `Gpu` son lo mismo). Los `\b` de los dos lados de esta regex ya
+# alcanzan para que `ram` no matchee dentro de "programa" ni `chat` dentro de
+# "chatear" (que es castellano, no spanglish). El plural y el guion van en la
+# lista misma (`scripts`, `fine-tuning`), no como regla aparte.
+RX_TECNICOS = re.compile(r"\b(?:%s)\b" % "|".join(map(re.escape, TERMINOS_TECNICOS)), re.I)
+
+
+def spanglish_en(turno_voz: str) -> list[str]:
+    """Las palabras de spanglish de un turno de la VOZ, whitelist ya descontada.
+
+    Vive acá y no en el cuerpo de `validate` para que la midición y los tests
+    usen la MISMA regla y no una copia que se desincronice.
+
+    NFC antes de matchear, igual que `_tuteo_en`: sin eso la respuesta depende de
+    como venga la cadena. Nada de NFKD ni de Strip, que romperian el `\b` y
+    reincorporarian los acentos combinantes como si fueran parte de la palabra.
+    """
+    sin_citas = RX_CITAS.sub("", unicodedata.normalize("NFC", turno_voz))
+    return [m.group(0).lower() for m in RX_SPANGLISH.finditer(sin_citas)
+            if not RX_TECNICOS.fullmatch(m.group(0))]
+
 
 def validate(sample: str, *, voice: str = "seco", require_tool: bool = False,
              min_turns: int = 2, require_voseo: bool = True,
@@ -704,9 +772,7 @@ def validate(sample: str, *, voice: str = "seco", require_tool: bool = False,
     # entre comillas dentro del turno de la voz se eximen: ahi cita voces ajenas.
     if not permitir_spanglish:
         for m_v in re.finditer(rf"<\|im_start\|>{re.escape(voice)}\s*(.*?)<\|im_end\|>", sample, re.S):
-            sin_citas = RX_CITAS.sub("", m_v.group(1))
-            for m_sp in RX_SPANGLISH.finditer(sin_citas):
-                errs.append(f"spanglish({m_sp.group(0).lower()})")
+            errs += [f"spanglish({p})" for p in spanglish_en(m_v.group(1))]
 
     if require_tool and not llamadas:
         errs.append("sin_tool_call")
