@@ -56,7 +56,7 @@ OUT_YOUTUBE = OUT_DIR / "rwkv_kateto_largo_youtube.jsonl"
 OUT_STATS = OUT_DIR / "estadisticas.json"
 DEFAULT_CONECTORES_CACHE = OUT_DIR / "conectores_cache.json"
 VIDEO_RAG_CONFIG = Path(os.path.expanduser("~/.config/video-rag/config.toml"))
-DEFAULT_TXT_DIR = Path(os.environ.get("KATETO_TRANSCRIPTS", "/home/chaos/tmp/kateto-corpus/transcripts"))
+DEFAULT_TXT_DIR = Path("/home/chaos/tmp/kateto-corpus/transcripts")
 
 EST_PER_TOKEN = 3.2  # chars por token (estimador barato del brief)
 BUCKETS = [8000, 16000, 32000, 64000, 128000, 256000, 512000, 1048576]

@@ -548,8 +548,8 @@ print(chat([{'role': 'system', 'content': SYSTEM},
 # %% [9] Export + download
 model.save_pretrained(f'{WORK}/kateto-final')
 tok.save_pretrained(f'{WORK}/kateto-final')
+!cd {WORK} && zip -r kateto-lora.zip kateto-final
 import os
-os.system(f'cd {WORK} && zip -r kateto-lora.zip kateto-final')
 print('Resultado:', os.path.abspath(f'{WORK}/kateto-lora.zip'))
 if WORK == '/content':
     from google.colab import files

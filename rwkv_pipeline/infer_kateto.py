@@ -23,7 +23,7 @@ os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from typing import List
+from typing import List, Tuple
 
 PROJECT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT / "RWKV-PEFT"))
@@ -214,7 +214,7 @@ class RWKV_RNN(torch.jit.ScriptModule):
         self.z = z
 
     @torch.jit.script_method
-    def forward(self, token: int, state: List[torch.Tensor]):
+    def _step(self, token: int, state: List[torch.Tensor]) -> Tuple[torch.Tensor, List[torch.Tensor], torch.Tensor]:
         with torch.no_grad():
             z = self.z
             x = z['emb.weight'][token]
@@ -243,7 +243,14 @@ class RWKV_RNN(torch.jit.ScriptModule):
 
             x = F.layer_norm(x, (self.n_embd,), weight=z['ln_out.weight'], bias=z['ln_out.bias'])
             logits = z['head.weight'] @ x
-            return logits, state
+            # `x` sale del `layer_norm` final, o sea es la entrada del head: es lo
+            # que ROSA necesita para su rama en paralelo.
+            return logits, state, x
+
+    @torch.jit.script_method
+    def forward(self, token: int, state: List[torch.Tensor]) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+        logits, state, _ = self._step(token, state)
+        return logits, state
 
 def sample_logits(logits: torch.Tensor, temperature: float = 0.8, top_p: float = 0.7, occurrence: dict = None, alpha_presence: float = 0.5, alpha_frequency: float = 0.4) -> int:
     if occurrence:
@@ -264,13 +271,16 @@ def sample_logits(logits: torch.Tensor, temperature: float = 0.8, top_p: float =
 # PIPELINE DE INFERENCIA
 # ==============================================================================
 class KatetoInferenceEngine:
-    def __init__(self, model_path: str, vocab_path: str, device="cuda"):
+    def __init__(self, model_path: str, vocab_path: str, device="cuda",
+                 rosa: bool = False, rosa_retrieval_dim: int = 128,
+                 rosa_head: str = ""):
         self.device = device
         self.dtype = torch.bfloat16 if device == "cuda" else torch.float32
         self.tokenizer = RWKV_TOKENIZER(vocab_path)
 
         checkpoint = torch.load(model_path, map_location="cpu")
         self.n_embd = checkpoint["emb.weight"].shape[1]
+        self.vocab_size = checkpoint["head.weight"].shape[0]
         self.n_layer = 0
         while f"blocks.{self.n_layer}.att.r_k" in checkpoint:
             self.n_layer += 1
@@ -303,6 +313,50 @@ class KatetoInferenceEngine:
         self.states = {}
         self.base_path = str(Path(model_path).resolve())
         self.base_fingerprint = base_fingerprint(model_path)
+
+        # ROSA: rama paralela al head, apagada por defecto. Con `rosa=False` no se
+        # importa el modulo ni se instancia nada, y `_forward` es el `forward` crudo.
+        self.rosa = None
+        self.rosa_memory = None
+        if rosa:
+            try:
+                from rwkv_pipeline.rosa_module import RosaAssociativeMemory
+            except ImportError:  # invocacion como script directo (ver _stop_helpers)
+                from rosa_module import RosaAssociativeMemory
+            self.rosa = RosaAssociativeMemory(
+                vocab_size=self.vocab_size, hidden_dim=self.n_embd,
+                retrieval_dim=rosa_retrieval_dim).to(
+                    device=self.device, dtype=self.dtype).eval()
+            for p in self.rosa.parameters():
+                p.requires_grad_(False)
+            n_rosa = sum(p.numel() for p in self.rosa.parameters())
+            if rosa_head:
+                # El head se entrena contra una arch y un vocab concretos. Si no
+                # matchean, `load_state_dict` falla con una forma rarisima o peor:
+                # carga parcial. Chequeo explicito, con el nombre del campo.
+                ck = torch.load(rosa_head, map_location="cpu")
+                sd = ck["state_dict"] if "state_dict" in ck else ck
+                for campo, mio, suyo in (
+                        ("n_embd", self.n_embd, ck.get("n_embd")),
+                        ("vocab_size", self.vocab_size, ck.get("vocab_size")),
+                        ("retrieval_dim", rosa_retrieval_dim, ck.get("retrieval_dim"))):
+                    if suyo is not None and suyo != mio:
+                        raise SystemExit(
+                            f"[Kateto] el head ROSA de '{rosa_head}' fue entrenado con "
+                            f"{campo}={suyo} pero el modelo que estas cargando tiene "
+                            f"{campo}={mio}. Son de otro tamaño de modelo: midiendo "
+                            f"cualquier cosa. No se carga.")
+                self.rosa.load_state_dict(sd)
+                print(f"[Kateto] ROSA encendida con PESOS ENTRENADOS de '{rosa_head}' "
+                      f"(step {ck.get('step', '?')}, +{n_rosa:,} params): la rama suma "
+                      f"gate*rosa_logits sobre los logits del head.", file=sys.stderr)
+            else:
+                print(f"[Kateto] ROSA encendida en paralelo al head: +{n_rosa:,} params "
+                      f"inference-only. OJO: pesos RANDOM sin entrenar (no se paso "
+                      f"rosa_head) -- la rama suma gate*rosa_logits a los logits, pero "
+                      f"todavia no hay pesos que aporten nada, asi que el texto puede "
+                      f"salir identico al de la base.", file=sys.stderr)
+
         if device == "cuda":
             # ponytail: one probe forward; full HIP failure taxonomy if more failure modes appear
             try:
@@ -371,14 +425,30 @@ class KatetoInferenceEngine:
         parts.append(f"<|im_user|>{prompt.strip()}<|im_end|>\n<|im_start|>{voice}\n")
         return "".join(parts)
 
+    def _forward(self, tok: int, state: List[torch.Tensor]):
+        """Un token del RNN, con la rama ROSA mezclada encima si esta encendida.
+
+        Apagado devuelve exactamente lo que devuelve `RWKV_RNN.forward`: mismo
+        metodo, mismos tensores. Encendido consulta la memoria KV incremental
+        (`rosa_memory`) y suma `gate * rosa_logits` sobre los logits del head.
+        """
+        if self.rosa is None:
+            out, state = self.model.forward(tok, state)
+            return out, state
+        out, state, hidden = self.model._step(tok, state)
+        rosa_logits, gate, self.rosa_memory = self.rosa.step_infer(
+            hidden.view(1, 1, -1), self.rosa_memory)
+        return out + gate.view(-1) * rosa_logits.view(-1), state
+
     def generate(self, prompt: str, voice: str = "none", max_tokens: int = 120, temperature: float = 0.7, top_p: float = 0.65, alpha_presence: float = 0.6, alpha_frequency: float = 0.5, history: "list[tuple[str, str]] | None" = None, max_history: int = 4, allow_no_response: bool = False, ngram_n: int = 3, ngram_repeat_max: int = 12) -> str:
         state = self.build_initial_state("seco" if voice == "none" else voice)
         formatted = self.format_chat_prompt(prompt, voice, history, max_history)
         prompt_tokens = self.tokenizer.encode(formatted)
 
+        self.rosa_memory = None
         out = None
         for tok in prompt_tokens:
-            out, state = self.model.forward(tok, state)
+            out, state = self._forward(tok, state)
 
         im_end_ids = self.tokenizer.encode("<|im_end|>")
         im_user_ids = self.tokenizer.encode("<|im_user|>")
@@ -428,7 +498,7 @@ class KatetoInferenceEngine:
             if "<|endoftext|>" in text_so_far:
                 stop_reason = "marker"
                 break
-            out, state = self.model.forward(tok, state)
+            out, state = self._forward(tok, state)
         else:
             stop_reason = "max_tokens"
         if stop_reason is None:
@@ -553,6 +623,7 @@ def main():
     parser.add_argument("--chat", action="store_true", help="Forzar modo chat interactivo con historial temporal")
     parser.add_argument("--max_history", type=int, default=10, help="Turnos previos a incluir como contexto en chat")
     parser.add_argument("--test_suite", action="store_true", help="Ejecutar batería de preguntas clave")
+    parser.add_argument("--rosa", action="store_true", help="Encender ROSA (memoria asociativa) como rama paralela al head. Apagado por defecto: sin el flag la salida es identica a la de siempre.")
     args = parser.parse_args()
 
     model_path = args.model
@@ -570,7 +641,7 @@ def main():
         vocab_path = PROJECT / "RWKV-LM/RWKV-v7/rwkv_vocab_v20230424.txt"
 
     device = args.device or os.environ.get("INFER_DEVICE") or get_device()
-    engine = KatetoInferenceEngine(model_path, str(vocab_path), device=device)
+    engine = KatetoInferenceEngine(model_path, str(vocab_path), device=device, rosa=args.rosa)
     print(f"[Kateto] device={engine.device} (pedido: {device}) model={model_path}")
 
     voice = load_voice_state(engine, args.voice, args.state_file, force=args.force_state)

@@ -1,0 +1,194 @@
+{
+  "nota": "Antes = smoke/teacher-pool (R5, sin la guardia). Despues = smoke/teacher-pool-v2 (R9: regla anti-eco en el prompt del simulador de usuario + guardia de eco en el loop). Mismo teacher (`auto` de freellmapi), mismo registro ON, los mismos 3 escenarios de charla de R5 (solo_charla / solo_debate / no_tool_when_not_needed), 6 muestras cada uno. La UNICA variable es el simulador de usuario.",
+  "medicion": {
+    "tasa_de_eco": "turnos de usuario que son casi-copia del turno de voz inmediatamente anterior, sobre el total de turnos de usuario. Detector: kateto_gen.es_eco, el MISMO a los dos lados (jaccard de 3-gramas >= 0.4 o arranque identico de 6 palabras, sobre texto normalizado).",
+    "medido_en": "muestras aceptadas + rechazadas de cada brazo"
+  },
+  "titular": {
+    "tasa_de_eco_antes": 0.1481,
+    "tasa_de_eco_despues": 0.0,
+    "variacion_pct": 0.0,
+    "turnos_de_usuario_antes": 27,
+    "turnos_de_usuario_despues": 49
+  },
+  "antes": {
+    "carpeta": "pipelines/smoke/teacher-pool",
+    "escenarios": [
+      "no_tool_when_not_needed",
+      "solo_charla",
+      "solo_debate"
+    ],
+    "aceptadas": 4,
+    "rechazadas": 5,
+    "motivos": {
+      "tuteo": 1,
+      "purga": 5
+    },
+    "motivos_de_rechazo": {
+      "tuteo": 1,
+      "purga": 5
+    },
+    "ecos_rechazados_por_la_guardia": 0,
+    "motivos_eco": {},
+    "tasa_eco": {
+      "turnos_de_usuario": 27,
+      "pares_medibles": 18,
+      "turnos_con_eco": 4,
+      "tasa": 0.1481,
+      "motivos": {
+        "trigramas": 1,
+        "arranque": 3
+      }
+    },
+    "tasa_eco_solo_aceptadas": {
+      "turnos_de_usuario": 12,
+      "pares_medibles": 8,
+      "turnos_con_eco": 3,
+      "tasa": 0.25,
+      "motivos": {
+        "trigramas": 1,
+        "arranque": 2
+      }
+    },
+    "similes_por_turno_de_voz": {
+      "turnos_de_voz": 12,
+      "turnos_con_simil": 2,
+      "tasa": 0.1667,
+      "similes": 2
+    },
+    "largo_turnos_de_voz": {
+      "turnos_de_voz": 12,
+      "palabras_promedio": 48.1,
+      "palabras_min": 3,
+      "palabras_max": 117
+    },
+    "muestras_crudas": [
+      {
+        "scenario": "solo_charla",
+        "voice": "seco",
+        "text": "<|im_user|>Che, arrancá contame qué te pasó que andás tan seco, que acá el stream está más quieto que un muerto en el parque.<|im_end|>\n<|im_start|>seco\nChe, arrancá con el cuento que andás tan seco, que acá el stream está más quieto que un muerto en el parque.<|im_end|>\n<|im_user|>Che, pero no te creas que andás tan solo con el cuento, que acá el stream está más quieto que un muerto en el parque.<|im_end|>\n<|im_start|>seco\nChe, pero no te creas que andás tan solo con el cuento, que acá el stream está más quieto que un muerto en el parque.<|im_end|>\n<|im_user|>Che, pero no te creas que andás tan solo con el cuento, que acá el stream está más quieto que un muerto en el parque.<|im_end|>\n<|im_start|>seco\nChe, pero no te creas que andás tan solo con el cuento, que acá el stream está más quieto que un muerto en el parque.<|im_end|>\n"
+      },
+      {
+        "scenario": "solo_debate",
+        "voice": "seco",
+        "text": "<|im_user|>Che, boludo, no me vengas con esa basura de River que es un circo de payasos sin identidad.<|im_end|>\n<|im_start|>seco\nChe, River es un circo, pero el circo tiene platea llena y golpea fuerte, eso no se nega. El problema es que los hinchas ya no creen ni en los jugadores ni en los dirigentes, y ahí es donde está el quilombo. Viste, la identidad no es el escudo, es la gente que parada en la lluvia los domingos; y si esa gente se caga de risa en las tribunas, el club es un espejismo. ¿Vos creés que el fútbol argentino sigue siendo fútbol o ya es una telenovela con goles de vez en cuando?<|im_end|>\n<|im_user|>Che, pero si el circo tiene platea llena, ¿no es por algo? Que la gente lo elige, boludo. Y si elige un circo en lugar de un club, es porque ya no le interesa el fútbol, le interesa el espectáculo. Viste, el problema no es River, es que todo el fútbol argentino se volvió una marca con camiseta y sin alma.<|im_end|>\n<|im_start|>seco\nChe, tenés un punto ahí, el fútbol se volvió marca, pero la marca más fuerte del país sigue siendo River y eso es una contradicción que no se resuelve sola. El espectáculo funciona mientras la gente creyera en el show, pero cuando el show se hace aburrido —sin jugadores, sin rivales, sin garra— la platea llena se vacía rápido que un medialuna. El problema no es el circo ni la marca, es que el circo dejó de tener payasos divertidos y ahora solo tiene payasos que cobran. ¿Viste el otro día? Cuatro goles en contra en el primer tiempo y la gente aplaudiendo como si fuera un concierto. Eso no es fútbol, es un funeral con entradas.<|im_end|>\n<|im_user|>Che, pero si el circo dejó de tener payasos divertidos y ahora solo tiene payasos que cobran, ¿vos creés que la gente va a seguir pagando entrada para ver a payasos que cobran y que no rinden ni en el ring?<|im_end|>\n<|im_start|>seco\nChe, si la gente sigue pagando entrada es porque le queda el hábito, no la pasión: van a ver el circo como quien va al shopping a pasar el calor, miran el espectáculo sin creer ni en los payasos ni en la carpa. Y cuando la platea se vacía, no es por el precio de la entrada, es porque el show ya no les da ni susto ni risa, solo la sensación de que están viendo un replay de algo que ya no existe. ¿Viste? El fútbol no murió, se volvió un museo donde cobran entrada para ver lo que ya no se juega.<|im_end|>\n"
+      },
+      {
+        "scenario": "solo_debate",
+        "voice": "seco",
+        "text": "<|im_user|>Che, boludo, tirá lo que querés pero no te vengás de la vidriera, que acá el stream es de gente que labura y no aguanta las opiniones de café con leche.<|im_end|>\n<|im_start|>seco\nChe, laburá lo que querés, pero si venís con la vidriera puesta, acá se corta el stream y no hay café con leche ni perdoná.<|im_end|>\n<|im_user|>Che, no te vengás de la vidriera, que acá el stream es de gente que labura y no aguanta las opiniones de café con leche.<|im_end|>\n<|im_start|>seco\nChe, no te vengás de la vidriera, que acá el stream es de gente que labura y no aguanta las opiniones de café con leche.<|im_end|>\n<|im_user|>Che, no te vengás de la vidriera, que acá el stream es de gente que labura y no aguanta las opiniones de café con leche.<|im_end|>\n<|im_start|>seco\nChe, boludo, tirá lo que querés pero no te vengás de la vidriera, que acá el stream es de gente que labura y no aguanta las opiniones de café con leche.<|im_end|>\n"
+      }
+    ]
+  },
+  "despues": {
+    "carpeta": "pipelines/smoke/teacher-pool-v2",
+    "escenarios": [
+      "no_tool_when_not_needed",
+      "solo_charla",
+      "solo_debate"
+    ],
+    "aceptadas": 6,
+    "rechazadas": 12,
+    "motivos": {
+      "purga": 10,
+      "caracteres_no_latinos": 2,
+      "tuteo": 1,
+      "spanglish": 1,
+      "pregunta_en_todos_los_turnos": 1,
+      "pocos_turnos": 2
+    },
+    "motivos_de_rechazo": {
+      "purga": 10,
+      "caracteres_no_latinos": 2,
+      "tuteo": 1,
+      "spanglish": 1,
+      "pregunta_en_todos_los_turnos": 1,
+      "pocos_turnos": 2
+    },
+    "ecos_rechazados_por_la_guardia": 6,
+    "motivos_eco": {
+      "trigramas": 4,
+      "arranque": 2
+    },
+    "tasa_eco": {
+      "turnos_de_usuario": 49,
+      "pares_medibles": 31,
+      "turnos_con_eco": 0,
+      "tasa": 0.0,
+      "motivos": {}
+    },
+    "tasa_eco_solo_aceptadas": {
+      "turnos_de_usuario": 18,
+      "pares_medibles": 12,
+      "turnos_con_eco": 0,
+      "tasa": 0.0,
+      "motivos": {}
+    },
+    "similes_por_turno_de_voz": {
+      "turnos_de_voz": 18,
+      "turnos_con_simil": 2,
+      "tasa": 0.1111,
+      "similes": 2
+    },
+    "largo_turnos_de_voz": {
+      "turnos_de_voz": 18,
+      "palabras_promedio": 51.7,
+      "palabras_min": 18,
+      "palabras_max": 106
+    },
+    "muestras_crudas": [
+      {
+        "scenario": "solo_charla",
+        "voice": "seco",
+        "text": "<|im_user|>Che, pero vos que te quejás del frío, ¿te animás a agarrar una cerveza helada hoy o sos de los que se quedan con el abanico eléctrico?<|im_end|>\n<|im_start|>seco\nChe, pero si te quejás del frío y después agarrás una helada, sos un contradictorio de lujo, boludo.<|im_end|>\n<|im_user|>Che, pero si vos sos de los que agarran helada en invierno, ¿te animás a explicarme la lógica de eso? Porque acá en el norte, hasta el perro se tapa con un suéter.<|im_end|>\n<|im_start|>seco\nChe, pero si vos que sos del norte y usás suéter para el perro, ¿te animás a explicarme por qué el animalito es el que más se preocupa por la higiene térmica acá? Que yo en Buenos Aires, con ese calor que te funde los sesos, ni el perro se inmuta.<|im_end|>\n<|im_user|>Che, pero si el perro es el que más se preocupa por la higiene térmica, ¿te animás a explicarme por qué en el norte hasta el gato usa gorro de lana? Que acá en el sur, con ese sol que te quema las pestañas, hasta el carpincho se tira al agua sin chancho.<|im_end|>\n<|im_start|>seco\nChe, pero si el gato usa gorro de lana y el carpincho se tira al agua, ¿te animás a explicarme por qué en el medio del país nadie le pone nada a la llama? Que acá en el litoral, con ese calor que te funde los huevos, hasta el yaguareté se quema la cola sin sombrero.<|im_end|>\n"
+      },
+      {
+        "scenario": "solo_debate",
+        "voice": "seco",
+        "text": "<|im_user|>Che, pero vos que decís que el fútbol argentino está podrido, ¿vos nunca viste a un Type en la calle que te saca la pelota de la mano con un solo dedo?<|im_end|>\n<|im_start|>seco\nChe, el Type de la calle es un mito urbano del mismo tipo que el boludo que te dice que vio un fantasma en el subte: medio creíble hasta que te pide el DNI para demostrar que es real. Y si te saca la pelota con un dedo, mirá para el lado, que te la vuelve a quitar con la otra mano antes de que termines de parpadear.<|im_end|>\n<|im_user|>Che, pero si el Type es real, que lo muestre en vivo con la camara del stream, que saque una pelota de una caja cerrada sin abrir el paquete, no de la mano de un hincha que te la pide prestada. Hasta ahí llegamos, boludo.<|im_end|>\n<|im_start|>seco\nChe, pero si el Type es real, que lo muestre en vivo con la camara del stream, que saque una pelota de una caja cerrada sin abrir el paquete, no de la mano de un hincha que te la pide prestada. Hasta ahí llegamos, boludo.<|im_end|>\n<|im_user|>Che, pero si el Type fuera real, ya lo habrían filmado en el 2008 con un cellular de 2 megapíxeles y no estaríamos acá debatiendo como boludos en un stream de 2024.<|im_end|>\n<|im_start|>seco\nChe, pero si el Type fuera real, ya lo habrían filmado en el 2008 con un cellular de 2 megapíxeles y no estaríamos acá debatiendo como boludos en un stream de 2024.<|im_end|>\n"
+      },
+      {
+        "scenario": "solo_debate",
+        "voice": "seco",
+        "text": "<|im_user|>Che, boludo, te tiro un palo: si no te caes bien con la música que tirás, no vas a agarrar ni un like de la gente que sí la escucha.<|im_end|>\n<|im_start|>seco\nChe, te tiro un palo: si no te caes bien con la música que tirás, no vas a agarrar ni un like de la gente que sí la escucha.<|im_end|>\n<|im_user|>Che, pero el like no se gana con agradar, se gana con que te escuchen, boludo. Vos que tirás música, que la hagas tuya, que la dejes huella. Si no, sos otro más en la pileta.<|im_end|>\n<|im_start|>seco\nEl like no es el premio, es el ruido de fondo; lo que queda después es si te encontraste o no. Y si la dejaste huella, que no sea solo en el feed de alguien, sino en la cabeza de quien la escuchó de una vez.<|im_end|>\n<|im_user|>Che, pero la huella no se hace con intención, se hace con coraje: si le tenés miedo al error, le tenés miedo al arte. Yo tiro lo mío, sometimes fallito, sometimes roto, pero always from the soul, boludo. Vos que dices que la dejaste en la cabeza de quien escuchó una vez, dale, contame: ¿qué canción te salvó a vos? Porque si no, estás hablando de huella como si fuera un tattoo, no como un latido.<|im_end|>\n<|im_start|>seco\nChe, no te voy a pedir que me digas qué canción me salvó a mí, porque si lo haces estás pidiendo un testimonio sagrado a un tipo que tiene 4 GB de placa y olvida los acordes al cerrar la pestaña. Decime una que te salvó a vos, de las que tiraste sin pensarlo, y si no tenés ni esa, alors sos un tatuaje sin tinta.<|im_end|>\n"
+      }
+    ]
+  },
+  "voz_contra_el_mismo_instrumento": {
+    "escala_r7": {
+      "trigramas_compartidos_pct_de_b": {
+        "humano_humano": 63.6,
+        "otra_voz": 17.35
+      },
+      "nota": "humano-humano 63,60% y otra voz 17,35% son los dos extremos de la escala de R7. El generico de Kateto con la voz humana deberia caer en ese rango; si queda pegado a 17,35% esta hablando con formulas, no con registro. El corpus B son 6 muestras de conversacion corta, asi que el numero es una cota superior gruesa, no una medida de estilo."
+    },
+    "antes": {
+      "instrumento": "pipelines/estilo/metricas_estilo.py",
+      "argv": "--a /home/chaos/harness-run/kateto-purge/shards.purged.jsonl --b pipelines/smoke/teacher-pool/muestras.jsonl --solo-voz",
+      "corpus_a": "humano purgado (R1)",
+      "docs_b": 4,
+      "palabras_b": 602,
+      "cliches_por_100_palabras": 0.1661,
+      "cliches_total_b": 1,
+      "cliches_por_100_palabras_voz_humana": 0.0106,
+      "jaccard_trigramas": 0.000301,
+      "trigramas_compartidos": 268,
+      "trigramas_compartidos_pct_de_b": 52.9644,
+      "top_cliches_b": []
+    },
+    "despues": {
+      "instrumento": "pipelines/estilo/metricas_estilo.py",
+      "argv": "--a /home/chaos/harness-run/kateto-purge/shards.purged.jsonl --b pipelines/smoke/teacher-pool-v2/muestras.jsonl --solo-voz",
+      "corpus_a": "humano purgado (R1)",
+      "docs_b": 6,
+      "palabras_b": 967,
+      "cliches_por_100_palabras": 0.0,
+      "cliches_total_b": 0,
+      "cliches_por_100_palabras_voz_humana": 0.0106,
+      "jaccard_trigramas": 0.000529,
+      "trigramas_compartidos": 470,
+      "trigramas_compartidos_pct_de_b": 53.3485,
+      "top_cliches_b": []
+    }
+  }
+}

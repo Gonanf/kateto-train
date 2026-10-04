@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-PROJECT="${KATETO_HOME:-/run/media/chaos/terciario/proyectos/kateto-train}"
+PROJECT="/run/media/chaos/terciario/proyectos/kateto-train"
 cd "$PROJECT"
 
 echo "================================================================="

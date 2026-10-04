@@ -1,0 +1,7 @@
+{
+  "aceptadas": 5,
+  "rechazadas": 1,
+  "motivos": {
+    "usuario_repetido": 1
+  }
+}

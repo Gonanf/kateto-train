@@ -1,13 +1,17 @@
 #!/usr/bin/env python
 """Conversaciones LARGAS de Kateto desde el corpus real de transcripts.
 
-Una muestra = UNA conversacion continua larga (meta >=3000 tokens, 20-60 turnos)
+Una muestra = UNA conversacion continua larga (meta >=3000 tokens, 12-60 turnos)
 donde seco dialoga sobre el contenido real de un transcript. Es lo contrario de
 gen_toolcalling_dataset.py: aca el largo es el requisito, no un accidente.
 
 Camino que funciona (medido en este repo): turnwise, un turno por llamada con el
 historial como contexto, transcript armado en Python. El teacher no arma la
-conversacion (devuelve un turno y nunca el <|im_end|>).
+conversacion (devuelve un turno y nunca el ).
+
+El largo lo decide un CRITERIO, no un numero fijo (ver decidir_corte): se corta
+al agotarse el material, cuando el chat tira <FIN>, cuando el juez dice SI, o al
+llegar a --max-ex; nunca antes de --min-ex.
 
 Uso:
     python scripts/gen_conversaciones_largas.py --dry-run
@@ -35,7 +39,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gen_toolcalling_dataset as G  # noqa: E402  (validador y teachers del repo)
 
-TRANSCRIPTS = Path(os.environ.get("KATETO_TRANSCRIPTS", "/home/chaos/tmp/kateto-corpus/transcripts"))
+TRANSCRIPTS = Path("/home/chaos/tmp/kateto-corpus/transcripts")
 VOICE = "seco"
 
 # Material de clientes (workmatch/sherut/podcast: 0/149 hoy) y canales de terceros
@@ -59,13 +63,8 @@ def listar_transcripts() -> list[Path]:
                   if not RX_EXCLUIR.search(p.name))
 
 
-def partir_material(texto: str, n: int) -> list[str]:
-    """Parte el transcript en `n` trozos contiguos por lineas (balanceados por
-    chars). Cada intercambio conversa sobre SU trozo: asi el avance de tema sale
-    por construccion y el prompt no carga el transcript entero."""
-    lineas = [l.strip() for l in texto.splitlines() if l.strip()]
-    if len(lineas) < n:
-        return [" ".join(lineas)] * n
+def partir_lineas(lineas: list[str], n: int) -> list[str]:
+    """`n` trozos contiguos por lineas (balanceados por chars)."""
     total = sum(len(l) for l in lineas)
     trozos, acc, corte = [], [], 0
     for l in lineas:
@@ -76,6 +75,35 @@ def partir_material(texto: str, n: int) -> list[str]:
             acc = []
     trozos.append(" ".join(acc))
     return trozos
+
+
+class Trozos:
+    """Trozos del material bajo demanda. El largo ya no se conoce de antemano
+    (lo decide el criterio de corte), asi que se PIDE el k-esimo y devuelve None
+    cuando el material se termino. Antes el generador repetia el texto entero
+    para llenar n_ex: eso era el largo fijo.
+
+    El corte queda en `min(n_max, lineas)`: con material corto la charla se
+    agota antes, que es el motivo `agotado` del criterio de corte."""
+
+    def __init__(self, texto: str, n_max: int) -> None:
+        self.lineas: list[str] = [l.strip() for l in texto.splitlines() if l.strip()]
+        self.n: int = max(1, min(n_max, len(self.lineas)))
+        self._t: list[str] | None = None
+
+    def _partir(self) -> list[str]:
+        return partir_lineas(self.lineas, self.n) if self.lineas else []
+
+    def get(self, k: int) -> str | None:
+        """Trozo k, o None si el material ya se consumio entero."""
+        if self._t is None:
+            self._t = self._partir()
+        return self._t[k] if 0 <= k < len(self._t) else None
+
+    def para_prompt(self, k: int) -> str:
+        """Trozo k para el prompt. Si el material se agoto antes de --min-ex se
+        repite el ultimo: la charla sigue (min_ex manda), la fuente ya no."""
+        return self.get(k) or (self._t[-1] if self._t else "")
 
 
 def limpiar_linea(raw: str, etiqueta_rx: str) -> str:
@@ -91,7 +119,7 @@ def limpiar_linea(raw: str, etiqueta_rx: str) -> str:
     return cand.split("\n")[0].strip()
 
 
-def prompt_usuario(material: str, historial: list[tuple[str, str]], i: int, n: int) -> str:
+def prompt_usuario(material: str, historial: list[tuple[str, str]], i: int) -> str:
     conv = "\n".join(f"{'CHAT' if q == 'user' else 'KATETO'}: {t}"
                      for q, t in historial) or "(todavia no hablo nadie)"
     return f"""Estas escribiendo UNA linea de chat de un viewer argentino en el stream de Kateto.
@@ -101,13 +129,14 @@ En el stream estan hablando de esto ahora:
 Lo que se dijo hasta ahora:
 {conv}
 
-Escribi el proximo mensaje del CHAT (intercambio {i + 1} de {n}): UNA sola linea,
+Escribi el proximo mensaje del CHAT (intercambio {i + 1}): UNA sola linea,
 reaccionando a lo que se habla AHORA (pregunta algo concreto, acota, discute, se rie).
 Rioplatense natural de chat (che, posta, jajaja, boludo cuando encaja). Corto como
-un mensaje de chat real. Sin marcadores, sin "CHAT:" al principio. Solo lo que dice."""
+un mensaje de chat real. Sin marcadores, sin "CHAT:" al principio. Solo lo que dice.
+Si te quedaste sin nada que decir sobre esto, termina tu mensaje con `<FIN>`."""
 
 
-def prompt_voz(material: str, historial: list[tuple[str, str]], i: int, n: int) -> str:
+def prompt_voz(material: str, historial: list[tuple[str, str]], i: int) -> str:
     conv = "\n".join(f"{'CHAT' if q == 'user' else 'VOS'}: {t}"
                      for q, t in historial) or "(todavia no hablo nadie)"
     return f"""Sos Kateto (seco): streamer argentino, voz propia, caracter seco. Estas en vivo
@@ -117,7 +146,7 @@ y en el stream estan hablando de esto ahora:
 Lo que se dijo hasta ahora:
 {conv}
 
-Escribi tu proximo mensaje (intercambio {i + 1} de {n}): un parrafo corto de dialogo,
+Escribi tu proximo mensaje (intercambio {i + 1}): un parrafo corto de dialogo,
 de 3 a 5 frases. Esto es una charla larga, no un ping-pong: responde con sustancia, no
 con una linea de chat.
 REGLAS:
@@ -131,12 +160,24 @@ REGLAS:
 - Opina y tomate postura, no le des la razon por compromiso.
 Sin marcadores, sin "VOS:" al principio. Solo lo que decis."""
 
+
+def prompt_juez(material: str, historial: list[tuple[str, str]]) -> str:
+    """Pregunta de corte al teacher: SI = el tema del material se agoto. max_tokens
+    bajo y temperatura 0 justamente para que sea un clasificador y no una opinion."""
+    conv = "\n".join(f"{'CHAT' if q == 'user' else 'VOS'}: {t}"
+                     for q, t in historial[-4:]) or "(todavia no hablo nadie)"
+    return f"""¿Ya se agotó el tema de este material, o queda algo nuevo para decir?
+Material: \"\"\"{material[:600]}\"\"\"
+Conversación hasta ahora: {conv}
+Responde SOLO: SI o NO"""
+
+
 def teacher_http(base_url: str, model: str, key: str | None, prompt: str,
                  max_tokens: int, timeout: int = 120,
-                 retries: int = 4) -> tuple[str, dict]:
+                 retries: int = 4, temperature: float = 1.0) -> tuple[str, dict]:
     """Igual que G.generate pero devuelve (texto, usage) para la tabla de costos."""
     body = {"model": model, "messages": [{"role": "user", "content": prompt}],
-            "temperature": 1.0, "max_tokens": max_tokens,
+            "temperature": temperature, "max_tokens": max_tokens,
             "reasoning_effort": "none"}
     headers = {"Content-Type": "application/json"}
     if key:
@@ -161,6 +202,14 @@ def teacher_http(base_url: str, model: str, key: str | None, prompt: str,
             raise
     assert last is not None
     raise last
+
+
+RX_FIN = re.compile(r"<\s*FIN\s*>", re.I)
+
+
+def _sin_fin(cand: str) -> str:
+    """Saca el marcador <FIN> del texto (nunca se guarda en el dato)."""
+    return RX_FIN.sub("", cand).strip()
 
 
 def higiene_voz(cand: str) -> str | None:
@@ -210,22 +259,55 @@ def pedir_turno(maestro, prompt: str, etiqueta_rx: str,
     return "", uso_total
 
 
-def generate_larga(trozos: list[str], maestro, n_ex: int) -> tuple[str, dict]:
-    """Arma la conversacion turno por turno. Devuelve (texto, stats)."""
+def decidir_corte(historial: list[tuple[str, str]], trozos_restantes: str | None,
+                 resp_juez: str | None, *, hay_fin: bool = False,
+                 min_ex: int = 0, max_ex: int = 60) -> str | None:
+    """Motivo de corte del intercambio, o None para seguir. PURA: no cuenta
+    llamadas ni lee el material, solo decide con lo que le pasan.
+
+    Orden: agotado > cierre > juez > max_ex, y el min_ex pisa a todos (antes del
+    minimo no se corta, aunque el material ya se haya terminado).
+    `trozos_restantes` = el trozo k+1 (None = el material se consumio entero).
+    `resp_juez` arranca con SI = se agoto el tema; cualquier otra cosa (o error,
+    o None) es "segui".
+    """
+    n = sum(1 for q, _ in historial if q == "user")
+    if n < min_ex:
+        return None
+    if trozos_restantes is None:
+        return "agotado"
+    if hay_fin:
+        return "cierre"
+    if (resp_juez or "").strip().upper().startswith("SI"):
+        return "juez"
+    return "max_ex" if n >= max_ex else None
+
+
+def generate_larga(trozos: Trozos, maestro, *, min_ex: int = 12, max_ex: int = 60,
+                   juez=None, juez_cada: int = 3) -> tuple[str, dict]:
+    """Arma la conversacion turno por turno y la termina el CRITERIO, no un
+    numero fijo: se corta al agotarse el material, cuando el chat tira <FIN>,
+    cuando el juez dice SI, o al llegar a max_ex (nunca antes de min_ex).
+
+    Devuelve (texto, stats); stats trae corte + intercambios para trazar."""
     historial: list[tuple[str, str]] = []
     dup = higiene_dup(historial)
     t0 = time.time()
     uso = Counter()
-    for i in range(n_ex):
-        u, uu = pedir_turno(maestro, prompt_usuario(trozos[i], historial, i, n_ex),
+    corte = None
+    i = -1
+    for i in range(max_ex):
+        mat = trozos.para_prompt(i)
+        u, uu = pedir_turno(maestro, prompt_usuario(mat, historial, i),
                             r"CHAT|PERSONA|USUARIO|USER", 2, 400,
                             higiene=lambda c: ("no_latino" if G.RX_NO_LATINO.search(c) else
-                                              dup(c)))
+                                              ("fin_solo" if not _sin_fin(c) else dup(c))))
         uso.update({k: v for k, v in uu.items()})
         if not u:
             return "", {"fallo_en": f"user:{i}"}
-        historial.append(("user", u))
-        v, vu = pedir_turno(maestro, prompt_voz(trozos[i], historial, i, n_ex),
+        fin = bool(RX_FIN.search(u))
+        historial.append(("user", _sin_fin(u)))
+        v, vu = pedir_turno(maestro, prompt_voz(mat, historial, i),
                             r"VOS|KATETO|SECO|ASSISTANT", 60, 900,
                             max_retries=4,
                             higiene=lambda c: higiene_voz(c) or dup(c))
@@ -233,11 +315,20 @@ def generate_larga(trozos: list[str], maestro, n_ex: int) -> tuple[str, dict]:
         if not v:
             return "", {"fallo_en": f"voz:{i}"}
         historial.append((VOICE, v))
+        # El <FIN> ya dio su turno de voz de cierre: se corta recien aca.
+        resp_juez = (juez(prompt_juez(mat, historial))
+                     if juez and juez_cada and (i + 1) % juez_cada == 0 else None)
+        corte = decidir_corte(historial, trozos.get(i + 1), resp_juez, hay_fin=fin,
+                              min_ex=min_ex, max_ex=max_ex)
+        if corte:
+            break
     partes = [f"<|im_user|>{t}<|im_end|>" if q == "user"
               else f"<|im_start|>{VOICE}\n{t}<|im_end|>"
               for q, t in historial]
     return "\n".join(partes), {"segundos": round(time.time() - t0, 1),
-                               "uso": dict(uso)}
+                               "uso": dict(uso),
+                               "corte": corte or "max_ex",
+                               "intercambios": i + 1}
 
 
 # --- validador propio: 4 reglas por escenario (ademas del base de G) ---
@@ -461,7 +552,14 @@ def build_parser() -> argparse.ArgumentParser:
                     help="default http->auto:fast, cmd->xiaomi/mimo-v2.5-pro")
     ap.add_argument("--key", default=None)
     ap.add_argument("--n", type=int, default=4, help="cuantas conversaciones")
-    ap.add_argument("--n-ex", type=int, default=22, help="intercambios por conversacion")
+    ap.add_argument("--min-ex", type=int, default=12,
+                    help="intercambios MINIMOS: no se corta antes (gana el criterio)")
+    ap.add_argument("--max-ex", type=int, default=60,
+                    help="intercambios MAXIMOS: al llegar, corte=max_ex")
+    ap.add_argument("--n-ex", type=int, default=None,
+                    help="alias viejo de --max-ex (invocaciones previas)")
+    ap.add_argument("--juez-cada", type=int, default=3,
+                    help="preguntarle al teacher si el tema se agoto cada N intercambios (0=apago)")
     ap.add_argument("--min-tokens", type=int, default=3000)
     ap.add_argument("--transcript", default=None, help="archivo puntual (default: al azar)")
     ap.add_argument("--seed", type=int, default=27)
@@ -487,14 +585,21 @@ def main(argv: list[str] | None = None) -> int:
     print(f"transcripts utiles: {len(todo)} (excluidos por {RX_EXCLUIR.pattern}: "
           f"{len(list(TRANSCRIPTS.glob('*.txt'))) - len(todo)})")
 
+    uso_tot = Counter()
     if args.teacher == "http":
         model = args.model or "auto:fast"
         key = args.key or G.get_freellm_key()
         base = lambda p, mt: teacher_http(args.base_url, model, key, p, mt)
+
+        def juez(prompt: str) -> str:
+            txt, u = teacher_http(args.base_url, model, key, prompt, 4, temperature=0.0)
+            uso_tot.update({k: v for k, v in u.items() if k in
+                            ("prompt_tokens", "completion_tokens", "total_tokens")})
+            return txt
     else:
         model = args.model or "xiaomi/mimo-v2.5-pro"
         base = lambda p, mt: (G.generate_cmd(model, p), {})
-    uso_tot = Counter()
+        juez = lambda prompt: G.generate_cmd(model, prompt)
 
     def maestro(prompt: str) -> tuple[str, dict]:
         mt = 150 if prompt.startswith("Estas escribiendo UNA linea de chat") else 400
@@ -503,25 +608,28 @@ def main(argv: list[str] | None = None) -> int:
                         ("prompt_tokens", "completion_tokens", "total_tokens")})
         return txt, uso
 
+    max_ex = args.max_ex if args.n_ex is None else args.n_ex
     rng = random.Random(args.seed)
-    # Solo transcripts con material suficiente para N trozos distintos; con menos
-    # lineas que intercambios, partir_material repetiria el texto entero.
+    # Solo transcripts con material suficiente para max_ex trozos distintos; con
+    # menos lineas que eso, Trozos rinde menos trozos y la charla se agota antes.
     candidatas = [p for p in todo
-                  if sum(1 for _ in open(p, encoding="utf-8", errors="ignore")) >= max(100, args.n_ex)]
+                  if sum(1 for _ in open(p, encoding="utf-8", errors="ignore")) >= max(100, max_ex)]
     if not candidatas:
         candidatas = todo
     out_p, rej_p = REPO / args.out, REPO / args.rejects
     out_p.parent.mkdir(parents=True, exist_ok=True)
     ok = rej = 0
     razones: Counter[str] = Counter()
+    cortes: Counter[str] = Counter()
     with out_p.open("a", encoding="utf-8") as fo, rej_p.open("a", encoding="utf-8") as fr:
         for i in range(args.n):
             tp = TRANSCRIPTS / args.transcript if args.transcript else rng.choice(candidatas)
             mat = tp.read_text(encoding="utf-8", errors="ignore")
-            trozos = partir_material(mat, args.n_ex)
             t0 = time.time()
             try:
-                txt, stats = generate_larga(trozos, maestro, args.n_ex)
+                txt, stats = generate_larga(Trozos(mat, max_ex), maestro,
+                                           min_ex=args.min_ex, max_ex=max_ex,
+                                           juez=juez, juez_cada=args.juez_cada)
                 if not txt:
                     raise RuntimeError(f"turnwise fallo ({stats.get('fallo_en')})")
                 errs = validate_larga(txt, mat, min_tokens=args.min_tokens)
@@ -535,24 +643,31 @@ def main(argv: list[str] | None = None) -> int:
             seg = round(time.time() - t0, 1)
             ntok = count_tokens(txt)
             ntur = len(G.RX_TURN.findall(txt)) + txt.count("<|im_user|>")
+            corte, nex = stats["corte"], stats["intercambios"]
+            cortes[corte] += 1
             if errs:
                 rej += 1
                 for e in errs:
                     razones[e.split(":")[0].split("(")[0]] += 1
                 fr.write(json.dumps({"fuente": tp.name, "errors": errs,
-                                     "tokens_est": ntok, "text": txt},
+                                     "tokens_est": ntok, "corte": corte,
+                                     "intercambios": nex, "text": txt},
                                     ensure_ascii=False) + "\n")
-                print(f"[{i + 1}/{args.n}] {tp.name}: RECHAZADA {ntok}tok/{ntur}t/{seg}s -> {errs}")
+                print(f"[{i + 1}/{args.n}] {tp.name}: RECHAZADA {ntok}tok/{ntur}t/"
+                      f"{seg}s {nex}ex corte={corte} -> {errs}")
             else:
                 ok += 1
                 fo.write(json.dumps({"text": txt, "fuente": tp.name,
                                      "tokens_est": ntok, "turnos": ntur,
-                                     "segundos": seg, "uso": stats.get("uso", {})},
+                                     "segundos": seg, "uso": stats.get("uso", {}),
+                                     "corte": corte, "intercambios": nex},
                                     ensure_ascii=False) + "\n")
-                print(f"[{i + 1}/{args.n}] {tp.name}: OK {ntok}tok/{ntur}t/{seg}s")
+                print(f"[{i + 1}/{args.n}] {tp.name}: OK {ntok}tok/{ntur}t/{seg}s "
+                      f"{nex}ex corte={corte}")
     print(f"\n=== resumen ===\n  aceptadas: {ok}\n  rechazadas: {rej}")
     for r, c in razones.most_common():
         print(f"    {r:30s} {c}")
+    print("  cortes: " + ", ".join(f"{k} {v}" for k, v in cortes.most_common()))
     u = uso_tot
     if u.get("total_tokens"):
         print(f"  teacher: prompt {u.get('prompt_tokens',0)} + compl "

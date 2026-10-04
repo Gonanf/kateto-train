@@ -384,7 +384,7 @@ def export_to_gguf_and_imatrix(stage2_dir=None, merged_dir=None):
     imatrix_dat = PROJECT / "out/qwen35-0.8b-kateto.imatrix.dat"
     q4_gguf = PROJECT / "out/qwen35-0.8b-kateto-Q4_K_M.gguf"
     calib_file = PROJECT / "data/kateto_v2_calib.txt" if (PROJECT / "data/kateto_v2_calib.txt").exists() else PROJECT / "data/sft_out/calib.txt"
-    converter_script = Path(os.environ.get("LLAMA_CPP_CONVERTER", "/run/media/chaos/terciario/Backup/Proyectos/kateto/llama.cpp/convert_hf_to_gguf.py"))
+    converter_script = Path("/run/media/chaos/terciario/Backup/Proyectos/kateto/llama.cpp/convert_hf_to_gguf.py")
 
     print(f"\n{'='*50}\n=== EXPORTANDO A GGUF E IMATRIX ===\n{'='*50}")
 

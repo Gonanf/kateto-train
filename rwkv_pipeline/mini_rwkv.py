@@ -82,10 +82,7 @@ class MiniRWKV(nn.Module):
 
     def forward_normal(self, input_ids: torch.Tensor,
                        inputs_embeds=None, attention_mask=None, **kwargs):
-        if x is None and inputs_embeds is not None:  # pragma: no cover
-            x = inputs_embeds
-        else:
-            x = self.emb(input_ids)
+        x = self.emb(input_ids) if inputs_embeds is None else inputs_embeds
         for blk in self.blocks:
             x = blk(x)
         return self.head(self.ln_out(x))

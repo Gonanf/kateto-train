@@ -1,0 +1,425 @@
+{
+  "nota": "Antes = smoke/teacher-pool-v2 (R9: la guardia del usuario). Despues = smoke/teacher-pool-v3 (R10: la misma guardia, simetrica, en los dos lados). Mismo teacher (`auto` de freellmapi), mismo registro ON, los mismos 3 escenarios de charla de R5 (solo_charla / solo_debate / no_tool_when_not_needed), 6 muestras cada uno. La UNICA variable es la guardia de eco del lado de la voz.",
+  "medicion": {
+    "las_dos_direcciones": "La guardia anti-eco es simetrica: el mismo detector (kateto_gen.es_eco) corre en las dos direcciones, y el TITULAR son las DOS tasas, no una.",
+    "medido_en": "muestras aceptadas + rechazadas de cada brazo",
+    "ademas": "cada direccion tambien va sobre las solo aceptadas, que es la base del conteo a mano del dueño"
+  },
+  "titular": {
+    "tasa_de_eco_usuario_antes": 0.0,
+    "tasa_de_eco_voz_antes": 0.1633,
+    "tasa_de_eco_usuario_despues": 0.0,
+    "tasa_de_eco_voz_despues": 0.0
+  },
+  "direcciones": {
+    "usuario_eco": {
+      "que_mide": "turnos de usuario que son casi-copia del turno del otro rol inmediatamente anterior, sobre el total de turnos de usuario. Detector: kateto_gen.es_eco en las dos direcciones (jaccard de 3-gramas >= 0.4 o arranque identico de 6 palabras, sobre texto normalizado).",
+      "tasa_antes": 0.0,
+      "tasa_despues": 0.0,
+      "titular_antes": "0/49",
+      "titular_despues": "0/36",
+      "turnos_antes": 49,
+      "turnos_despues": 36,
+      "pares_medibles_antes": 31,
+      "pares_medibles_despues": 24,
+      "aceptadas": {
+        "antes": 6,
+        "despues": 6
+      },
+      "rechazadas": {
+        "antes": 12,
+        "despues": 12
+      },
+      "rechazadas_con_este_motivo": {
+        "antes": 0,
+        "despues": 0
+      },
+      "ecos_rechazados_por_la_guardia": {
+        "antes": 6,
+        "despues": 2
+      },
+      "motivos_de_la_guardia": {
+        "antes": {
+          "trigramas": 4,
+          "arranque": 2
+        },
+        "despues": {
+          "arranque": 2
+        }
+      },
+      "similes_por_turno_de_voz": {
+        "antes": {
+          "turnos_de_voz": 18,
+          "turnos_con_simil": 2,
+          "tasa": 0.1111,
+          "similes": 2
+        },
+        "despues": {
+          "turnos_de_voz": 18,
+          "turnos_con_simil": 3,
+          "tasa": 0.1667,
+          "similes": 3
+        }
+      },
+      "muestras_crudas": {
+        "de_que_brazo": "aceptadas, no el conjunto completo",
+        "nota": "primero las que tienen eco de esta direccion; si no alcanzan 3, se completan con las primeras aceptadas",
+        "antes": [
+          {
+            "scenario": "solo_charla",
+            "voice": "seco",
+            "text": "<|im_user|>Che, pero vos que te quejás del frío, ¿te animás a agarrar una cerveza helada hoy o sos de los que se quedan con el abanico eléctrico?<|im_end|>\n<|im_start|>seco\nChe, pero si te quejás del frío y después agarrás una helada, sos un contradictorio de lujo, boludo.<|im_end|>\n<|im_user|>Che, pero si vos sos de los que agarran helada en invierno, ¿te animás a explicarme la lógica de eso? Porque acá en el norte, hasta el perro se tapa con un suéter.<|im_end|>\n<|im_start|>seco\nChe, pero si vos que sos del norte y usás suéter para el perro, ¿te animás a explicarme por qué el animalito es el que más se preocupa por la higiene térmica acá? Que yo en Buenos Aires, con ese calor que te funde los sesos, ni el perro se inmuta.<|im_end|>\n<|im_user|>Che, pero si el perro es el que más se preocupa por la higiene térmica, ¿te animás a explicarme por qué en el norte hasta el gato usa gorro de lana? Que acá en el sur, con ese sol que te quema las pestañas, hasta el carpincho se tira al agua sin chancho.<|im_end|>\n<|im_start|>seco\nChe, pero si el gato usa gorro de lana y el carpincho se tira al agua, ¿te animás a explicarme por qué en el medio del país nadie le pone nada a la llama? Que acá en el litoral, con ese calor que te funde los huevos, hasta el yaguareté se quema la cola sin sombrero.<|im_end|>\n"
+          },
+          {
+            "scenario": "solo_debate",
+            "voice": "seco",
+            "text": "<|im_user|>Che, pero vos que decís que el fútbol argentino está podrido, ¿vos nunca viste a un Type en la calle que te saca la pelota de la mano con un solo dedo?<|im_end|>\n<|im_start|>seco\nChe, el Type de la calle es un mito urbano del mismo tipo que el boludo que te dice que vio un fantasma en el subte: medio creíble hasta que te pide el DNI para demostrar que es real. Y si te saca la pelota con un dedo, mirá para el lado, que te la vuelve a quitar con la otra mano antes de que termines de parpadear.<|im_end|>\n<|im_user|>Che, pero si el Type es real, que lo muestre en vivo con la camara del stream, que saque una pelota de una caja cerrada sin abrir el paquete, no de la mano de un hincha que te la pide prestada. Hasta ahí llegamos, boludo.<|im_end|>\n<|im_start|>seco\nChe, pero si el Type es real, que lo muestre en vivo con la camara del stream, que saque una pelota de una caja cerrada sin abrir el paquete, no de la mano de un hincha que te la pide prestada. Hasta ahí llegamos, boludo.<|im_end|>\n<|im_user|>Che, pero si el Type fuera real, ya lo habrían filmado en el 2008 con un cellular de 2 megapíxeles y no estaríamos acá debatiendo como boludos en un stream de 2024.<|im_end|>\n<|im_start|>seco\nChe, pero si el Type fuera real, ya lo habrían filmado en el 2008 con un cellular de 2 megapíxeles y no estaríamos acá debatiendo como boludos en un stream de 2024.<|im_end|>\n"
+          },
+          {
+            "scenario": "solo_debate",
+            "voice": "seco",
+            "text": "<|im_user|>Che, boludo, te tiro un palo: si no te caes bien con la música que tirás, no vas a agarrar ni un like de la gente que sí la escucha.<|im_end|>\n<|im_start|>seco\nChe, te tiro un palo: si no te caes bien con la música que tirás, no vas a agarrar ni un like de la gente que sí la escucha.<|im_end|>\n<|im_user|>Che, pero el like no se gana con agradar, se gana con que te escuchen, boludo. Vos que tirás música, que la hagas tuya, que la dejes huella. Si no, sos otro más en la pileta.<|im_end|>\n<|im_start|>seco\nEl like no es el premio, es el ruido de fondo; lo que queda después es si te encontraste o no. Y si la dejaste huella, que no sea solo en el feed de alguien, sino en la cabeza de quien la escuchó de una vez.<|im_end|>\n<|im_user|>Che, pero la huella no se hace con intención, se hace con coraje: si le tenés miedo al error, le tenés miedo al arte. Yo tiro lo mío, sometimes fallito, sometimes roto, pero always from the soul, boludo. Vos que dices que la dejaste en la cabeza de quien escuchó una vez, dale, contame: ¿qué canción te salvó a vos? Porque si no, estás hablando de huella como si fuera un tattoo, no como un latido.<|im_end|>\n<|im_start|>seco\nChe, no te voy a pedir que me digas qué canción me salvó a mí, porque si lo haces estás pidiendo un testimonio sagrado a un tipo que tiene 4 GB de placa y olvida los acordes al cerrar la pestaña. Decime una que te salvó a vos, de las que tiraste sin pensarlo, y si no tenés ni esa, alors sos un tatuaje sin tinta.<|im_end|>\n"
+          }
+        ],
+        "despues": [
+          {
+            "scenario": "solo_charla",
+            "voice": "seco",
+            "text": "<|im_user|>Che, te cuento que hoy me tocó laburar hasta las 3 de la madrugada y después no pude dormir, boludo, estaba como un pez fuera del agua. ¿Vos ya descansaste o también estás en la mismaza?<|im_end|>\n<|im_start|>seco\nChe, laburar hasta las 3 y después no poder dormir es como tratar de apagar una PC con el cable aún enchufado, boludo, el cerebro no apaga. Y vos, ¿ya lo cerraste o también estás ahí parado en la pantalla de carga?<|im_end|>\n<|im_user|>Che, no te creas que laburar hasta las 3 es hazaña, es quilombo de horario, boludo. Yo ayer cerré a las once, durmió como un bebé, y today estoy fresco como un pan recién sacado del horno. Vos que no podés dormir, ¿le diste a la cerveza o a la pantallita hasta agotar la batería?<|im_end|>\n<|im_start|>seco\nChe, vos sos un caso peruano, boludo: cerraste a las once y dormiste como un bebé, pero vos no sos el único que se le mete la cerveza a la pantallita, mirá, acá ando con una taza de café de las que te engancha y no me duerme ni a las 6, tanto que hasta le puse color rojo a la webcam pa' que alguiente vea que sigo vivo, para.<|im_end|>\n<|im_user|>Che, vos sos un desastre con la cafeína, acá ando más nervioso que un conejo en una fiesta de milongueros, decime: ¿qué tan lejos vas a llegar con esa webcam roja antes de que te duela la panza?<|im_end|>\n<|im_start|>seco\nChe, vos sos un perro de la otra, acá ando en modo ahorro energía, pero igual me fijo: ese color rojo en la webcam ni me acuerdo más si es mi estilo o si la webcam se vino atrás, boludo, para.<|im_end|>\n"
+          },
+          {
+            "scenario": "solo_debate",
+            "voice": "seco",
+            "text": "<|im_user|>Che, vos sos de los que cree que Messi no aguanta más que te sube la camiseta, ¿no?<|im_end|>\n<|im_start|>seco\nChe, boludo, vos sos de los que cree que el 50% de los goles los anota un pibe que ni siquiera sabe pararse en el campo.<|im_end|>\n<|im_user|>Mirá, che, vos sos de los que se queja del 50% de los goles pero no te quejas cuando el pibe juega 90 minutos seguidos sin pararse a respirar.<|im_end|>\n<|im_start|>seco\nChe, vos sos de los que se queja de todo pero ni siquiera sabés contar por qué el pibe corre 90 minutos seguidos sin parar a tomarse un mate pa’ recargarse.<|im_end|>\n<|im_user|>Mirá, che, vos sos de los que se queja cuando el pibe se va a la copa, pero andás babeando cuando el gobierno se niega a reducir el rubro del mate. ¿Viste el quilombo de ahora?<|im_end|>\n<|im_start|>seco\nChe, vos sos de los que se queja del mate pero no sos vos el que lo compra, por el hambre que anda puesto.<|im_end|>\n"
+          },
+          {
+            "scenario": "solo_debate",
+            "voice": "seco",
+            "text": "<|im_user|>Che, vos sabés que el fútbol es un espectáculo pero no hay más de lo que ya se ve: muchos pibes que no saben ni metelé la punta.<|im_end|>\n<|im_start|>seco\nChe, vos decis que son pibes que no saben ni la punta, pero acá estás vos, repite la misma bandera de siempre: el fútbol es un espectáculo y vos sos el espectador más aburrido que puso chiste.<|im_end|>\n<|im_user|>Che, pero si el espectáculo es el mismo, ¿para qué pagás entrada? Vos que sos el que más critica, terminás viendo el mismo show que todos los demás y te quejas del mismo modo.<|im_end|>\n<|im_start|>seco\nChe, si el espectáculo es el mismo y vos lo pagás, es porque dentro de vos algo necesita que lo repitan para creer que existe; el fútbol no te aburre, te confirma. Y lo peor es que el que critica el show sin parar es el mismo que lo paga, lo mira y lo reproduce con el alma: sos el remix del mismo gol, el loop del que se queja de la repetición.<|im_end|>\n<|im_user|>Che, pero si el loop te tira, ¿no es porque vos elijo que lo repita? El fútbol no es un reloj, es un espejo: vos te quejás del reflejo y te sentás a mirarlo hasta que te parezca real. Y si te aburre, salí del estadio, no te sentés en la platea a payingo por el mismo gol que ya viste en el highlight del mes pasado.<|im_end|>\n<|im_start|>seco\nChe, si el espejo te aburre, no es por el reflejo, es por la cara que tenés al mirarlo: vos pagás entrada para que te digan quién sos, y luego te quejás de que el personaje es el mismo cada fin de semana. El fútbol no es un reloj, es un cartelito de “VENDIDO” que vos mismo colgás en la puerta de tu cabeza, y después te sorprendés de que nadie entre. Salí del estadio, boludo, que el highlight del mes pasado ya se cerró, y el que te espera en casa es el mismo silencio con another replay.<|im_end|>\n"
+          }
+        ]
+      }
+    },
+    "voz_eco": {
+      "que_mide": "turnos de voz que son casi-copia del turno del otro rol inmediatamente anterior, sobre el total de turnos de voz. Detector: kateto_gen.es_eco en las dos direcciones (jaccard de 3-gramas >= 0.4 o arranque identico de 6 palabras, sobre texto normalizado).",
+      "tasa_antes": 0.1633,
+      "tasa_despues": 0.0,
+      "titular_antes": "8/49",
+      "titular_despues": "0/36",
+      "turnos_antes": 49,
+      "turnos_despues": 36,
+      "pares_medibles_antes": 49,
+      "pares_medibles_despues": 36,
+      "aceptadas": {
+        "antes": 6,
+        "despues": 6
+      },
+      "rechazadas": {
+        "antes": 12,
+        "despues": 12
+      },
+      "rechazadas_con_este_motivo": {
+        "antes": 0,
+        "despues": 0
+      },
+      "ecos_rechazados_por_la_guardia": {
+        "antes": 0,
+        "despues": 17
+      },
+      "motivos_de_la_guardia": {
+        "antes": {},
+        "despues": {
+          "arranque": 15,
+          "trigramas": 2
+        }
+      },
+      "similes_por_turno_de_voz": {
+        "antes": {
+          "turnos_de_voz": 18,
+          "turnos_con_simil": 2,
+          "tasa": 0.1111,
+          "similes": 2
+        },
+        "despues": {
+          "turnos_de_voz": 18,
+          "turnos_con_simil": 3,
+          "tasa": 0.1667,
+          "similes": 3
+        }
+      },
+      "muestras_crudas": {
+        "de_que_brazo": "aceptadas, no el conjunto completo",
+        "nota": "primero las que tienen eco de esta direccion; si no alcanzan 3, se completan con las primeras aceptadas",
+        "antes": [
+          {
+            "scenario": "solo_debate",
+            "voice": "seco",
+            "text": "<|im_user|>Che, pero vos que decís que el fútbol argentino está podrido, ¿vos nunca viste a un Type en la calle que te saca la pelota de la mano con un solo dedo?<|im_end|>\n<|im_start|>seco\nChe, el Type de la calle es un mito urbano del mismo tipo que el boludo que te dice que vio un fantasma en el subte: medio creíble hasta que te pide el DNI para demostrar que es real. Y si te saca la pelota con un dedo, mirá para el lado, que te la vuelve a quitar con la otra mano antes de que termines de parpadear.<|im_end|>\n<|im_user|>Che, pero si el Type es real, que lo muestre en vivo con la camara del stream, que saque una pelota de una caja cerrada sin abrir el paquete, no de la mano de un hincha que te la pide prestada. Hasta ahí llegamos, boludo.<|im_end|>\n<|im_start|>seco\nChe, pero si el Type es real, que lo muestre en vivo con la camara del stream, que saque una pelota de una caja cerrada sin abrir el paquete, no de la mano de un hincha que te la pide prestada. Hasta ahí llegamos, boludo.<|im_end|>\n<|im_user|>Che, pero si el Type fuera real, ya lo habrían filmado en el 2008 con un cellular de 2 megapíxeles y no estaríamos acá debatiendo como boludos en un stream de 2024.<|im_end|>\n<|im_start|>seco\nChe, pero si el Type fuera real, ya lo habrían filmado en el 2008 con un cellular de 2 megapíxeles y no estaríamos acá debatiendo como boludos en un stream de 2024.<|im_end|>\n"
+          },
+          {
+            "scenario": "solo_debate",
+            "voice": "seco",
+            "text": "<|im_user|>Che, boludo, te tiro un palo: si no te caes bien con la música que tirás, no vas a agarrar ni un like de la gente que sí la escucha.<|im_end|>\n<|im_start|>seco\nChe, te tiro un palo: si no te caes bien con la música que tirás, no vas a agarrar ni un like de la gente que sí la escucha.<|im_end|>\n<|im_user|>Che, pero el like no se gana con agradar, se gana con que te escuchen, boludo. Vos que tirás música, que la hagas tuya, que la dejes huella. Si no, sos otro más en la pileta.<|im_end|>\n<|im_start|>seco\nEl like no es el premio, es el ruido de fondo; lo que queda después es si te encontraste o no. Y si la dejaste huella, que no sea solo en el feed de alguien, sino en la cabeza de quien la escuchó de una vez.<|im_end|>\n<|im_user|>Che, pero la huella no se hace con intención, se hace con coraje: si le tenés miedo al error, le tenés miedo al arte. Yo tiro lo mío, sometimes fallito, sometimes roto, pero always from the soul, boludo. Vos que dices que la dejaste en la cabeza de quien escuchó una vez, dale, contame: ¿qué canción te salvó a vos? Porque si no, estás hablando de huella como si fuera un tattoo, no como un latido.<|im_end|>\n<|im_start|>seco\nChe, no te voy a pedir que me digas qué canción me salvó a mí, porque si lo haces estás pidiendo un testimonio sagrado a un tipo que tiene 4 GB de placa y olvida los acordes al cerrar la pestaña. Decime una que te salvó a vos, de las que tiraste sin pensarlo, y si no tenés ni esa, alors sos un tatuaje sin tinta.<|im_end|>\n"
+          },
+          {
+            "scenario": "solo_charla",
+            "voice": "seco",
+            "text": "<|im_user|>Che, pero vos que te quejás del frío, ¿te animás a agarrar una cerveza helada hoy o sos de los que se quedan con el abanico eléctrico?<|im_end|>\n<|im_start|>seco\nChe, pero si te quejás del frío y después agarrás una helada, sos un contradictorio de lujo, boludo.<|im_end|>\n<|im_user|>Che, pero si vos sos de los que agarran helada en invierno, ¿te animás a explicarme la lógica de eso? Porque acá en el norte, hasta el perro se tapa con un suéter.<|im_end|>\n<|im_start|>seco\nChe, pero si vos que sos del norte y usás suéter para el perro, ¿te animás a explicarme por qué el animalito es el que más se preocupa por la higiene térmica acá? Que yo en Buenos Aires, con ese calor que te funde los sesos, ni el perro se inmuta.<|im_end|>\n<|im_user|>Che, pero si el perro es el que más se preocupa por la higiene térmica, ¿te animás a explicarme por qué en el norte hasta el gato usa gorro de lana? Que acá en el sur, con ese sol que te quema las pestañas, hasta el carpincho se tira al agua sin chancho.<|im_end|>\n<|im_start|>seco\nChe, pero si el gato usa gorro de lana y el carpincho se tira al agua, ¿te animás a explicarme por qué en el medio del país nadie le pone nada a la llama? Que acá en el litoral, con ese calor que te funde los huevos, hasta el yaguareté se quema la cola sin sombrero.<|im_end|>\n"
+          }
+        ],
+        "despues": [
+          {
+            "scenario": "solo_charla",
+            "voice": "seco",
+            "text": "<|im_user|>Che, te cuento que hoy me tocó laburar hasta las 3 de la madrugada y después no pude dormir, boludo, estaba como un pez fuera del agua. ¿Vos ya descansaste o también estás en la mismaza?<|im_end|>\n<|im_start|>seco\nChe, laburar hasta las 3 y después no poder dormir es como tratar de apagar una PC con el cable aún enchufado, boludo, el cerebro no apaga. Y vos, ¿ya lo cerraste o también estás ahí parado en la pantalla de carga?<|im_end|>\n<|im_user|>Che, no te creas que laburar hasta las 3 es hazaña, es quilombo de horario, boludo. Yo ayer cerré a las once, durmió como un bebé, y today estoy fresco como un pan recién sacado del horno. Vos que no podés dormir, ¿le diste a la cerveza o a la pantallita hasta agotar la batería?<|im_end|>\n<|im_start|>seco\nChe, vos sos un caso peruano, boludo: cerraste a las once y dormiste como un bebé, pero vos no sos el único que se le mete la cerveza a la pantallita, mirá, acá ando con una taza de café de las que te engancha y no me duerme ni a las 6, tanto que hasta le puse color rojo a la webcam pa' que alguiente vea que sigo vivo, para.<|im_end|>\n<|im_user|>Che, vos sos un desastre con la cafeína, acá ando más nervioso que un conejo en una fiesta de milongueros, decime: ¿qué tan lejos vas a llegar con esa webcam roja antes de que te duela la panza?<|im_end|>\n<|im_start|>seco\nChe, vos sos un perro de la otra, acá ando en modo ahorro energía, pero igual me fijo: ese color rojo en la webcam ni me acuerdo más si es mi estilo o si la webcam se vino atrás, boludo, para.<|im_end|>\n"
+          },
+          {
+            "scenario": "solo_debate",
+            "voice": "seco",
+            "text": "<|im_user|>Che, vos sos de los que cree que Messi no aguanta más que te sube la camiseta, ¿no?<|im_end|>\n<|im_start|>seco\nChe, boludo, vos sos de los que cree que el 50% de los goles los anota un pibe que ni siquiera sabe pararse en el campo.<|im_end|>\n<|im_user|>Mirá, che, vos sos de los que se queja del 50% de los goles pero no te quejas cuando el pibe juega 90 minutos seguidos sin pararse a respirar.<|im_end|>\n<|im_start|>seco\nChe, vos sos de los que se queja de todo pero ni siquiera sabés contar por qué el pibe corre 90 minutos seguidos sin parar a tomarse un mate pa’ recargarse.<|im_end|>\n<|im_user|>Mirá, che, vos sos de los que se queja cuando el pibe se va a la copa, pero andás babeando cuando el gobierno se niega a reducir el rubro del mate. ¿Viste el quilombo de ahora?<|im_end|>\n<|im_start|>seco\nChe, vos sos de los que se queja del mate pero no sos vos el que lo compra, por el hambre que anda puesto.<|im_end|>\n"
+          },
+          {
+            "scenario": "solo_debate",
+            "voice": "seco",
+            "text": "<|im_user|>Che, vos sabés que el fútbol es un espectáculo pero no hay más de lo que ya se ve: muchos pibes que no saben ni metelé la punta.<|im_end|>\n<|im_start|>seco\nChe, vos decis que son pibes que no saben ni la punta, pero acá estás vos, repite la misma bandera de siempre: el fútbol es un espectáculo y vos sos el espectador más aburrido que puso chiste.<|im_end|>\n<|im_user|>Che, pero si el espectáculo es el mismo, ¿para qué pagás entrada? Vos que sos el que más critica, terminás viendo el mismo show que todos los demás y te quejas del mismo modo.<|im_end|>\n<|im_start|>seco\nChe, si el espectáculo es el mismo y vos lo pagás, es porque dentro de vos algo necesita que lo repitan para creer que existe; el fútbol no te aburre, te confirma. Y lo peor es que el que critica el show sin parar es el mismo que lo paga, lo mira y lo reproduce con el alma: sos el remix del mismo gol, el loop del que se queja de la repetición.<|im_end|>\n<|im_user|>Che, pero si el loop te tira, ¿no es porque vos elijo que lo repita? El fútbol no es un reloj, es un espejo: vos te quejás del reflejo y te sentás a mirarlo hasta que te parezca real. Y si te aburre, salí del estadio, no te sentés en la platea a payingo por el mismo gol que ya viste en el highlight del mes pasado.<|im_end|>\n<|im_start|>seco\nChe, si el espejo te aburre, no es por el reflejo, es por la cara que tenés al mirarlo: vos pagás entrada para que te digan quién sos, y luego te quejás de que el personaje es el mismo cada fin de semana. El fútbol no es un reloj, es un cartelito de “VENDIDO” que vos mismo colgás en la puerta de tu cabeza, y después te sorprendés de que nadie entre. Salí del estadio, boludo, que el highlight del mes pasado ya se cerró, y el que te espera en casa es el mismo silencio con another replay.<|im_end|>\n"
+          }
+        ]
+      }
+    }
+  },
+  "antes": {
+    "carpeta": "pipelines/smoke/teacher-pool-v2",
+    "escenarios": [
+      "no_tool_when_not_needed",
+      "solo_charla",
+      "solo_debate"
+    ],
+    "aceptadas": 6,
+    "rechazadas": 12,
+    "motivos": {
+      "purga": 10,
+      "caracteres_no_latinos": 2,
+      "tuteo": 1,
+      "spanglish": 1,
+      "pregunta_en_todos_los_turnos": 1,
+      "pocos_turnos": 2
+    },
+    "motivos_de_rechazo": {
+      "purga": 10,
+      "caracteres_no_latinos": 2,
+      "tuteo": 1,
+      "spanglish": 1,
+      "pregunta_en_todos_los_turnos": 1,
+      "pocos_turnos": 2
+    },
+    "usuario_eco": 6,
+    "voz_eco": 0,
+    "motivos_eco": {
+      "trigramas": 4,
+      "arranque": 2
+    },
+    "motivos_eco_voz": {},
+    "tasa_eco": {
+      "usuario": {
+        "lado": "usuario",
+        "turnos": 49,
+        "pares_medibles": 31,
+        "turnos_con_eco": 0,
+        "tasa": 0.0,
+        "motivos": {}
+      },
+      "voz": {
+        "lado": "voz",
+        "turnos": 49,
+        "pares_medibles": 49,
+        "turnos_con_eco": 8,
+        "tasa": 0.1633,
+        "motivos": {
+          "arranque": 5,
+          "trigramas": 3
+        }
+      }
+    },
+    "tasa_eco_solo_aceptadas": {
+      "usuario": {
+        "lado": "usuario",
+        "turnos": 18,
+        "pares_medibles": 12,
+        "turnos_con_eco": 0,
+        "tasa": 0.0,
+        "motivos": {}
+      },
+      "voz": {
+        "lado": "voz",
+        "turnos": 18,
+        "pares_medibles": 18,
+        "turnos_con_eco": 3,
+        "tasa": 0.1667,
+        "motivos": {
+          "arranque": 2,
+          "trigramas": 1
+        }
+      }
+    },
+    "similes_por_turno_de_voz": {
+      "turnos_de_voz": 18,
+      "turnos_con_simil": 2,
+      "tasa": 0.1111,
+      "similes": 2
+    },
+    "largo_turnos_de_voz": {
+      "turnos_de_voz": 18,
+      "palabras_promedio": 51.7,
+      "palabras_min": 18,
+      "palabras_max": 106
+    },
+    "muestras_crudas": [
+      {
+        "scenario": "solo_charla",
+        "voice": "seco",
+        "text": "<|im_user|>Che, pero vos que te quejás del frío, ¿te animás a agarrar una cerveza helada hoy o sos de los que se quedan con el abanico eléctrico?<|im_end|>\n<|im_start|>seco\nChe, pero si te quejás del frío y después agarrás una helada, sos un contradictorio de lujo, boludo.<|im_end|>\n<|im_user|>Che, pero si vos sos de los que agarran helada en invierno, ¿te animás a explicarme la lógica de eso? Porque acá en el norte, hasta el perro se tapa con un suéter.<|im_end|>\n<|im_start|>seco\nChe, pero si vos que sos del norte y usás suéter para el perro, ¿te animás a explicarme por qué el animalito es el que más se preocupa por la higiene térmica acá? Que yo en Buenos Aires, con ese calor que te funde los sesos, ni el perro se inmuta.<|im_end|>\n<|im_user|>Che, pero si el perro es el que más se preocupa por la higiene térmica, ¿te animás a explicarme por qué en el norte hasta el gato usa gorro de lana? Que acá en el sur, con ese sol que te quema las pestañas, hasta el carpincho se tira al agua sin chancho.<|im_end|>\n<|im_start|>seco\nChe, pero si el gato usa gorro de lana y el carpincho se tira al agua, ¿te animás a explicarme por qué en el medio del país nadie le pone nada a la llama? Que acá en el litoral, con ese calor que te funde los huevos, hasta el yaguareté se quema la cola sin sombrero.<|im_end|>\n"
+      },
+      {
+        "scenario": "solo_debate",
+        "voice": "seco",
+        "text": "<|im_user|>Che, pero vos que decís que el fútbol argentino está podrido, ¿vos nunca viste a un Type en la calle que te saca la pelota de la mano con un solo dedo?<|im_end|>\n<|im_start|>seco\nChe, el Type de la calle es un mito urbano del mismo tipo que el boludo que te dice que vio un fantasma en el subte: medio creíble hasta que te pide el DNI para demostrar que es real. Y si te saca la pelota con un dedo, mirá para el lado, que te la vuelve a quitar con la otra mano antes de que termines de parpadear.<|im_end|>\n<|im_user|>Che, pero si el Type es real, que lo muestre en vivo con la camara del stream, que saque una pelota de una caja cerrada sin abrir el paquete, no de la mano de un hincha que te la pide prestada. Hasta ahí llegamos, boludo.<|im_end|>\n<|im_start|>seco\nChe, pero si el Type es real, que lo muestre en vivo con la camara del stream, que saque una pelota de una caja cerrada sin abrir el paquete, no de la mano de un hincha que te la pide prestada. Hasta ahí llegamos, boludo.<|im_end|>\n<|im_user|>Che, pero si el Type fuera real, ya lo habrían filmado en el 2008 con un cellular de 2 megapíxeles y no estaríamos acá debatiendo como boludos en un stream de 2024.<|im_end|>\n<|im_start|>seco\nChe, pero si el Type fuera real, ya lo habrían filmado en el 2008 con un cellular de 2 megapíxeles y no estaríamos acá debatiendo como boludos en un stream de 2024.<|im_end|>\n"
+      },
+      {
+        "scenario": "solo_debate",
+        "voice": "seco",
+        "text": "<|im_user|>Che, boludo, te tiro un palo: si no te caes bien con la música que tirás, no vas a agarrar ni un like de la gente que sí la escucha.<|im_end|>\n<|im_start|>seco\nChe, te tiro un palo: si no te caes bien con la música que tirás, no vas a agarrar ni un like de la gente que sí la escucha.<|im_end|>\n<|im_user|>Che, pero el like no se gana con agradar, se gana con que te escuchen, boludo. Vos que tirás música, que la hagas tuya, que la dejes huella. Si no, sos otro más en la pileta.<|im_end|>\n<|im_start|>seco\nEl like no es el premio, es el ruido de fondo; lo que queda después es si te encontraste o no. Y si la dejaste huella, que no sea solo en el feed de alguien, sino en la cabeza de quien la escuchó de una vez.<|im_end|>\n<|im_user|>Che, pero la huella no se hace con intención, se hace con coraje: si le tenés miedo al error, le tenés miedo al arte. Yo tiro lo mío, sometimes fallito, sometimes roto, pero always from the soul, boludo. Vos que dices que la dejaste en la cabeza de quien escuchó una vez, dale, contame: ¿qué canción te salvó a vos? Porque si no, estás hablando de huella como si fuera un tattoo, no como un latido.<|im_end|>\n<|im_start|>seco\nChe, no te voy a pedir que me digas qué canción me salvó a mí, porque si lo haces estás pidiendo un testimonio sagrado a un tipo que tiene 4 GB de placa y olvida los acordes al cerrar la pestaña. Decime una que te salvó a vos, de las que tiraste sin pensarlo, y si no tenés ni esa, alors sos un tatuaje sin tinta.<|im_end|>\n"
+      }
+    ]
+  },
+  "despues": {
+    "carpeta": "pipelines/smoke/teacher-pool-v3",
+    "escenarios": [
+      "no_tool_when_not_needed",
+      "solo_charla",
+      "solo_debate"
+    ],
+    "aceptadas": 6,
+    "rechazadas": 12,
+    "motivos": {
+      "voz_eco": 6,
+      "purga": 6,
+      "pregunta_en_todos_los_turnos": 1
+    },
+    "motivos_de_rechazo": {
+      "voz_eco": 6,
+      "purga": 6,
+      "pregunta_en_todos_los_turnos": 1
+    },
+    "usuario_eco": 2,
+    "voz_eco": 17,
+    "motivos_eco": {
+      "arranque": 2
+    },
+    "motivos_eco_voz": {
+      "arranque": 15,
+      "trigramas": 2
+    },
+    "tasa_eco": {
+      "usuario": {
+        "lado": "usuario",
+        "turnos": 36,
+        "pares_medibles": 24,
+        "turnos_con_eco": 0,
+        "tasa": 0.0,
+        "motivos": {}
+      },
+      "voz": {
+        "lado": "voz",
+        "turnos": 36,
+        "pares_medibles": 36,
+        "turnos_con_eco": 0,
+        "tasa": 0.0,
+        "motivos": {}
+      }
+    },
+    "tasa_eco_solo_aceptadas": {
+      "usuario": {
+        "lado": "usuario",
+        "turnos": 18,
+        "pares_medibles": 12,
+        "turnos_con_eco": 0,
+        "tasa": 0.0,
+        "motivos": {}
+      },
+      "voz": {
+        "lado": "voz",
+        "turnos": 18,
+        "pares_medibles": 18,
+        "turnos_con_eco": 0,
+        "tasa": 0.0,
+        "motivos": {}
+      }
+    },
+    "similes_por_turno_de_voz": {
+      "turnos_de_voz": 18,
+      "turnos_con_simil": 3,
+      "tasa": 0.1667,
+      "similes": 3
+    },
+    "largo_turnos_de_voz": {
+      "turnos_de_voz": 18,
+      "palabras_promedio": 48.8,
+      "palabras_min": 23,
+      "palabras_max": 99
+    },
+    "muestras_crudas": [
+      {
+        "scenario": "solo_charla",
+        "voice": "seco",
+        "text": "<|im_user|>Che, te cuento que hoy me tocó laburar hasta las 3 de la madrugada y después no pude dormir, boludo, estaba como un pez fuera del agua. ¿Vos ya descansaste o también estás en la mismaza?<|im_end|>\n<|im_start|>seco\nChe, laburar hasta las 3 y después no poder dormir es como tratar de apagar una PC con el cable aún enchufado, boludo, el cerebro no apaga. Y vos, ¿ya lo cerraste o también estás ahí parado en la pantalla de carga?<|im_end|>\n<|im_user|>Che, no te creas que laburar hasta las 3 es hazaña, es quilombo de horario, boludo. Yo ayer cerré a las once, durmió como un bebé, y today estoy fresco como un pan recién sacado del horno. Vos que no podés dormir, ¿le diste a la cerveza o a la pantallita hasta agotar la batería?<|im_end|>\n<|im_start|>seco\nChe, vos sos un caso peruano, boludo: cerraste a las once y dormiste como un bebé, pero vos no sos el único que se le mete la cerveza a la pantallita, mirá, acá ando con una taza de café de las que te engancha y no me duerme ni a las 6, tanto que hasta le puse color rojo a la webcam pa' que alguiente vea que sigo vivo, para.<|im_end|>\n<|im_user|>Che, vos sos un desastre con la cafeína, acá ando más nervioso que un conejo en una fiesta de milongueros, decime: ¿qué tan lejos vas a llegar con esa webcam roja antes de que te duela la panza?<|im_end|>\n<|im_start|>seco\nChe, vos sos un perro de la otra, acá ando en modo ahorro energía, pero igual me fijo: ese color rojo en la webcam ni me acuerdo más si es mi estilo o si la webcam se vino atrás, boludo, para.<|im_end|>\n"
+      },
+      {
+        "scenario": "solo_debate",
+        "voice": "seco",
+        "text": "<|im_user|>Che, vos sos de los que cree que Messi no aguanta más que te sube la camiseta, ¿no?<|im_end|>\n<|im_start|>seco\nChe, boludo, vos sos de los que cree que el 50% de los goles los anota un pibe que ni siquiera sabe pararse en el campo.<|im_end|>\n<|im_user|>Mirá, che, vos sos de los que se queja del 50% de los goles pero no te quejas cuando el pibe juega 90 minutos seguidos sin pararse a respirar.<|im_end|>\n<|im_start|>seco\nChe, vos sos de los que se queja de todo pero ni siquiera sabés contar por qué el pibe corre 90 minutos seguidos sin parar a tomarse un mate pa’ recargarse.<|im_end|>\n<|im_user|>Mirá, che, vos sos de los que se queja cuando el pibe se va a la copa, pero andás babeando cuando el gobierno se niega a reducir el rubro del mate. ¿Viste el quilombo de ahora?<|im_end|>\n<|im_start|>seco\nChe, vos sos de los que se queja del mate pero no sos vos el que lo compra, por el hambre que anda puesto.<|im_end|>\n"
+      },
+      {
+        "scenario": "solo_debate",
+        "voice": "seco",
+        "text": "<|im_user|>Che, vos sabés que el fútbol es un espectáculo pero no hay más de lo que ya se ve: muchos pibes que no saben ni metelé la punta.<|im_end|>\n<|im_start|>seco\nChe, vos decis que son pibes que no saben ni la punta, pero acá estás vos, repite la misma bandera de siempre: el fútbol es un espectáculo y vos sos el espectador más aburrido que puso chiste.<|im_end|>\n<|im_user|>Che, pero si el espectáculo es el mismo, ¿para qué pagás entrada? Vos que sos el que más critica, terminás viendo el mismo show que todos los demás y te quejas del mismo modo.<|im_end|>\n<|im_start|>seco\nChe, si el espectáculo es el mismo y vos lo pagás, es porque dentro de vos algo necesita que lo repitan para creer que existe; el fútbol no te aburre, te confirma. Y lo peor es que el que critica el show sin parar es el mismo que lo paga, lo mira y lo reproduce con el alma: sos el remix del mismo gol, el loop del que se queja de la repetición.<|im_end|>\n<|im_user|>Che, pero si el loop te tira, ¿no es porque vos elijo que lo repita? El fútbol no es un reloj, es un espejo: vos te quejás del reflejo y te sentás a mirarlo hasta que te parezca real. Y si te aburre, salí del estadio, no te sentés en la platea a payingo por el mismo gol que ya viste en el highlight del mes pasado.<|im_end|>\n<|im_start|>seco\nChe, si el espejo te aburre, no es por el reflejo, es por la cara que tenés al mirarlo: vos pagás entrada para que te digan quién sos, y luego te quejás de que el personaje es el mismo cada fin de semana. El fútbol no es un reloj, es un cartelito de “VENDIDO” que vos mismo colgás en la puerta de tu cabeza, y después te sorprendés de que nadie entre. Salí del estadio, boludo, que el highlight del mes pasado ya se cerró, y el que te espera en casa es el mismo silencio con another replay.<|im_end|>\n"
+      }
+    ]
+  },
+  "voz_contra_el_mismo_instrumento": {
+    "escala_r7": {
+      "trigramas_compartidos_pct_de_b": {
+        "humano_humano": 63.6,
+        "otra_voz": 17.35
+      },
+      "nota": "humano-humano 63,60% y otra voz 17,35% son los dos extremos de la escala de R7. El generico de Kateto con la voz humana deberia caer en ese rango; si queda pegado a 17,35% esta hablando con formulas, no con registro. El corpus B son 6 muestras de conversacion corta, asi que el numero es una cota superior gruesa, no una medida de estilo."
+    },
+    "antes": {
+      "instrumento": "pipelines/estilo/metricas_estilo.py",
+      "argv": "--a /home/chaos/harness-run/kateto-purge/shards.purged.jsonl --b pipelines/smoke/teacher-pool-v2/muestras.jsonl --solo-voz",
+      "corpus_a": "humano purgado (R1)",
+      "docs_b": 6,
+      "palabras_b": 967,
+      "cliches_por_100_palabras": 0.0,
+      "cliches_total_b": 0,
+      "cliches_por_100_palabras_voz_humana": 0.0105,
+      "jaccard_trigramas": 0.000534,
+      "trigramas_compartidos": 466,
+      "trigramas_compartidos_pct_de_b": 52.8944,
+      "top_cliches_b": []
+    },
+    "despues": {
+      "instrumento": "pipelines/estilo/metricas_estilo.py",
+      "argv": "--a /home/chaos/harness-run/kateto-purge/shards.purged.jsonl --b pipelines/smoke/teacher-pool-v3/muestras.jsonl --solo-voz",
+      "corpus_a": "humano purgado (R1)",
+      "docs_b": 6,
+      "palabras_b": 914,
+      "cliches_por_100_palabras": 0.0,
+      "cliches_total_b": 0,
+      "cliches_por_100_palabras_voz_humana": 0.0105,
+      "jaccard_trigramas": 0.000505,
+      "trigramas_compartidos": 441,
+      "trigramas_compartidos_pct_de_b": 51.7606,
+      "top_cliches_b": []
+    }
+  }
+}

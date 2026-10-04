@@ -1,0 +1,8 @@
+{
+  "aceptadas": 3,
+  "rechazadas": 3,
+  "motivos": {
+    "purga": 2,
+    "sin_tool_call": 2
+  }
+}

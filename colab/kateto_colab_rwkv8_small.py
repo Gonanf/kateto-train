@@ -15,9 +15,9 @@
 # Expectativa honesta: el modelo chico NO va a conversar bien (tiene ~1h de
 # pretraining vs 332B tokens del G1). Lo que medimos es exact-recall.
 
-import os
-os.system("pip install -q lightning==2.6.5 deepspeed einops triton rwkv-fla rwkv datasets")
-os.system("test -d /content/RWKV-LM || git clone --depth 1 https://github.com/BlinkDL/RWKV-LM /content/RWKV-LM")
+# %% [1] Deps + repos
+!pip install -q lightning==2.6.5 deepspeed einops triton rwkv-fla rwkv datasets
+!test -d /content/RWKV-LM || git clone --depth 1 https://github.com/BlinkDL/RWKV-LM /content/RWKV-LM
 import torch
 assert torch.cuda.is_available()
 print(torch.cuda.get_device_name(0))
@@ -65,8 +65,8 @@ with open('/content/rwkv8_test.jsonl', 'w') as f:
 print('train:', len(docs) + len(fill), '| test tool-calls:', len(test_docs))
 
 # %% [3] binidx con el tokenizador world (RWKV-v5/make_data.py)
-os.chdir('/content/RWKV-LM/RWKV-v5')
-os.system('python make_data.py /content/rwkv8_train.jsonl 2 1024')
+%cd /content/RWKV-LM/RWKV-v5
+!python make_data.py /content/rwkv8_train.jsonl 2 1024
 import glob
 BIN = sorted(glob.glob('/content/RWKV-LM/RWKV-v5/rwkv8_train*.bin'))
 assert BIN, 'make_data no genero el .bin'
@@ -75,22 +75,22 @@ print('binidx:', BINIDX)
 
 # %% [4] Tiny RWKV-7 L6-D512 desde cero (RWKV-v7/train_temp/train.py)
 # 4a) inicializar pesos (train_stage 1)
-os.chdir('/content/RWKV-LM/RWKV-v7/train_temp')
-os.system(f'python train.py --wandb "" --proj_dir /content/out8 '
-  f'--data_file "{BINIDX}" --data_type binidx --vocab_size 65536 --my_testing x070 '
-  '--ctx_len 1024 --train_stage 1 --epoch_count 1 --epoch_begin 0 --epoch_save 1 '
-  '--weight_decay 0 --head_size 64 --num_nodes 1 --micro_bsz 1 '
-  '--n_layer 6 --n_embd 512 --accelerator gpu --devices 1 --precision bf16 '
-  '--grad_cp 1 --lr_init 1e-5 --lr_final 1e-5 --warmup_steps 10')
+%cd /content/RWKV-LM/RWKV-v7/train_temp
+!python train.py --wandb "" --proj_dir /content/out8 \
+  --data_file "{BINIDX}" --data_type binidx --vocab_size 65536 --my_testing x070 \
+  --ctx_len 1024 --train_stage 1 --epoch_count 1 --epoch_begin 0 --epoch_save 1 \
+  --weight_decay 0 --head_size 64 --num_nodes 1 --micro_bsz 1 \
+  --n_layer 6 --n_embd 512 --accelerator gpu --devices 1 --precision bf16 \
+  --grad_cp 1 --lr_init 1e-5 --lr_final 1e-5 --warmup_steps 10
 
 # 4b) entrenamiento corto (~1h): corpus argentino + tarea de copia
-os.system(f'python train.py --wandb "" --proj_dir /content/out8 '
-  f'--data_file "{BINIDX}" --data_type binidx --vocab_size 65536 --my_testing x070 '
-  '--ctx_len 1024 --micro_bsz 4 --accumulate_grad_batches 2 '
-  '--n_layer 6 --n_embd 512 --head_size 64 --num_nodes 1 '
-  '--epoch_steps 1500 --epoch_count 1 --epoch_begin 0 --epoch_save 1 '
-  '--lr_init 6e-4 --lr_final 1e-5 --warmup_steps 100 --beta1 0.9 --beta2 0.99 '
-  '--accelerator gpu --devices 1 --precision bf16 --grad_cp 1')
+!python train.py --wandb "" --proj_dir /content/out8 \
+  --data_file "{BINIDX}" --data_type binidx --vocab_size 65536 --my_testing x070 \
+  --ctx_len 1024 --micro_bsz 4 --accumulate_grad_batches 2 \
+  --n_layer 6 --n_embd 512 --head_size 64 --num_nodes 1 \
+  --epoch_steps 1500 --epoch_count 1 --epoch_begin 0 --epoch_save 1 \
+  --lr_init 6e-4 --lr_final 1e-5 --warmup_steps 100 --beta1 0.9 --beta2 0.99 \
+  --accelerator gpu --devices 1 --precision bf16 --grad_cp 1
 BASE8 = sorted(glob.glob('/content/out8/*.pth'))[-1]
 print('modelo tiny:', BASE8)
 

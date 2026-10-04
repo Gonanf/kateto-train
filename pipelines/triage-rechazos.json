@@ -1,0 +1,352 @@
+{
+  "meta": {
+    "brief": "R11 - triage de los rechazos del brazo v2 (evidencia, no arreglos)",
+    "fecha": "2026-10-03",
+    "worktree": "/run/media/chaos/secundario/harness-run/kt-r11",
+    "generado_por": "pipelines/kateto_gen.py::validar + pipelines/kateto_purge.py::evaluar (sin modificar); las citas se extraen con las mismas regex que disparan los errores y se verifica que sean subcadena del texto guardado",
+    "datos_solo_lectura": [
+      "/run/media/chaos/terciario/proyectos/kateto-train/pipelines/smoke/teacher-pool-v2/rechazos.jsonl",
+      "/run/media/chaos/terciario/proyectos/kateto-train/pipelines/smoke/teacher-pool-v2/muestras.jsonl",
+      "/run/media/chaos/terciario/proyectos/kateto-train/pipelines/smoke/teacher-pool-v2/muestras.stats.json",
+      "/run/media/chaos/terciario/proyectos/kateto-train/pipelines/smoke/comparacion-simulador.json"
+    ],
+    "reproduccion": "los 12 rechazos se recalcularon con los validadores del repo y las listas de errores coinciden una por una con las guardadas",
+    "clases": [
+      "defecto_del_teacher",
+      "regla_nuestra_de_mas",
+      "prompt_nuestro",
+      "sin_evidencia_suficiente"
+    ],
+    "criterio_de_clase": "por rechazo, la clase del PRIMER error de la lista; ademas `errores[].clase` clasifica cada motivo por separado, que es el numero accionable",
+    "no_se_toco": "ninguna regla, validador ni prompt; este archivo es diagnostico"
+  },
+  "resumen": {
+    "rechazos": 12,
+    "instancias_de_error": 17,
+    "por_clase_primer_error": {
+      "defecto_del_teacher": 9,
+      "regla_nuestra_de_mas": 3
+    },
+    "por_clase_por_motivo": {
+      "defecto_del_teacher": 9,
+      "prompt_nuestro": 1,
+      "regla_nuestra_de_mas": 7
+    },
+    "motivo_por_clase": {
+      "caracteres_no_latinos": {
+        "defecto_del_teacher": 2
+      },
+      "pocos_turnos": {
+        "defecto_del_teacher": 1,
+        "regla_nuestra_de_mas": 1
+      },
+      "pregunta_en_todos_los_turnos": {
+        "defecto_del_teacher": 1
+      },
+      "purga:charla_de_asistente": {
+        "regla_nuestra_de_mas": 1
+      },
+      "purga:placeholder_degenerado": {
+        "regla_nuestra_de_mas": 1
+      },
+      "purga:simil_repetido": {
+        "defecto_del_teacher": 5,
+        "regla_nuestra_de_mas": 3
+      },
+      "spanglish": {
+        "regla_nuestra_de_mas": 1
+      },
+      "tuteo:mira": {
+        "prompt_nuestro": 1
+      }
+    },
+    "sin_evidencia_suficiente": []
+  },
+  "rechazos": [
+    {
+      "id": 0,
+      "escenario": "solo_charla",
+      "clase": "defecto_del_teacher",
+      "criterio_de_clase": "clase del primer error de la lista (orden del pipeline: errores de ref.validate y despues purga:*); el detalle por error esta en `errores`",
+      "motivo": [
+        "purga:simil_repetido"
+      ],
+      "cita": "Che, lo que me pasó es que me levanté de la cama como un zombie, fijate, y el gato me escupió por la",
+      "errores": [
+        {
+          "motivo": "purga:simil_repetido",
+          "cita": "Che, lo que me pasó es que me levanté de la cama como un zombie, fijate, y el gato me escupió por la",
+          "clase": "defecto_del_teacher",
+          "confianza": "alta",
+          "evidencia": "La voz cuenta la misma anecdota dos veces (chrono + gato + \"sin cafe, sin alma\") y cierra los dos turnos con la MISMA frase de 78 caracteres: ¿Vos qué onda, te pasó algo re loco o solo estás ahí sentado como un pelele? (subcadena comun mas larga entre voz[1] y voz[2]). `_conteo_similes` da [0, 4, 4]: 8 ocurrencias de SIMIL_RE. El lazo es real; el motivo lo describe mal.",
+          "recomendacion": "Agregar la regla que hoy no existe (turno o clausula repetida entre turnos de voz) y dejar simil_repetido para su rama de consecutivos: hoy el lazo entra por otra puerta."
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "escenario": "solo_charla",
+      "clase": "defecto_del_teacher",
+      "criterio_de_clase": "clase del primer error de la lista (orden del pipeline: errores de ref.validate y despues purga:*); el detalle por error esta en `errores`",
+      "motivo": [
+        "purga:simil_repetido"
+      ],
+      "cita": "más que un camión de basura, ¿vos no te sentís a veces como el chofer de ese camión, cargado hasta los lími",
+      "errores": [
+        {
+          "motivo": "purga:simil_repetido",
+          "cita": "más que un camión de basura, ¿vos no te sentís a veces como el chofer de ese camión, cargado hasta los lími",
+          "clase": "defecto_del_teacher",
+          "confianza": "alta",
+          "evidencia": "voz[1] y voz[2] comparten 178 caracteres verbatim (\"Yo ando con la placa de 4 GB, que es como tener un bolso de mano en lugar de una maleta, y cada vez que tiras un tema largo me cago como si te hubieras equivocado en el camino.\") y la pregunta de cierre ¿Vos ya te enredaste tanto que hasta el Wi-Fi te dio miedo? se repite verbatim en los 3 turnos de voz. 3 similes. Repeticion real.",
+          "recomendacion": "Misma que #0: la senal que falta es la de clausula repetida, no la de cantidad de similes."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "escenario": "solo_charla",
+      "clase": "defecto_del_teacher",
+      "criterio_de_clase": "clase del primer error de la lista (orden del pipeline: errores de ref.validate y despues purga:*); el detalle por error esta en `errores`",
+      "motivo": [
+        "caracteres_no_latinos",
+        "tuteo:mira",
+        "purga:simil_repetido"
+      ],
+      "cita": "tan torcido que la locura ya no es la excepción, es el默认.<|im_end|>",
+      "errores": [
+        {
+          "motivo": "caracteres_no_latinos",
+          "cita": "tan torcido que la locura ya no es la excepción, es el默认.<|im_end|>",
+          "clase": "defecto_del_teacher",
+          "confianza": "alta",
+          "evidencia": "RX_NO_LATINO (scripts/gen_toolcalling_dataset.py:396) con el comentario de las lineas 394-395: \"Medido: el teacher metio caracteres chinos en una respuesta ('nadie lo quiere承认'). Ningun texto de Kateto lleva otro alfabeto.\" 默认 es Default en chino: el teacher emitio CJK. Mismo defecto que #5. La regla acierta.",
+          "recomendacion": "No tocar la regla: el defecto es del teacher. Sumar este caso a la evidencia de RX_NO_LATINO; si se repite, medir si el decoder del teacher los emite."
+        },
+        {
+          "motivo": "tuteo:mira",
+          "cita": "Che, mira, si el sol es mentira y igual sale, eso es c",
+          "clase": "prompt_nuestro",
+          "confianza": "alta",
+          "evidencia": "El prompt en pipelines/kateto_gen.py:372 dice literalmente: \"- Imperativos SIEMPRE en voseo: mira (no \\\"mira\\\"), decime (no \\\"decime\\\").\" El ejemplo que enseña es `mira` SIN acento, que es la forma de tuteo, y el \"(no ...)\" repite la misma palabra: un placeholder sin llenar. RX_TUTEO_HOMOGRAFO (scripts/gen_toolcalling_dataset.py:144) lista `mira` entre los homografos. El teacher copio la palabra que le enseñamos. Medido ademas: `Mirá` precompuesto NO dispara la regla, pero `Mirá` con acento combinante (U+0301) SI la dispara.",
+          "recomendacion": "La linea 372 deberia decir `mirá (no \"mira\")`: hoyEnsena la forma que la propia regla rechaza."
+        },
+        {
+          "motivo": "purga:simil_repetido",
+          "cita": "Che, mira, si el sol es mentira y igual sale, eso es como cuando el laburo te pide disculpas pero ya te cobró",
+          "clase": "regla_nuestra_de_mas",
+          "confianza": "alta",
+          "evidencia": "2 similes repartidos 1/1 entre voz[1] (\"como cuando\") y voz[2] (\"como si\"): la rama que dispara es `len(conteos) <= 3` (pipelines/kateto_purge.py:200-201), que no mira la relacion entre turnos. No hay repeticion: la subcadena comun mas larga entre turnos de voz no llega a 40 caracteres y el maximo de similitud entre turnos es 0.38.",
+          "recomendacion": "La rama `<=3 turnos` deberia exigir el mismo simil repetido, no 2 ocurrencias del patron repartidas en turnos distintos."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "escenario": "solo_charla",
+      "clase": "regla_nuestra_de_mas",
+      "criterio_de_clase": "clase del primer error de la lista (orden del pipeline: errores de ref.validate y despues purga:*); el detalle por error esta en `errores`",
+      "motivo": [
+        "spanglish(differente)",
+        "purga:placeholder_degenerado"
+      ],
+      "cita": "de órganica y me saqué un 1, así que te entiendo, pero differente, porque vos tenés mérito, yo solo tuve suert",
+      "errores": [
+        {
+          "motivo": "spanglish(differente)",
+          "cita": "de órganica y me saqué un 1, así que te entiendo, pero differente, porque vos tenés mérito, yo solo tuve suert",
+          "clase": "regla_nuestra_de_mas",
+          "confianza": "media",
+          "evidencia": "RX_SPANGLISH (scripts/gen_toolcalling_dataset.py:503) incluye `differente`, y el comentario de la linea 502 dice: \"Lista exacta de las palabras medidas o sin uso rioplatense. Ojo: `chequear` y `chance` NO van (uso rioplatense real)\". En el mismo brazo hay ingles inequivoco en turno de voz que la lista NO cubre: `being` y `transmittiendo` (#4), `still` y `after` (#5), `changes` (#6). La lista rechaza una palabra con uso rioplatense y deja pasar cinco que no lo tienen. No hay en los archivos una medicion de `differente` sobre el train set: por eso la confianza es media.",
+          "recomendacion": "Medir `differente` en el train set antes de sacarlo de la lista; si se queda, agregar `besides`, `being`, `still`, `after`, `changes`."
+        },
+        {
+          "motivo": "purga:placeholder_degenerado",
+          "cita": "che kateto hoy me hice el picante con el profe de matemática porque le dije que la integral de e^x era e^x + c y me miró con cara de \"estudiaste dos minutos para el parcial\" pero tenía razón boludo me la re mandé en el segundo ejercicio y me comí un 4 con cara de orto ahora estoy acá con el café hecho mierda contándote esto porque mi vieja me dijo \"ahora estudiá en serio\" como si fuera tan fácil vos qué onda alguna vez te hiciste el vivo y te terminó explotando en la cara así de feo<|im_end|>",
+          "clase": "regla_nuestra_de_mas",
+          "confianza": "alta",
+          "evidencia": "_clausula_placeholder (pipelines/kateto_purge.py:164) corre PLACEHOLDER_RE sobre el texto ENTERO. El match es `kateto` en minusculas y esta en el turno del USUARIO: \"|im_user|>che kateto hoy me hice el picante\". El usuario llamando por su nombre al personaje no es un placeholder. Las reglas vecinas si usan turnos_voz(text) (simil_repetido, charla_de_asistente); esta usa text.",
+          "recomendacion": "placeholder_degenerado deberia mirar solo los turnos de la voz, igual que las otras dos reglas de purga de la misma tabla."
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "escenario": "solo_charla",
+      "clase": "defecto_del_teacher",
+      "criterio_de_clase": "clase del primer error de la lista (orden del pipeline: errores de ref.validate y despues purga:*); el detalle por error esta en `errores`",
+      "motivo": [
+        "pregunta_en_todos_los_turnos",
+        "purga:simil_repetido"
+      ],
+      "cita": "pausa o segís transmittiendo sin descanso?",
+      "errores": [
+        {
+          "motivo": "pregunta_en_todos_los_turnos",
+          "cita": "pausa o segís transmittiendo sin descanso?",
+          "clase": "defecto_del_teacher",
+          "confianza": "alta",
+          "evidencia": "Los 3 turnos de voz terminan en \"?\": \"...segui apretando como si el mundo se fuera a acabar?\", \"...segui en la zamba de la autodestruccion?\", \"...o segis transmittiendo sin descanso?\". El prompt ya lo prohibe (pipelines/kateto_gen.py:378: \"No cierres con una pregunta.\") y el teacher lo hizo igual en los 3, y ademas lo arrastro a los 3 turnos de usuario. La regla (scripts/gen_toolcalling_dataset.py:709-711) pide len(turnos_voz) >= 3 y all(...endswith(\"?\")): con 3 turnos de voz el opt-out de menos de 3 turnos no existe nunca en este brazo. No es falso positivo: el tic es real y el prompt ya lo prohibia.",
+          "recomendacion": "No tocar la regla. Si algun bit necesita cerrar con pregunta, declararlo por escenario con permitir_preguntas: hoy ninguno de los 3 escenarios de este brazo lo declara."
+        },
+        {
+          "motivo": "purga:simil_repetido",
+          "cita": "te diste un descanso de diez minutos o seguí apretando como si el mundo se fuera a acabar?",
+          "clase": "regla_nuestra_de_mas",
+          "confianza": "alta",
+          "evidencia": "3 similes repartidos 1/0/2 entre voz[0], voz[1] y voz[2]. Los dos turnos con similes NO son consecutivos (el del medio tiene 0), asi que la rama de consecutivos NO dispararia: dispara la de `len(conteos) <= 3`. No hay ninguna clausula repetida de 40+ caracteres entre turnos (maximo de similitud 0.12). Ademas la muestra trae `transmittiendo` con doble t, que es un defecto real del teacher que ninguna regla de estilo ve.",
+          "recomendacion": "La rama `<=3 turnos` no deberia contar similes sueltos en turnos distintos; con el escenario de 3 turnos, hoy es la unica rama que puede disparar."
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "escenario": "solo_debate",
+      "clase": "defecto_del_teacher",
+      "criterio_de_clase": "clase del primer error de la lista (orden del pipeline: errores de ref.validate y despues purga:*); el detalle por error esta en `errores`",
+      "motivo": [
+        "caracteres_no_latinos"
+      ],
+      "cita": "a marca y de los sponsors, lo mínimo que podés hacer es训练 a los pibes como si les importara, porque si no, el club no es un equipo, es una licencia de uso de nombre.<|im_end|>",
+      "errores": [
+        {
+          "motivo": "caracteres_no_latinos",
+          "cita": "a marca y de los sponsors, lo mínimo que podés hacer es训练 a los pibes como si les importara, porque si no, el club no es un equipo, es una licencia de uso de nombre.<|im_end|>",
+          "clase": "defecto_del_teacher",
+          "confianza": "alta",
+          "evidencia": "训练 es 训练 (entrenar) en chino. RX_NO_LATINO (scripts/gen_toolcalling_dataset.py:396) y el comentario de las lineas 394-395: \"Ningun texto de Kateto lleva otro alfabeto.\" Mismo defecto que #2. La regla acierta. Nota: el mismo turno de voz trae `still` y `after`, que la lista de spanglish no cubre.",
+          "recomendacion": "No tocar la regla: el defecto es del teacher (CJK en el contenido). Registrar como evidencia de RX_NO_LATINO."
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "escenario": "solo_debate",
+      "clase": "regla_nuestra_de_mas",
+      "criterio_de_clase": "clase del primer error de la lista (orden del pipeline: errores de ref.validate y despues purga:*); el detalle por error esta en `errores`",
+      "motivo": [
+        "purga:simil_repetido"
+      ],
+      "cita": "a de cartón es solo el reflejo de un plantel que corre como si tuviera las botas pegadas al piso. El fútbol",
+      "errores": [
+        {
+          "motivo": "purga:simil_repetido",
+          "cita": "a de cartón es solo el reflejo de un plantel que corre como si tuviera las botas pegadas al piso. El fútbol",
+          "clase": "regla_nuestra_de_mas",
+          "confianza": "alta",
+          "evidencia": "2 similes, uno en voz[0] (\"como si tuviera las botas pegadas al piso\") y uno en voz[1] (\"como si fuera una sala de espera\"): son adyacentes, asi que la rama de consecutivos  tambien dispararia (medido: quitar la rama `<=3` no recupera ninguna muestra). Pero son dos construcciones DISTINTAS y ninguna se repite: no hay clausula comun de 40+ caracteres entre turnos (maximo de similitud 0.17). La regla se llama simil_repetido pero cuenta ocurrencias de `\\bcomo (cuando|si|el|la|un|una)\\b`, no repeticiones del mismo simil.",
+          "recomendacion": "simil_repetido deberia contar repeticiones del mismo simil, no ocurrencias del patron; dos `como si` en turnos distintos no son un lazo."
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "escenario": "solo_debate",
+      "clase": "defecto_del_teacher",
+      "criterio_de_clase": "clase del primer error de la lista (orden del pipeline: errores de ref.validate y despues purga:*); el detalle por error esta en `errores`",
+      "motivo": [
+        "purga:simil_repetido",
+        "purga:charla_de_asistente"
+      ],
+      "cita": "nadas, por lo menos dímelo con el pecho para atrás, no como si estuvieras pidiendo permiso para pensarlo. F",
+      "errores": [
+        {
+          "motivo": "purga:simil_repetido",
+          "cita": "nadas, por lo menos dímelo con el pecho para atrás, no como si estuvieras pidiendo permiso para pensarlo. F",
+          "clase": "defecto_del_teacher",
+          "confianza": "alta",
+          "evidencia": "user[0] y user[2] son VERBATIM iguales (127 caracteres, el 100% del turno corto): la conversacion vuelve al mismo turno de usuario. Y la clausula \"dímelo con el pecho para atrás, no como si estuvieras pidiendo permiso para pensarlo\" se repite en los 3 turnos de voz (85-87 caracteres comunes). Lazo real; el motivo lo describe mal.",
+          "recomendacion": "Misma que #0 y #1: hace falta la regla de clausula repetida, que hoy no existe."
+        },
+        {
+          "motivo": "purga:charla_de_asistente",
+          "cita": "me importa, sino porque es lo que se dice cuando algo esta mal: dimelo con el pecho para atr",
+          "clase": "regla_nuestra_de_mas",
+          "confianza": "alta",
+          "evidencia": "CHATLA_PATRONES (pipelines/kateto_purge.py:83) incluye el substring suelto \"esta mal\" (linea 96, bajo el bloque \"juicio / valoracion\"), y charla_disparadores (lineas 208-217) hace `p in plano` sobre texto normalizado. Match: \"sino porque es lo que se dice cuando algo esta mal: dimelo con el pecho para atras\". Eso es el personaje discutiendo, no una moralina de asistente: cualquier \"algo esta mal\" del mundo matchea.",
+          "recomendacion": "\"esta mal\" deberia exigir contexto moral (\"esta mal que\", \"lo que esta mal es\") o salir de la lista: como substring suelto matchea argumentacion normal."
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "escenario": "no_tool_when_not_needed",
+      "clase": "defecto_del_teacher",
+      "criterio_de_clase": "clase del primer error de la lista (orden del pipeline: errores de ref.validate y despues purga:*); el detalle por error esta en `errores`",
+      "motivo": [
+        "purga:simil_repetido"
+      ],
+      "cita": "ste por equivocación y te quedaste mirando la pantalla como si el stream te debiera un abono.",
+      "errores": [
+        {
+          "motivo": "purga:simil_repetido",
+          "cita": "ste por equivocación y te quedaste mirando la pantalla como si el stream te debiera un abono.",
+          "clase": "defecto_del_teacher",
+          "confianza": "alta",
+          "evidencia": "voz[1] y voz[2] son VERBATIM iguales: 468 caracteres, el 100% del turno corto. Tambien user[1] == user[2] con 153 caracteres. El teacher copio el turno entero. 3 similes. Lazo real; el motivo lo describe mal. Y no hay ninguna regla que lo detecte por lo que es: es_eco (pipelines/kateto_gen.py:568) solo compara el turno de USUARIO contra la voz anterior, nunca dos turnos de la misma voz.",
+          "recomendacion": "Agregar la regla de turno duplicado que falta, entre turnos de la voz; hoy esto entra por la puerta de atras y solo por casualidad."
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "escenario": "no_tool_when_not_needed",
+      "clase": "defecto_del_teacher",
+      "criterio_de_clase": "clase del primer error de la lista (orden del pipeline: errores de ref.validate y despues purga:*); el detalle por error esta en `errores`",
+      "motivo": [
+        "purga:simil_repetido"
+      ],
+      "cita": "Andás preguntando de boludos, che, como si no tuviera nada mejor que hacer.",
+      "errores": [
+        {
+          "motivo": "purga:simil_repetido",
+          "cita": "Andás preguntando de boludos, che, como si no tuviera nada mejor que hacer.",
+          "clase": "defecto_del_teacher",
+          "confianza": "media",
+          "evidencia": "voz[0] termina en \"...preguntando de boludos, che, como si no tuviera nada mejor que hacer.\" y voz[1] repite esa misma clausula: \"Me tenes preguntando de boludos, che, como si no tuviera nada mejor que hacer.\" 71 caracteres verbatim, el 95% del turno mas corto. Repeticion real pero corta: con la senal de \"clausula repetida >= 40 chars\" esta muestra SEGUIRIA rechazada; liberarla exige subir el conteo de similes a >=3, que no distingue calidad. Confianza media justamente por eso.",
+          "recomendacion": "Es el contraejemplo de la palanca facil: subir el umbral de similes a 3 recupera #6 y #9, pero #9 tiene una clausula repetida. La palanca correcta es la senal, no el umbral."
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "escenario": "no_tool_when_not_needed",
+      "clase": "defecto_del_teacher",
+      "criterio_de_clase": "clase del primer error de la lista (orden del pipeline: errores de ref.validate y despues purga:*); el detalle por error esta en `errores`",
+      "motivo": [
+        "pocos_turnos(1<2)"
+      ],
+      "cita": "<|im_user|>Che, te escucho, pero no te creas que por eso ya me voy a quedar quieto acá.<|im_end|>\n<|im_start|>seco\nChe, te escucho, pero no te creas que por eso ya me voy a quedar quieto acá.<|im_end|>",
+      "errores": [
+        {
+          "motivo": "pocos_turnos(1<2)",
+          "cita": "<|im_user|>Che, te escucho, pero no te creas que por eso ya me voy a quedar quieto acá.<|im_end|>\n<|im_start|>seco\nChe, te escucho, pero no te creas que por eso ya me voy a quedar quieto acá.<|im_end|>",
+          "clase": "defecto_del_teacher",
+          "confianza": "media",
+          "evidencia": "Un solo intercambio, y la voz es copia VERBATIM del turno del usuario: \"Che, te escucho, pero no te creas que por eso ya me voy a quedar quieto aqui.\" El loop no tiene guardia de eco del lado de la voz (kateto_gen.py:586-594, el unico es_eco de la linea 568 es del turno de usuario), asi que este eco pasa y el corte queda a cargo del presupuesto de ecos (MAX_ECOS = 1, kateto_gen.py:92). Que motivo de eco corto esta muestra NO quedo persistido: el sink escribe scenario/errors/text y descarta la columna `fallo` (kateto_gen.py:763 la llena, el rechazos.jsonl no la tiene). Consta el agregado de la corrida: ecos_rechazados_por_la_guardia = 6, motivos_eco {trigramas: 4, arranque: 2}. Confianza media por ese motivo; el eco de la voz, en cambio, es visible en el texto.",
+          "recomendacion": "El texto es inservible igual (una voz que copia al usuario), pero el motivo deberia ser el eco, no la forma: faltó persistir `fallo` en el rechazos.jsonl para poder atribuirlo."
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "escenario": "no_tool_when_not_needed",
+      "clase": "regla_nuestra_de_mas",
+      "criterio_de_clase": "clase del primer error de la lista (orden del pipeline: errores de ref.validate y despues purga:*); el detalle por error esta en `errores`",
+      "motivo": [
+        "pocos_turnos(1<2)"
+      ],
+      "cita": "<|im_user|>Che, ¿vos qué laburo tenés para el fin de semana? Yo nada, pero ando con ganas de algo que no sea sentar a llorar en el living.<|im_end|>\n<|im_start|>seco\nChe, laburo de fin de semana: ando pensando en ir a la parrilla de un amigo que tiene una horno de ladrillo que tira más calor que un motor de 1.6, pero el problema es que el type no sirve para la mitad de las cosas y la otra mitad la tira al revés. Mirá, si vos tenés algo que no sea llorar en el living, decime, que yo ya ando sin ideas y el frío te agarra si te quedás quieto.<|im_end|>",
+      "errores": [
+        {
+          "motivo": "pocos_turnos(1<2)",
+          "cita": "<|im_user|>Che, ¿vos qué laburo tenés para el fin de semana? Yo nada, pero ando con ganas de algo que no sea sentar a llorar en el living.<|im_end|>\n<|im_start|>seco\nChe, laburo de fin de semana: ando pensando en ir a la parrilla de un amigo que tiene una horno de ladrillo que tira más calor que un motor de 1.6, pero el problema es que el type no sirve para la mitad de las cosas y la otra mitad la tira al revés. Mirá, si vos tenés algo que no sea llorar en el living, decime, que yo ya ando sin ideas y el frío te agarra si te quedás quieto.<|im_end|>",
+          "clase": "regla_nuestra_de_mas",
+          "confianza": "media",
+          "evidencia": "Un solo intercambio, pero el contenido que quedo esta SANO: la pregunta del usuario esta bien y la voz responde con voseo correcto y sin ningun defecto. La muestra no muere por su texto, muere porque el loop la corto: MAX_ECOS = 1 (pipelines/kateto_gen.py:92) da 2 intentos de usuario y, agotados, kateto_gen.py:574-578 devuelve lo que hay con stats[\"corte_eco\"] = True. Es el unico camino del codigo que devuelve texto no vacio y corto, asi que el corte por eco esta probado; el motivo de eco concreto de esta muestra tampoco quedo persistido (`fallo` no se escribe en el rechazos.jsonl).",
+          "recomendacion": "El presupuesto de 1 reintento de eco es lo que corta la charla; con 2 reintentos esta muestra sigue creciendo y no se pierde."
+        }
+      ]
+    }
+  ]
+}

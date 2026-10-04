@@ -12,9 +12,14 @@
 #     del swap nativo medido en 48-135 ms.
 # El camino de servicio y de verificacion es el nativo:
 #   rwkv_pipeline/infer_kateto.py (.pth + out/rwkv_states/<voz>/ + ROSA)
+# ----------------------------------------------------------------------------
+# CORREGIDO 2026-10-01: esto es falso a nivel API. La inyeccion de estado existe
+# (llama_state_seq_set_data) y esta medida: ver docs/gguf-estado-roundtrip.md (RESULTADO: PASS).
+# El texto de arriba se conserva como historia de la premisa, no como estado actual.
+# ----------------------------------------------------------------------------
 # ============================================================================
 set -e
-TDIR="${KATETO_HOME:-/run/media/chaos/terciario/proyectos/kateto-train}"
+TDIR=/run/media/chaos/terciario/proyectos/kateto-train
 ADAPTER="$1"
 NAME="${2:-kateto-rwkv29}"
 MERGED="$TDIR/out/${NAME}-merged.pth"

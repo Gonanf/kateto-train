@@ -1,0 +1,8 @@
+{
+  "aceptadas": 4,
+  "rechazadas": 5,
+  "motivos": {
+    "tuteo": 1,
+    "purga": 5
+  }
+}

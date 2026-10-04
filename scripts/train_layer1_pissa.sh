@@ -7,7 +7,7 @@ set -e
 # Fallback: si el dispatch pissa falla, reintenta como LoRA-r16 con razón.
 # ==============================================================================
 
-PROJECT="${KATETO_HOME:-/run/media/chaos/terciario/proyectos/kateto-train}"
+PROJECT="/run/media/chaos/terciario/proyectos/kateto-train"
 cd "$PROJECT"
 
 MODEL_PATH="${1:-$PROJECT/base/rwkv7-g1j-2.9b-20260831-ctx16384.pth}"

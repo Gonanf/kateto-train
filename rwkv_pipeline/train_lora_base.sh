@@ -6,7 +6,7 @@ set -e
 # Aprende: sintaxis de Tool Calling, base Hermes, dialecto rioplatense general
 # ==============================================================================
 
-PROJECT="${KATETO_HOME:-/run/media/chaos/terciario/proyectos/kateto-train}"
+PROJECT="/run/media/chaos/terciario/proyectos/kateto-train"
 cd "$PROJECT"
 
 MODEL_PATH="${1:-$PROJECT/models/rwkv7-0.4b/rwkv7-g1d-0.4b-20260210-ctx8192.pth}"

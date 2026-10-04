@@ -25,6 +25,14 @@ cosas. Este documento fija por qué y qué queda vigente.
    Verificado sobre el build instalado (`llama-server` 0.1.2-dev, build 10502,
    commit 8ff87cc): las únicas opciones de estado son `--slot-save-path` y
    `--cache-reuse`.
+
+   > **CORREGIDO 2026-10-01: esto es falso a nivel API.** La inyeccion de estado existe
+   > (`llama_state_seq_set_data`) y esta medida: ver `docs/gguf-estado-roundtrip.md`
+   > (RESULTADO: PASS). Lo que sigue midió las *flags de la CLI* y concluyo "no hay
+   > bandera" — la API C++ no estaba mirada. El texto original se conserva como
+   > historia de la premisa; el punto 1 queda invalidado. Ver también
+   > `docs/gguf-estado-python.md`: el buffer se construye desde Python.
+   > Lo que sigue en pie de esta decisión es ROSA (punto 2), no los estados.
 2. **ROSA no se puede compilar a GGUF.** GGUF serializa tensores estáticos; ROSA
    es estructura de datos en runtime. Solo las tablas de embeddings Q/K/V son
    tensores —el resto requeriría un op `ggml` nuevo + kernels + serialización de

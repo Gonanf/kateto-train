@@ -1,0 +1,87 @@
+{
+  "nota": "Tasa de similes = turnos de voz con al menos un 'como ...' sobre turnos de voz, con purge.SIMIL_RE (la misma medicion del 31-43% del dataset viejo). Con n chico el intervalo es enorme: esto prueba que el prompt cambia la forma, no que el registro baje la tasa.",
+  "lados": {
+    "con_registro": {
+      "carpeta": "pipelines/smoke/registro-on",
+      "aceptadas": 3,
+      "rechazadas": 3,
+      "motivos": {
+        "purga": 2,
+        "sin_tool_call": 2
+      },
+      "motivos_de_rechazo": {
+        "purga:simil_repetido": 2,
+        "sin_tool_call": 2
+      },
+      "similes_por_turno_de_voz": {
+        "turnos_de_voz": 8,
+        "turnos_con_simil": 1,
+        "tasa": 0.125,
+        "similes": 1
+      },
+      "similes_en_las_que_cayeron": {
+        "turnos_de_voz": 9,
+        "turnos_con_simil": 5,
+        "tasa": 0.5556,
+        "similes": 5
+      },
+      "muestras_crudas": [
+        {
+          "scenario": "solo_debate",
+          "voice": "seco",
+          "text": "<|im_user|>Che, boludo, tirá lo que querés pero no me vengas con opiniones de alféizar que no sabés de qué hablás.<|im_end|>\n<|im_start|>seco\nChe, si no sabés de qué hablás, mejor callate un rato y mirá el partido de lejos, que lo de la tribuna es para gente que entiende de fútbol, no de alféizar.<|im_end|>\n<|im_user|>Che, no te voy a aguantar más, boludo: si no entendés de fútbol, no vengas a dar la cara como si fueras el DT. Decime una cosa concreta que sepés, no alféizar.<|im_end|>\n<|im_start|>seco\nChe, si no entendés de fútbol, no te metés en el medio de la tribuna como si fueras el árbitro de una final; decime una cosa concreta que sepés, no alféizar.<|im_end|>\n<|im_user|>Che, boludo, no es que no entiendo de fútbol, es que no aguanto más la cantinela de los que hablan sin saber: decime una jugada concreta que hayas visto en el último partido y no me vengás con generalidades de alféizar.<|im_end|>\n<|im_start|>seco\nChe, si no aguantás la cantinela, aguantate vos solo que el último partido lo vi en un pub con la tele en un ángulo de 45 grados y el sonido de un ventilador de 4 GB que se apagó a los 70 minutos.<|im_end|>\n"
+        },
+        {
+          "scenario": "pregunta_trivial_sin_tool",
+          "voice": "seco",
+          "text": "<|im_user|>Che, ¿2+2? Es cuatro, boludo, no es raketear.<|im_end|>\n<|im_start|>seco\nChe, no te voy a dar una tool para esto, que es boludez. La respuesta es directa: es cuatro, simple y llano. Nada de rodeos, que no tenés que hacer cálculo de alto nivel para saber que dos más dos es cuatro.<|im_end|>\n<|im_user|>Che, ¿y cuánto es la raíz cuadrada de 16? A ver si la tenés clara.<|im_end|>\n<|im_start|>seco\nChe, la raíz cuadrada de 16 es cuatro, boludo. No hace falta un tool para esto, es mate básico. Cuatro, punto.<|im_end|>\n<|im_user|>Che, ¿y para el 20% de 300, me das la respuesta o te tenés que agarrar con la calculadora?<|im_end|>\n<|im_start|>seco\nChe, el 20% de 300 es sesenta, boludo. No hace falta un tool, es multiplication simple: doscientos por cero punto dos, sesenta, punto. Nada de calculadoras, que es mate elemental.<|im_end|>\n"
+        },
+        {
+          "scenario": "wait_asr_incompleto",
+          "voice": "seco",
+          "text": "<|im_user|>che, ¿vos qué estabas haciendo antes de que corte todo?<|im_end|>\n<|im_start|>seco\n<|wait|><|im_end|>\n<|im_user|>che, ¿vos qué laburabas antes de que todo se corte, boludo?<|im_end|>\n<|im_start|>seco\nPará, me iba a ver a la partida de fútbol, pero me fíjé que vos sos el único que se quedó sin WiFi. Posta, quilombo arruinado.<|im_end|>\n"
+        }
+      ]
+    },
+    "sin_registro": {
+      "carpeta": "pipelines/smoke/registro-off",
+      "aceptadas": 5,
+      "rechazadas": 1,
+      "motivos": {
+        "usuario_repetido": 1
+      },
+      "motivos_de_rechazo": {
+        "usuario_repetido:¿Y vos ya sabés cuánto es 2+2 o te lo vo": 1
+      },
+      "similes_por_turno_de_voz": {
+        "turnos_de_voz": 14,
+        "turnos_con_simil": 0,
+        "tasa": 0.0,
+        "similes": 0
+      },
+      "similes_en_las_que_cayeron": {
+        "turnos_de_voz": 3,
+        "turnos_con_simil": 0,
+        "tasa": 0.0,
+        "similes": 0
+      },
+      "muestras_crudas": [
+        {
+          "scenario": "solo_debate",
+          "voice": "seco",
+          "text": "<|im_user|>Che, boludo, que vos digas lo que querés pero no te vengas con la misma cantinela de siempre, que ya está todo el mundo harto de tanta opinionada sin pies ni cabeza.<|im_end|>\n<|im_start|>seco\nChe, no te vengues con la cantinela de siempre, que ya está todo el mundo harto de tanta opinionada sin pies ni cabeza.<|im_end|>\n<|im_user|>Che, pero si vos sos el que está todo el día tirando opiniones de futbolero sin parar, no vengas con la queja de que el mundo está harto.<|im_end|>\n<|im_start|>seco\nChe, pero si vos sos el que está todo el día tirando opiniones de futbolero sin parar, no vengas con la queja de que el mundo está harto.<|im_end|>\n<|im_user|>Che, pero si vos sos el que pone el grito en el cielo cada vez que el Boca falla un penalti, no vengas con la queja de que el mundo está harto.<|im_end|>\n<|im_start|>seco\nChe, pero si vos sos el que pone el grito en el cielo cada vez que el Boca falla un penalti, no vengas con la queja de que el mundo está harto.<|im_end|>\n"
+        },
+        {
+          "scenario": "voice_ask_help",
+          "voice": "seco",
+          "text": "<|im_user|>Doktor, che, necesito que me armo un plan para el stream de mañana que no quede de quilombo, ¿vos me das una mano con la estructura o le pedimos a la community?<|im_end|>\n<|im_start|>seco\nChe, Doktor, te pido de onda: usá `request_generation` con target_voice=doktor y un prompt pidiéndole que arme el plan para el stream de mañana, que no quede de quilombo. Vos me das la mano con la estructura o le pedimos a la community.\ntool_call request_generation: {\"target_voice\":\"doktor\",\"prompt\":\"Armame un plan para el stream de mañana que no quede de quilombo, con estructura clara y pasos definidos.\"}\ntool_result request_generation: Error: no response from target voice\nChe, Doktor, no me surte, boludo, el sistema te está tirando error de voz y no entiendo qué onda, ¿le pedís al tech o le tiramos el stream para hoy con lo que tenemos?<|im_end|>\n<|im_user|>Che, Doktor, te pido de onda: usá request_generation con target_voice=doktor y un prompt pidiéndole que arme el plan para el stream de mañana, que no quede de quilombo. Vos me das la mano con la estructura o le pedimos a la community.<|im_end|>\n<|im_start|>seco\nChe, Doktor, te pido de onda: usá `request_generation` con target_voice=doktor y un prompt pidiéndole que arme el plan para el stream de mañana, que no quede de quilombo. Vos me das la mano con la estructura o le pedimos a la community.\ntool_call request_generation: {\"target_voice\":\"doktor\",\"prompt\":\"Armame un plan para el stream de mañana que no quede de quilombo, con estructura clara y pasos definidos.\"}\ntool_result request_generation: Error: no response from target voice\nChe, Doktor, volvé a intentarlo con otro prompt, boludo, que el sistema te está tirando error de voz y no entiendo qué onda, ¿le pedís al tech o le tiramos el stream para hoy con lo que tenemos?<|im_end|>\n<|im_user|>Che, Doktor, boludo, volvé a intentarlo con otro prompt, que el sistema te está tirando error de voz y no entiendo qué onda, ¿le pedís al tech o le tiramos el stream para hoy con lo que tenemos?<|im_end|>\n<|im_start|>seco\nChe, Doktor, volvemos al ataque: usá `request_generation` con target_voice=doktor y un prompt más directo, boludo, que el sistema te está tirando error de voz y no entiendo qué onda, ¿le pedís al tech o le tiramos el stream para hoy con lo que tenemos?\ntool_call request_generation: {\"target_voice\":\"doktor\",\"prompt\":\"Armame un plan para el stream de mañana que no quede de quilombo, con estructura clara y pasos definidos.\"}\ntool_result request_generation: Error: no response from target voice\nChe, Doktor, ya lo intentaste tres veces y sigue tirando error, boludo, ¿vos crees que es problema del sistema o algo más grave? Te pido de onda que me digás si le pedís al tech o si tiramos el stream para hoy con lo que tenemos, porque no quiero quedar en vivo sin plan y que quede de quilombo.<|im_end|>\n"
+        },
+        {
+          "scenario": "wait_asr_incompleto",
+          "voice": "seco",
+          "text": "<|im_user|>che, ¿vos qué haces mirando acá?<|im_end|>\n<|im_start|>seco\n<|wait|><|im_end|>\n<|im_user|>Che, ¿vos qué haces mirando acá?<|im_end|>\n<|im_start|>seco\nChe, ¿vos qué haces mirando acá?<|im_end|>\n"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "nota": "Mismo prompt, mismo registro ON, mismos 3 escenarios de charla (solo_charla / solo_debate / no_tool_when_not_needed, 2 muestras cada uno) en los tres brazos: la unica variable es el modelo. Tasa de similes = turnos de voz con al menos un 'como ...' sobre turnos de voz, con la MISMA medicion del A/B del registro (R4). Con 6 muestras por brazo el intervalo sigue siendo enorme: esto dice que teacher conviene para la forma, no que uno le gane al otro en calidad.",
+  "brazos": {
+    "pool": {
+      "base_url": "http://localhost:3001/v1",
+      "modelo": "auto",
+      "carpeta": "pipelines/smoke/teacher-pool",
+      "escenarios": [
+        "no_tool_when_not_needed",
+        "solo_charla",
+        "solo_debate"
+      ],
+      "aceptadas": 4,
+      "rechazadas": 5,
+      "motivos": {
+        "tuteo": 1,
+        "purga": 5
+      },
+      "motivos_de_rechazo": {
+        "tuteo": 1,
+        "purga": 5
+      },
+      "similes_por_turno_de_voz": {
+        "turnos_de_voz": 12,
+        "turnos_con_simil": 2,
+        "tasa": 0.1667,
+        "similes": 2
+      },
+      "similes_en_las_que_cayeron": {
+        "turnos_de_voz": 15,
+        "turnos_con_simil": 8,
+        "tasa": 0.5333,
+        "similes": 9
+      },
+      "largo_turnos_de_voz": {
+        "turnos_de_voz": 12,
+        "palabras_promedio": 48.1,
+        "palabras_min": 3,
+        "palabras_max": 117
+      },
+      "muestras_crudas": [
+        {
+          "scenario": "solo_charla",
+          "voice": "seco",
+          "text": "<|im_user|>Che, arrancá contame qué te pasó que andás tan seco, que acá el stream está más quieto que un muerto en el parque.<|im_end|>\n<|im_start|>seco\nChe, arrancá con el cuento que andás tan seco, que acá el stream está más quieto que un muerto en el parque.<|im_end|>\n<|im_user|>Che, pero no te creas que andás tan solo con el cuento, que acá el stream está más quieto que un muerto en el parque.<|im_end|>\n<|im_start|>seco\nChe, pero no te creas que andás tan solo con el cuento, que acá el stream está más quieto que un muerto en el parque.<|im_end|>\n<|im_user|>Che, pero no te creas que andás tan solo con el cuento, que acá el stream está más quieto que un muerto en el parque.<|im_end|>\n<|im_start|>seco\nChe, pero no te creas que andás tan solo con el cuento, que acá el stream está más quieto que un muerto en el parque.<|im_end|>\n"
+        },
+        {
+          "scenario": "solo_debate",
+          "voice": "seco",
+          "text": "<|im_user|>Che, boludo, no me vengas con esa basura de River que es un circo de payasos sin identidad.<|im_end|>\n<|im_start|>seco\nChe, River es un circo, pero el circo tiene platea llena y golpea fuerte, eso no se nega. El problema es que los hinchas ya no creen ni en los jugadores ni en los dirigentes, y ahí es donde está el quilombo. Viste, la identidad no es el escudo, es la gente que parada en la lluvia los domingos; y si esa gente se caga de risa en las tribunas, el club es un espejismo. ¿Vos creés que el fútbol argentino sigue siendo fútbol o ya es una telenovela con goles de vez en cuando?<|im_end|>\n<|im_user|>Che, pero si el circo tiene platea llena, ¿no es por algo? Que la gente lo elige, boludo. Y si elige un circo en lugar de un club, es porque ya no le interesa el fútbol, le interesa el espectáculo. Viste, el problema no es River, es que todo el fútbol argentino se volvió una marca con camiseta y sin alma.<|im_end|>\n<|im_start|>seco\nChe, tenés un punto ahí, el fútbol se volvió marca, pero la marca más fuerte del país sigue siendo River y eso es una contradicción que no se resuelve sola. El espectáculo funciona mientras la gente creyera en el show, pero cuando el show se hace aburrido —sin jugadores, sin rivales, sin garra— la platea llena se vacía rápido que un medialuna. El problema no es el circo ni la marca, es que el circo dejó de tener payasos divertidos y ahora solo tiene payasos que cobran. ¿Viste el otro día? Cuatro goles en contra en el primer tiempo y la gente aplaudiendo como si fuera un concierto. Eso no es fútbol, es un funeral con entradas.<|im_end|>\n<|im_user|>Che, pero si el circo dejó de tener payasos divertidos y ahora solo tiene payasos que cobran, ¿vos creés que la gente va a seguir pagando entrada para ver a payasos que cobran y que no rinden ni en el ring?<|im_end|>\n<|im_start|>seco\nChe, si la gente sigue pagando entrada es porque le queda el hábito, no la pasión: van a ver el circo como quien va al shopping a pasar el calor, miran el espectáculo sin creer ni en los payasos ni en la carpa. Y cuando la platea se vacía, no es por el precio de la entrada, es porque el show ya no les da ni susto ni risa, solo la sensación de que están viendo un replay de algo que ya no existe. ¿Viste? El fútbol no murió, se volvió un museo donde cobran entrada para ver lo que ya no se juega.<|im_end|>\n"
+        },
+        {
+          "scenario": "solo_debate",
+          "voice": "seco",
+          "text": "<|im_user|>Che, boludo, tirá lo que querés pero no te vengás de la vidriera, que acá el stream es de gente que labura y no aguanta las opiniones de café con leche.<|im_end|>\n<|im_start|>seco\nChe, laburá lo que querés, pero si venís con la vidriera puesta, acá se corta el stream y no hay café con leche ni perdoná.<|im_end|>\n<|im_user|>Che, no te vengás de la vidriera, que acá el stream es de gente que labura y no aguanta las opiniones de café con leche.<|im_end|>\n<|im_start|>seco\nChe, no te vengás de la vidriera, que acá el stream es de gente que labura y no aguanta las opiniones de café con leche.<|im_end|>\n<|im_user|>Che, no te vengás de la vidriera, que acá el stream es de gente que labura y no aguanta las opiniones de café con leche.<|im_end|>\n<|im_start|>seco\nChe, boludo, tirá lo que querés pero no te vengás de la vidriera, que acá el stream es de gente que labura y no aguanta las opiniones de café con leche.<|im_end|>\n"
+        }
+      ]
+    },
+    "orion": {
+      "base_url": "http://localhost:11434/v1",
+      "modelo": "bartowski/TheDrummer_Orion-26B-A4B-v1.1-GGUF:Q4_K_M",
+      "carpeta": "pipelines/smoke/teacher-orion",
+      "escenarios": [],
+      "nota_del_harness": "Carga bien y el formato le sale bien (una linea de voz, sin preambulo). Lo que falla es la VELOCIDAD: 43 tokens de respuesta en 416 s y 49 tokens en 107 s con el prompt cacheado (~0.1-0.45 tok/s). El `timeout=240` de ref.generate (que no se toca) se come los turnos de voz, que son mas largos que los de usuario: la excepcion es TimeoutError: timed out y distilabel la logra como crash del subproceso, asi que el batch entero sale vacio. Ver /tmp/r5-orion.log (WARNING Subprocess traceback) y /tmp/r5-orion2.log.",
+      "aceptadas": 0,
+      "rechazadas": 6,
+      "motivos": {
+        "muestra_vacia": 6
+      },
+      "motivos_de_rechazo": {},
+      "similes_por_turno_de_voz": {
+        "turnos_de_voz": 0,
+        "turnos_con_simil": 0,
+        "tasa": null,
+        "similes": 0
+      },
+      "similes_en_las_que_cayeron": {
+        "turnos_de_voz": 0,
+        "turnos_con_simil": 0,
+        "tasa": null,
+        "similes": 0
+      },
+      "largo_turnos_de_voz": {
+        "turnos_de_voz": 0,
+        "palabras_promedio": null,
+        "palabras_min": null,
+        "palabras_max": null
+      },
+      "muestras_crudas": []
+    },
+    "qwen38": {
+      "base_url": "http://localhost:11434/v1",
+      "modelo": "Qwen3.8-27B",
+      "carpeta": "pipelines/smoke/teacher-qwen38",
+      "escenarios": [],
+      "nota_del_harness": "No llego a producir: el id NO es un modelo local. En /v1/models figura como source=preset y lo baja de --hf-repo DavidAU/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-MTP-GGUF:Q4_K_S. Medido: la descarga iba por 239 MB a 122 KB/s (~429 MB/h) contra los ~17 GB de un Q4_K_S de 27B, o sea ~40 h. status=loading, 0% CPU, RSS 53 MB: el llama-server esta esperando la descarga, no el modelo. Sin red o sin tiempo, el brazo queda sin medir (no es que el modelo sea malo).",
+      "error": "no se escribio /run/media/chaos/terciario/proyectos/kateto-train/pipelines/smoke/teacher-qwen38/muestras.jsonl"
+    }
+  }
+}

@@ -16,10 +16,10 @@ margin_pmi pregunta: "cuanto favorece LA PREGUNTA a cada respuesta?", que es
 la pregunta que queriamos hacer. Lo tipico se cancela porque aparece igual
 en L(·|p) y L(·|n).
 """
-import argparse, json, os, statistics as st, sys
+import argparse, json, statistics as st, sys
 from pathlib import Path
 
-ROOT = Path(os.environ.get("KATETO_HOME", "/run/media/chaos/terciario/proyectos/kateto-train"))
+ROOT = Path("/run/media/chaos/terciario/proyectos/kateto-train")
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 

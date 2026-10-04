@@ -1,0 +1,72 @@
+# Argilla para revisar el dataset de Kateto
+#
+#   cd /run/media/chaos/terciario/proyectos/kateto-train/docker/argilla
+#   docker compose up -d          # tarda ~2 min la primera vez (baja ~1,6 GB de imagenes)
+#   # UI: http://localhost:6900   usuario argilla / 12345678
+#   docker compose logs -f argilla
+#   docker compose down           # parar (los datos quedan en los volumenes)
+#
+# Espacio: las imagenes + volumenes viven en /var/lib/docker (disco /). Necesita ~3 GB libres.
+# Para revisar el dataset: scripts/argilla_cargar.py (ver README.md de esta carpeta).
+
+x-common: &common
+  ARGILLA_HOME_PATH: /var/lib/argilla
+  ARGILLA_ELASTICSEARCH: http://elasticsearch:9200
+  ARGILLA_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/argilla
+  ARGILLA_REDIS_URL: redis://redis:6379/0
+  HF_HUB_DISABLE_TELEMETRY: "1"
+
+services:
+  argilla:
+    image: argilla/argilla-server:latest
+    restart: unless-stopped
+    ports:
+      - "6900:6900"
+    environment:
+      <<: *common
+      USERNAME: argilla
+      PASSWORD: 12345678
+      API_KEY: argilla.apikey
+      WORKSPACE: default
+    volumes:
+      - argilladata:/var/lib/argilla
+    depends_on:
+      - postgres
+      - elasticsearch
+      - redis
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.2
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+      # El disco / vive al 90%+ y Elasticsearch se pone read-only con el watermark
+      # por defecto (no deja crear indices). Es una instancia de revision con datos
+      # chicos: se apaga el umbral a proposito y se monitorea el disco a mano.
+      cluster.routing.allocation.disk.threshold_enabled: "false"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  postgres:
+    image: postgres:14-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: argilla
+    volumes:
+      - postgresdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
+volumes:
+  argilladata:
+  esdata:
+  postgresdata:
+  redisdata:

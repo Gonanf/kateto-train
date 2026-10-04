@@ -1,0 +1,17 @@
+{
+  "aceptadas": 6,
+  "rechazadas": 12,
+  "motivos": {
+    "purga": 10,
+    "caracteres_no_latinos": 2,
+    "tuteo": 1,
+    "spanglish": 1,
+    "pregunta_en_todos_los_turnos": 1,
+    "pocos_turnos": 2
+  },
+  "ecos_rechazados": 6,
+  "motivos_eco": {
+    "trigramas": 4,
+    "arranque": 2
+  }
+}

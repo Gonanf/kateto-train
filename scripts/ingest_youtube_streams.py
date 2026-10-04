@@ -23,8 +23,8 @@ RAW_AUDIO_DIR = PROJECT / "data" / "youtube_raw_audio"
 TRANSCRIPTS_DIR = PROJECT / "data" / "youtube_transcripts"
 OUT_DATASET = PROJECT / "data" / "youtube_asr_dataset.jsonl"
 
-WHISPER_CLI = Path(os.environ.get("WHISPER_CLI", "/run/media/chaos/terciario/proyectos/asr-benchmark/engines/whisper-cpp/build/bin/whisper-cli"))
-MODEL_BIN = Path(os.environ.get("WHISPER_MODEL_BIN", "/run/media/chaos/terciario/proyectos/asr-benchmark/models/ggml-large-v3-turbo-q5_0.bin"))
+WHISPER_CLI = Path("/run/media/chaos/terciario/proyectos/asr-benchmark/engines/whisper-cpp/build/bin/whisper-cli")
+MODEL_BIN = Path("/run/media/chaos/terciario/proyectos/asr-benchmark/models/ggml-large-v3-turbo-q5_0.bin")
 
 SYSTEM_PROMPT = "Sos Kateto, rioplatense seco, con opinion propia."
 

@@ -1,0 +1,211 @@
+{
+  "backend": "distilabel",
+  "distilabel_version": "1.5.3",
+  "python": "3.11.16",
+  "nota_plan_b": "distilabel 1.5.3 SI instalo y sus Steps funcionan, asi que no hizo falta la version stdlib. Dos ajustes obligatorios: (1) no existe TextIO ni ningun lector/escritor de JSONL, la carga es con LoadDataFromDicts y la escritura la hace el Step sink; (2) los Steps conservan el numero de filas, asi que las reglas anotan una columna `_reglas` y el filtrado real ocurre en el sink; (3) converger dos generadores en un Step cuelga el BatchManager, por eso el pipeline corre una vez por fuente.",
+  "entradas": {
+    "train_set": {
+      "path": "data/rwkv_kateto_base_train_plus.jsonl",
+      "lineas": 55137
+    },
+    "shards": {
+      "path": "out/dataset/shards/parcial-w*.jsonl",
+      "archivos": 158,
+      "lineas": 39996
+    },
+    "total_lineas": 95133
+  },
+  "salidas": {
+    "train_set": {
+      "path": "/home/chaos/harness-run/kateto-purge/rwkv_kateto_base_train_plus.purged.jsonl",
+      "lineas_mantenidas": 32549,
+      "lineas_descartadas": 22588
+    },
+    "shards": {
+      "path": "/home/chaos/harness-run/kateto-purge/shards.purged.jsonl",
+      "lineas_mantenidas": 19941,
+      "lineas_descartadas": 20055
+    },
+    "total_mantenidas": 52490
+  },
+  "por_regla": {
+    "placeholder_degenerado": {
+      "train_set": 8603,
+      "shards": 6638,
+      "total": 15241
+    },
+    "andamiaje_en_dialogo": {
+      "train_set": 468,
+      "shards": 471,
+      "total": 939
+    },
+    "contrato_en_dialogo": {
+      "train_set": 774,
+      "shards": 799,
+      "total": 1573
+    },
+    "exclamacion_prosodia": {
+      "train_set": 4295,
+      "shards": 3615,
+      "total": 7910
+    },
+    "simil_repetido": {
+      "train_set": 13169,
+      "shards": 13231,
+      "total": 26400
+    }
+  },
+  "descartadas_por_multiples_reglas": {
+    "train_set": 4247,
+    "shards": 4211,
+    "total": 8458
+  },
+  "placeholder_por_clausula": {
+    "train_set": {
+      "token_repetido": 5248,
+      "KATETO": 3938
+    },
+    "shards": {
+      "KATETO": 3654,
+      "token_repetido": 3475
+    }
+  },
+  "similes_por_turno_voz": {
+    "antes": {
+      "train_set": 0.4342,
+      "shards": 0.4909
+    },
+    "despues": {
+      "train_set": 0.0926,
+      "shards": 0.1094
+    }
+  },
+  "ejemplos": {
+    "placeholder_degenerado": [
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "placeholder_degenerado"
+        ],
+        "text": "<|im_user|>Transcribí el audio en español rioplatense:\n\"...que... ...no hay gente, no se falta. simplemente vamos a curar el primero.\"<|im_end|>\n<|im_start|>seco\n...que... ...no hay gente, no se falta. Simplemente vamos a curar el primero.<|im_end|>"
+      },
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "placeholder_degenerado"
+        ],
+        "text": "<|im_user|>Cerra el blog.\nQuisiera ver el estado del blog dentro portafolio, y del portafolio en si.\nNo me esta gustando al 100%, pero ya no tengo agy por esta semana, y para saber hacer un buen UI/UX necesito estudiarlo (esta en mi lista de cursos).\nQue me recomendas? Lo que quiero hacer es usar mi pagina de blogs con twitter, youtube y demas para publicitar mis blogs de cosas como pj<|im_end|>\n<"
+      },
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "placeholder_degenerado"
+        ],
+        "text": "<|im_user|>¿De qué hablaste en este tramo del directo?\n\"se va a hacer y eso es lo que se va a hacer y eso es lo que se va a hacer y eso es lo que se va a hacer y eso es lo que se va a hacer y eso es lo que se va a hacer y eso es lo que se va a hacer y eso es lo que se va a hacer y eso es lo que\"<|im_end|>\n<|im_start|>seco\nEstaba comentando sobre el tema: se va a hacer y eso es lo que se va a hacer"
+      }
+    ],
+    "andamiaje_en_dialogo": [
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "andamiaje_en_dialogo"
+        ],
+        "text": "<|im_user|>Tambien estaba preparando un secret manager infsusion o algo asi, te fijas eso?<|im_end|>\n<|im_start|>seco\nTe explico qué pasó y qué hay que hacer, así no bloqueamos nada:\n\n**Diagnóstico:** Infisical v0.164 arrancó, pero tu `.env` tiene `ENCRYPTION_KEY` de **26 bytes** y la versión nueva exige **32 bytes exactos** (`openssl rand -hex 32`). El backend entra en crash-loop en la migration "
+      },
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "andamiaje_en_dialogo",
+          "simil_repetido"
+        ],
+        "text": "<|im_user|>Che, ¿vos podés buscarme ese video donde el flaco habla del mate lavado? Quiero ver qué dice exacto.<|im_end|>\n<|im_start|>seco\nTe lo busco, boludo.\ntool_call summarize: {\"video\": \"mate_lavado.flv\"}\ntool_result summarize: El flaco del video dice que el mate lavado es culpa de la yerbera que nunca cambia de marca y que el termo se banca todo.\nDiagnóstico: el problema no está en el agua, "
+      },
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "andamiaje_en_dialogo",
+          "simil_repetido"
+        ],
+        "text": "<|im_user|>Che, que el mate nunca se lava bien, ¿vos crees que es problema de la yerbera o del termo?<|im_end|>\n<|im_start|>seco\ntool_call summarize: {\"video\": \"el_mate_lavado\"}\ntool_result summarize: el flaco del video dice que el mate lavado es culpa de la yerbera que nunca cambia de marca y que el termo se banca todo.\nDiagnóstico: el flaco está medio boludo, pero no del todo equivocado.\nAnalogí"
+      }
+    ],
+    "contrato_en_dialogo": [
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "placeholder_degenerado",
+          "contrato_en_dialogo"
+        ],
+        "text": "<|im_user|>Boludo, te cuento que mi comida favorita es el asado argentino, no hay nada que le gane. Y vos, ¿sos de la escuela de la carne o más de la pizza?<|im_end|>\n<|im_start|>seco\nChe, el asado es la religion, boludo. Otra cosa es el quilombo que haces con la pizza de miga, pero el asado es sagrado. Te guardo la preferencia en la memoria del stream.\ntool_call refine_memory: {\"dept\": \"preferenc"
+      },
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "placeholder_degenerado",
+          "contrato_en_dialogo"
+        ],
+        "text": "<|im_user|>Che, avisame en 10 minutos y decime a qué hora va a sonar el recordatorio.<|im_end|>\n<|im_start|>seco\nListo, pibe, te aviso en diez minutos.\ntool_call get_current_time: {}\ntool_result get_current_time: \"2026-09-19T14:23:00Z\"\ntool_call schedule_event: {\"event_name\":\"reminder_10min\",\"delay\":600}\ntool_result schedule_event: \"scheduled\" Son las 14:23, así que el toque suena a las 14:33, no "
+      },
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "placeholder_degenerado",
+          "contrato_en_dialogo"
+        ],
+        "text": "<|im_user|>Che, Kateto, en el video ese largo que vimos antes decían algo de cómo armar el loop sin que se rompa el timing, ¿te acordás qué decían exactamente?<|im_end|>\n<|im_start|>seco\nAh, el del loop... dale, fijate qué tengo indexado.\ntool_call list_videos: {}\ntool_result list_videos: [{\"id\": \"video_001\", \"title\": \"Técnicas avanzadas de looping en vivo\", \"duration\": \"2:15:30\", \"indexed_at\": \"2"
+      }
+    ],
+    "exclamacion_prosodia": [
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "exclamacion_prosodia"
+        ],
+        "text": "<|im_user|>Componga una historia de 100 palabras utilizando el titular y las palabras clave dadas.\nTitular: Las aventuras del reportero héroe \nPalabras clave: Asombroso, Ingenioso, Creído<|im_end|>\n<|im_start|>seco\nSally, la intrépida reportera héroe, tenía una historia asombrosa que contar. Sally siempre fue ingeniosa y amable con su comunidad, así que cuando escuchó sobre una criatura misteriosa"
+      },
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "placeholder_degenerado",
+          "exclamacion_prosodia"
+        ],
+        "text": "<|im_user|>Fijate que no hay promociones en sherut, el texto del marketing es:\n---\nSHERUT.  TRASLADOS\n\nAlquiler de combis con chofer  y vehículo habilitado\n¡Viajes seguros, cómodos y a tu medida!\nRealizamos traslados escolares, eventos, excursiones, viajes familiares, a la costa, recitales, boliches, aeropuertos. etc.\n🐾 Pet friendly | 💳 Todos los medios de pago |\n\nPedí tu presupuesto y viaja tranq"
+      },
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "exclamacion_prosodia"
+        ],
+        "text": "<|im_user|>Nuestra plata para colmo hdp<|im_end|>\n<|im_start|>seco\nSi, tenes razon....ahora me hiciste sentir mal de nuevo =/ Que hdp, Juicio y prision al que hace politica con la nuestra YAA!!<|im_end|>"
+      }
+    ],
+    "simil_repetido": [
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "simil_repetido"
+        ],
+        "text": "<|im_user|>Transcribí el audio en español rioplatense:\n\"cada vez que se termine el programa a un archivo de texto bueno, vamos a ver primer, ultimada el primer, ultimada y y y y y y y y aquí veo, bueno, está tremendo nunca entendí la diferencia entre un system prompt, que algunos engines, motores de inferencia, lo tienen como un, como un coche\"<|im_end|>\n<|im_start|>seco\ncada vez que se termine el"
+      },
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "exclamacion_prosodia",
+          "simil_repetido"
+        ],
+        "text": "<|im_user|>Redacta un argumento persuasivo para animar a alguien a visitar tu ciudad natal.\nCiudad natal: Nueva York, EE. UU.<|im_end|>\n<|im_start|>seco\nMi ciudad natal de Nueva York es una ciudad vibrante y diversa que debería ser experimentada por todos al menos una vez en su vida. \n\nEsta ciudad está llena de lugares emblemáticos como la Estatua de la Libertad y el Empire State Building, atracci"
+      },
+      {
+        "fuente": "train_set",
+        "reglas": [
+          "simil_repetido"
+        ],
+        "text": "<|im_user|>Encontrar y citar la metáfora utilizada en el pasaje.\nLa vida es como una montaña rusa; tiene sus altibajos y nunca sabes lo que te espera.<|im_end|>\n<|im_start|>seco\nMetáfora: La vida es como una montaña rusa. Cita: \"La vida es como una montaña rusa; tiene sus altibajos y nunca sabes lo que te espera.\"<|im_end|>"
+      }
+    ]
+  },
+  "notas": {
+    "placeholder_por_clausula": "La rama `token_repetido` de `placeholder_degenerado` esta anulada por el marcador `<|im_end|>` pegado al token: una palabra degenerada al final de un turno NUNCA cumple `(\\S)\\1{2,}$`. Medido, dispara sobre puntuacion y markdown (`...`, `---`, `===`). Si se quiere cazar palabras degeneradas de verdad, hay que tokenizar sin los marcadores. Pineado en test_ceiling_placeholder.",
+    "lineas_de_entrada": "Los archivos crecian mientras corria la purga (ola kateto-ola170 activa), asi que las entradas son mayores que las del brief."
+  }
+}

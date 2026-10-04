@@ -210,19 +210,39 @@ def step_losses(student, tokenizer, teacher_client, prompt_text: str,
     return acc, total
 
 
+def wire_rosa(student, enable: bool) -> int:
+    """Engancha ROSA al head del student. Devuelve los params anadidos.
+
+    Con `enable=False` (default del flag) no importa `rosa_module` ni instancia
+    nada: es un no-op, 0 params. Con `enable=True` el import es lazy y la rama
+    queda como `model.head`, asi que sus params entran solas en
+    `OR._trainable_params` (todo `requires_grad` del arbol crudo).
+    """
+    if not enable:
+        return 0
+    from rwkv_pipeline.rosa_module import attach_rosa
+    head = attach_rosa(getattr(student, "_raw", student))
+    return sum(p.numel() for p in head.rosa.parameters())
+
+
 def run_opd(ckpt_path: str, run_dir: str, prompts: List[str],
             backend: str = "router", teacher_model: Optional[str] = None,
             base_url: str = "http://127.0.0.1:11434/v1",
             device: str = "cuda", steps: int = 30, max_len: int = 24,
             top_k: int = 20, teacher_topk: int = 20, lr: float = 1e-5,
             lo_r: int = 16, ctx_len: int = 512, block_think: bool = False,
-            ckpt_every: int = 10, temperature: float = 0.8, top_p: float = 0.8):
+            ckpt_every: int = 10, temperature: float = 0.8, top_p: float = 0.8,
+            rosa: bool = False):
     """OPD loop -> metrics.jsonl + checkpoints (deliverable 5)."""
     import random
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
 
     student, tokenizer, info = OR.build_student(ckpt_path, device=device, lo_r=lo_r)
+    n_rosa = wire_rosa(student, rosa)
+    if rosa:
+        print(f"[opd] ROSA encendida en el head: +{n_rosa:,} params trainables "
+              f"({info['arch']['vocab']} vocab, n_embd={info['arch']['n_embd']})")
     teacher = TeacherClient(backend=backend, model=teacher_model,
                             base_url=base_url, top_k=teacher_topk)
     trainable = list(OR._trainable_params(student))
@@ -332,6 +352,8 @@ def main() -> None:
     ap.add_argument("--qa", default=str(PROJECT / "data/kateto_qa.jsonl"))
     ap.add_argument("--n-prompts", type=int, default=8)
     ap.add_argument("--block-think", action="store_true")
+    ap.add_argument("--rosa", action="store_true",
+                    help="engancha ROSA al head del student (apagado por default)")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
 
@@ -357,7 +379,8 @@ def main() -> None:
             teacher_model=args.teacher_model, base_url=args.base_url,
             device=args.device, steps=args.steps, max_len=args.max_len,
             top_k=args.top_k, teacher_topk=args.teacher_topk, lr=args.lr,
-            lo_r=args.lo_r, ctx_len=args.ctx_len, block_think=args.block_think)
+            lo_r=args.lo_r, ctx_len=args.ctx_len, block_think=args.block_think,
+            rosa=args.rosa)
 
 
 if __name__ == "__main__":

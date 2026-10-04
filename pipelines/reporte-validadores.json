@@ -1,0 +1,454 @@
+{
+  "meta": {
+    "brief": "R12 - dejar de rechazar material valido",
+    "generado_por": "pipelines/medir_validadores.py",
+    "validadores": "pipelines/kateto_gen.py::validar + pipelines/kateto_purge.py::evaluar",
+    "reglas_de_antes": "las cinco de R12 reponidas por parche en `reglas_antes()`: spanglish con `differente`, `_tuteo_en` sin NFC, `no_tool_when_not_needed` con min_turns=2, la rama KATETO sobre el texto entero y `esta mal` en la lista de charla",
+    "nota_knobs": "las filas sin `scenario` (el train_set humano) se validan con los knobs por default de `validate`: 2 turnos minimos y voseo, la forma de una charla. El umbral cambiado es por escenario, asi que ahi `pocos_turnos` no se mueve: se mide donde el escenario esta",
+    "conteo": "instancias de error; un motivo cuenta 1 por linea"
+  },
+  "por_motivo": {
+    "tuteo": {
+      "antes": 367,
+      "despues": 367
+    },
+    "spanglish": {
+      "antes": 177,
+      "despues": 176
+    },
+    "pocos_turnos": {
+      "antes": 35764,
+      "despues": 35762
+    },
+    "charla_de_asistente": {
+      "antes": 1395,
+      "despues": 776
+    },
+    "placeholder_degenerado": {
+      "antes": 7752,
+      "despues": 4068
+    }
+  },
+  "notas": {
+    "tuteo": "el corpus no tiene texto en NFD, asi que el antes/despues no se mueve: el defecto era latente. Ver `contrafactual_nfd` para cuanto costaba."
+  },
+  "por_corpus": {
+    "purga_entrada": {
+      "lineas": 95133,
+      "por_motivo": {
+        "tuteo": {
+          "antes": 211,
+          "despues": 211
+        },
+        "spanglish": {
+          "antes": 99,
+          "despues": 99
+        },
+        "pocos_turnos": {
+          "antes": 18847,
+          "despues": 18847
+        },
+        "charla_de_asistente": {
+          "antes": 1394,
+          "despues": 776
+        },
+        "placeholder_degenerado": {
+          "antes": 7751,
+          "despues": 4068
+        }
+      },
+      "ejemplos": {
+        "pocos_turnos": [
+          "<|im_user|>Hablan mandarin con acento de fuzhou, particularmente de fujian. Hay pocos chinos de guangdong, pero haberlos los hay. Esos hablan guangdong wen (cantones).<|im_end|>\n<|im_start|>seco\nTe estas inventando los nombres?<|im_end|>",
+          "<|im_user|>Fijate vos los logs, aun no aparece en la lista de mods al inicio, el juego no crashea apenas carga el mundo, pero ahora un tiempo despues<|im_end|>\n<|im_start|>seco\nEncontré el crash más reciente: `xcpt CHAMAN 26-08-31 21.27.26.txt` (después de la ",
+          "<|im_user|>Yo, ni nadie modifico el SOUL<|im_end|>\n<|im_start|>seco\n<tool_call>\n{\"name\": \"read_file\", \"arguments\": \"{\\\"path\\\": \\\"/home/chaos/.hermes/hermes-agent/agent/prompt_builder.py\\\", \\\"offset\\\": 40, \\\"limit\\\": 90}\"}\n</tool_call><|im_end|>"
+        ],
+        "charla_de_asistente": [
+          "<|im_user|>Transcribí el audio en español rioplatense:\n\"esta característica. y bueno. a ver si lo hizo. en el último deberías por estar.\"<|im_end|>\n<|im_start|>seco\nEsta característica. Y bueno. A ver si lo hizo. En el último deberías por estar.<|im_end|>",
+          "<|im_user|>Que tal com modelos bonsai image y ternary bonsai image<|im_end|>\n<|im_start|>seco\nLos backends son: `mlx` (Apple Silicon) y `gemlite` (CUDA/NVIDIA). **No hay backend CPU ni ROCm.** Tu GPU AMD no es compatible con gemlite (CUDA-only). \n\nEl único cam",
+          "<|im_user|>Nombre las cuatro islas principales de Japón<|im_end|>\n<|im_start|>seco\nLas cuatro islas principales de Japón son Honshu, Hokkaido, Shikoku y Kyushu. Honshu es la isla más grande y poblada, y es el hogar de Tokio y otras ciudades importantes. Hokkai"
+        ],
+        "placeholder_degenerado": [
+          "<|im_user|>Si, pone ese puerto, el nombre BATE DEBATE DE BATE DE CHOCOLATE, viene de un YPTH, un video editado parodia de una reunion politica de argentina.<|im_end|>\n<|im_start|>seco\nListo, anotado el origen real (YTP, parodia de reunión política argentina) y",
+          "<|im_user|>Presentate<|im_end|>\n<|im_start|>seco\nKateto. Seco, rioplatense, sin libreto fijo. Juego, programo y opino de lo que sea.<|im_end|>",
+          "<|im_user|>Cómo te llamás?<|im_end|>\n<|im_start|>seco\nKateto.<|im_end|>"
+        ],
+        "tuteo": [
+          "<|im_user|>¿Qué debería preguntar el entrevistador en la siguiente entrevista de trabajo?\nDesarrollador de software<|im_end|>\n<|im_start|>seco\nAlgunas preguntas que el entrevistador puede hacer a un posible desarrollador de software en una entrevista de trabaj",
+          "<|im_user|>Generar un tweet que resuma el artículo de revisión de la película.\nEl artículo de revisión es sobre la película \"Toy Story\"<|im_end|>\n<|im_start|>seco\n#ToyStory es una película clásica que traerá alegría y risas a todas las edades. Tiene una gran h",
+          "<|im_user|>Sonás MUY bobo<|im_end|>\n<|im_start|>seco\njajaj soy muy celoso tira, mira si a ella le va a importar xd<|im_end|>"
+        ],
+        "spanglish": [
+          "<|im_user|>Qué se sabe sobre la noticia: \"Toddy y Zucoa, en venta: buscan comprador para dos clásicos de los argentinos\"?<|im_end|>\n<|im_start|>seco\nPepsico busca comprador para su negocio de cacao en polvo que incluye las marcas Toddy, Zucoa y Okey y una plan",
+          "<|im_user|>Usá browser_use para recorrer el flujo de pago con MercadoPago de Workmatch de punta a punta y capturar screenshot en CADA paso. Reportá qué funciona y qué está roto.<|im_end|>\n<|im_start|>seco\nI can now see real windows. The `browser_use` harness (",
+          "<|im_user|>Ocicat: reemplazá FakeRunner por runner Docker/Podman real, borrá placeholders, templates desde archivos. Implementación Go que compile.<|im_end|>\n<|im_start|>seco\nSeveral fixes needed: add `templates` field to Handler, `containsStr` was defined in "
+        ]
+      },
+      "archivos": [
+        "data/rwkv_kateto_base_train_plus.jsonl",
+        "out/dataset/shards/parcial-w1.jsonl",
+        "out/dataset/shards/parcial-w10.jsonl",
+        "out/dataset/shards/parcial-w100.jsonl",
+        "out/dataset/shards/parcial-w101.jsonl",
+        "out/dataset/shards/parcial-w102.jsonl",
+        "out/dataset/shards/parcial-w103.jsonl",
+        "out/dataset/shards/parcial-w104.jsonl",
+        "out/dataset/shards/parcial-w105.jsonl",
+        "out/dataset/shards/parcial-w106.jsonl",
+        "out/dataset/shards/parcial-w107.jsonl",
+        "out/dataset/shards/parcial-w108.jsonl",
+        "out/dataset/shards/parcial-w109.jsonl",
+        "out/dataset/shards/parcial-w11.jsonl",
+        "out/dataset/shards/parcial-w110.jsonl",
+        "out/dataset/shards/parcial-w111.jsonl",
+        "out/dataset/shards/parcial-w112.jsonl",
+        "out/dataset/shards/parcial-w113.jsonl",
+        "out/dataset/shards/parcial-w114.jsonl",
+        "out/dataset/shards/parcial-w115.jsonl",
+        "out/dataset/shards/parcial-w116.jsonl",
+        "out/dataset/shards/parcial-w117.jsonl",
+        "out/dataset/shards/parcial-w118.jsonl",
+        "out/dataset/shards/parcial-w119.jsonl",
+        "out/dataset/shards/parcial-w12.jsonl",
+        "out/dataset/shards/parcial-w120.jsonl",
+        "out/dataset/shards/parcial-w121.jsonl",
+        "out/dataset/shards/parcial-w122.jsonl",
+        "out/dataset/shards/parcial-w123.jsonl",
+        "out/dataset/shards/parcial-w124.jsonl",
+        "out/dataset/shards/parcial-w125.jsonl",
+        "out/dataset/shards/parcial-w126.jsonl",
+        "out/dataset/shards/parcial-w127.jsonl",
+        "out/dataset/shards/parcial-w128.jsonl",
+        "out/dataset/shards/parcial-w129.jsonl",
+        "out/dataset/shards/parcial-w130.jsonl",
+        "out/dataset/shards/parcial-w131.jsonl",
+        "out/dataset/shards/parcial-w132.jsonl",
+        "out/dataset/shards/parcial-w133.jsonl",
+        "out/dataset/shards/parcial-w134.jsonl",
+        "out/dataset/shards/parcial-w135.jsonl",
+        "out/dataset/shards/parcial-w136.jsonl",
+        "out/dataset/shards/parcial-w137.jsonl",
+        "out/dataset/shards/parcial-w138.jsonl",
+        "out/dataset/shards/parcial-w139.jsonl",
+        "out/dataset/shards/parcial-w140.jsonl",
+        "out/dataset/shards/parcial-w141.jsonl",
+        "out/dataset/shards/parcial-w142.jsonl",
+        "out/dataset/shards/parcial-w143.jsonl",
+        "out/dataset/shards/parcial-w144.jsonl",
+        "out/dataset/shards/parcial-w145.jsonl",
+        "out/dataset/shards/parcial-w146.jsonl",
+        "out/dataset/shards/parcial-w147.jsonl",
+        "out/dataset/shards/parcial-w148.jsonl",
+        "out/dataset/shards/parcial-w149.jsonl",
+        "out/dataset/shards/parcial-w150.jsonl",
+        "out/dataset/shards/parcial-w151.jsonl",
+        "out/dataset/shards/parcial-w152.jsonl",
+        "out/dataset/shards/parcial-w153.jsonl",
+        "out/dataset/shards/parcial-w154.jsonl",
+        "out/dataset/shards/parcial-w155.jsonl",
+        "out/dataset/shards/parcial-w156.jsonl",
+        "out/dataset/shards/parcial-w157.jsonl",
+        "out/dataset/shards/parcial-w158.jsonl",
+        "out/dataset/shards/parcial-w159.jsonl",
+        "out/dataset/shards/parcial-w160.jsonl",
+        "out/dataset/shards/parcial-w161.jsonl",
+        "out/dataset/shards/parcial-w162.jsonl",
+        "out/dataset/shards/parcial-w163.jsonl",
+        "out/dataset/shards/parcial-w164.jsonl",
+        "out/dataset/shards/parcial-w165.jsonl",
+        "out/dataset/shards/parcial-w166.jsonl",
+        "out/dataset/shards/parcial-w167.jsonl",
+        "out/dataset/shards/parcial-w168.jsonl",
+        "out/dataset/shards/parcial-w169.jsonl",
+        "out/dataset/shards/parcial-w170.jsonl",
+        "out/dataset/shards/parcial-w171.jsonl",
+        "out/dataset/shards/parcial-w172.jsonl",
+        "out/dataset/shards/parcial-w2.jsonl",
+        "out/dataset/shards/parcial-w21.jsonl",
+        "out/dataset/shards/parcial-w22.jsonl",
+        "out/dataset/shards/parcial-w23.jsonl",
+        "out/dataset/shards/parcial-w24.jsonl",
+        "out/dataset/shards/parcial-w25.jsonl",
+        "out/dataset/shards/parcial-w26.jsonl",
+        "out/dataset/shards/parcial-w27.jsonl",
+        "out/dataset/shards/parcial-w28.jsonl",
+        "out/dataset/shards/parcial-w29.jsonl",
+        "out/dataset/shards/parcial-w3.jsonl",
+        "out/dataset/shards/parcial-w30.jsonl",
+        "out/dataset/shards/parcial-w31.jsonl",
+        "out/dataset/shards/parcial-w32.jsonl",
+        "out/dataset/shards/parcial-w33.jsonl",
+        "out/dataset/shards/parcial-w34.jsonl",
+        "out/dataset/shards/parcial-w4.jsonl",
+        "out/dataset/shards/parcial-w41.jsonl",
+        "out/dataset/shards/parcial-w42.jsonl",
+        "out/dataset/shards/parcial-w43.jsonl",
+        "out/dataset/shards/parcial-w44.jsonl",
+        "out/dataset/shards/parcial-w45.jsonl",
+        "out/dataset/shards/parcial-w46.jsonl",
+        "out/dataset/shards/parcial-w47.jsonl",
+        "out/dataset/shards/parcial-w48.jsonl",
+        "out/dataset/shards/parcial-w49.jsonl",
+        "out/dataset/shards/parcial-w5.jsonl",
+        "out/dataset/shards/parcial-w50.jsonl",
+        "out/dataset/shards/parcial-w51.jsonl",
+        "out/dataset/shards/parcial-w52.jsonl",
+        "out/dataset/shards/parcial-w53.jsonl",
+        "out/dataset/shards/parcial-w54.jsonl",
+        "out/dataset/shards/parcial-w55.jsonl",
+        "out/dataset/shards/parcial-w56.jsonl",
+        "out/dataset/shards/parcial-w57.jsonl",
+        "out/dataset/shards/parcial-w58.jsonl",
+        "out/dataset/shards/parcial-w59.jsonl",
+        "out/dataset/shards/parcial-w6.jsonl",
+        "out/dataset/shards/parcial-w60.jsonl",
+        "out/dataset/shards/parcial-w61.jsonl",
+        "out/dataset/shards/parcial-w62.jsonl",
+        "out/dataset/shards/parcial-w63.jsonl",
+        "out/dataset/shards/parcial-w64.jsonl",
+        "out/dataset/shards/parcial-w65.jsonl",
+        "out/dataset/shards/parcial-w66.jsonl",
+        "out/dataset/shards/parcial-w67.jsonl",
+        "out/dataset/shards/parcial-w68.jsonl",
+        "out/dataset/shards/parcial-w69.jsonl",
+        "out/dataset/shards/parcial-w7.jsonl",
+        "out/dataset/shards/parcial-w70.jsonl",
+        "out/dataset/shards/parcial-w71.jsonl",
+        "out/dataset/shards/parcial-w72.jsonl",
+        "out/dataset/shards/parcial-w73.jsonl",
+        "out/dataset/shards/parcial-w74.jsonl",
+        "out/dataset/shards/parcial-w75.jsonl",
+        "out/dataset/shards/parcial-w76.jsonl",
+        "out/dataset/shards/parcial-w77.jsonl",
+        "out/dataset/shards/parcial-w78.jsonl",
+        "out/dataset/shards/parcial-w79.jsonl",
+        "out/dataset/shards/parcial-w8.jsonl",
+        "out/dataset/shards/parcial-w80.jsonl",
+        "out/dataset/shards/parcial-w81.jsonl",
+        "out/dataset/shards/parcial-w82.jsonl",
+        "out/dataset/shards/parcial-w83.jsonl",
+        "out/dataset/shards/parcial-w84.jsonl",
+        "out/dataset/shards/parcial-w85.jsonl",
+        "out/dataset/shards/parcial-w86.jsonl",
+        "out/dataset/shards/parcial-w87.jsonl",
+        "out/dataset/shards/parcial-w88.jsonl",
+        "out/dataset/shards/parcial-w89.jsonl",
+        "out/dataset/shards/parcial-w9.jsonl",
+        "out/dataset/shards/parcial-w90.jsonl",
+        "out/dataset/shards/parcial-w91.jsonl",
+        "out/dataset/shards/parcial-w92.jsonl",
+        "out/dataset/shards/parcial-w93.jsonl",
+        "out/dataset/shards/parcial-w94.jsonl",
+        "out/dataset/shards/parcial-w95.jsonl",
+        "out/dataset/shards/parcial-w96.jsonl",
+        "out/dataset/shards/parcial-w97.jsonl",
+        "out/dataset/shards/parcial-w98.jsonl",
+        "out/dataset/shards/parcial-w99.jsonl"
+      ]
+    },
+    "purga_salida": {
+      "lineas": 56745,
+      "por_motivo": {
+        "tuteo": {
+          "antes": 155,
+          "despues": 155
+        },
+        "spanglish": {
+          "antes": 77,
+          "despues": 77
+        },
+        "pocos_turnos": {
+          "antes": 16915,
+          "despues": 16915
+        },
+        "charla_de_asistente": {
+          "antes": 0,
+          "despues": 0
+        },
+        "placeholder_degenerado": {
+          "antes": 0,
+          "despues": 0
+        }
+      },
+      "ejemplos": {
+        "pocos_turnos": [
+          "<|im_user|>Hablan mandarin con acento de fuzhou, particularmente de fujian. Hay pocos chinos de guangdong, pero haberlos los hay. Esos hablan guangdong wen (cantones).<|im_end|>\n<|im_start|>seco\nTe estas inventando los nombres?<|im_end|>",
+          "<|im_user|>Fijate vos los logs, aun no aparece en la lista de mods al inicio, el juego no crashea apenas carga el mundo, pero ahora un tiempo despues<|im_end|>\n<|im_start|>seco\nEncontré el crash más reciente: `xcpt CHAMAN 26-08-31 21.27.26.txt` (después de la ",
+          "<|im_user|>Yo, ni nadie modifico el SOUL<|im_end|>\n<|im_start|>seco\n<tool_call>\n{\"name\": \"read_file\", \"arguments\": \"{\\\"path\\\": \\\"/home/chaos/.hermes/hermes-agent/agent/prompt_builder.py\\\", \\\"offset\\\": 40, \\\"limit\\\": 90}\"}\n</tool_call><|im_end|>"
+        ],
+        "tuteo": [
+          "<|im_user|>¿Qué debería preguntar el entrevistador en la siguiente entrevista de trabajo?\nDesarrollador de software<|im_end|>\n<|im_start|>seco\nAlgunas preguntas que el entrevistador puede hacer a un posible desarrollador de software en una entrevista de trabaj",
+          "<|im_user|>Sonás MUY bobo<|im_end|>\n<|im_start|>seco\njajaj soy muy celoso tira, mira si a ella le va a importar xd<|im_end|>",
+          "<|im_user|>Transcribí el audio en español rioplatense:\n\"ah, mira, eso es tremendo, no, soy bueno voy a hacer como que esto sean entidades separadas, por lo menos en tema de datos así, esto es como que, luego lo voy a insertar, igualmente en tema de la tnc, que"
+        ],
+        "spanglish": [
+          "<|im_user|>Qué se sabe sobre la noticia: \"Toddy y Zucoa, en venta: buscan comprador para dos clásicos de los argentinos\"?<|im_end|>\n<|im_start|>seco\nPepsico busca comprador para su negocio de cacao en polvo que incluye las marcas Toddy, Zucoa y Okey y una plan",
+          "<|im_user|>Usá browser_use para recorrer el flujo de pago con MercadoPago de Workmatch de punta a punta y capturar screenshot en CADA paso. Reportá qué funciona y qué está roto.<|im_end|>\n<|im_start|>seco\nI can now see real windows. The `browser_use` harness (",
+          "<|im_user|>Ocicat: reemplazá FakeRunner por runner Docker/Podman real, borrá placeholders, templates desde archivos. Implementación Go que compile.<|im_end|>\n<|im_start|>seco\nSeveral fixes needed: add `templates` field to Handler, `containsStr` was defined in "
+        ]
+      },
+      "archivos": [
+        "/home/chaos/harness-run/kateto-purge/rwkv_kateto_base_train_plus.purged.jsonl",
+        "/home/chaos/harness-run/kateto-purge/shards.purged.jsonl"
+      ]
+    },
+    "v2_rechazos": {
+      "lineas": 12,
+      "por_motivo": {
+        "tuteo": {
+          "antes": 1,
+          "despues": 1
+        },
+        "spanglish": {
+          "antes": 1,
+          "despues": 0
+        },
+        "pocos_turnos": {
+          "antes": 2,
+          "despues": 0
+        },
+        "charla_de_asistente": {
+          "antes": 1,
+          "despues": 0
+        },
+        "placeholder_degenerado": {
+          "antes": 1,
+          "despues": 0
+        }
+      },
+      "ejemplos": {
+        "tuteo": [
+          "<|im_user|>Che, boludo, te vienen a dar con el palo de la tarde y vos ni te inmutás, ¿qué onda?<|im_end|>\n<|im_start|>seco\nMirá, posta, no me inmuto porque ya viví quilombos peores que ese, che.<|im_end|>\n<|im_user|>Che, pero si ya viviste un quilombo, ¿cómo n"
+        ]
+      },
+      "archivos": [
+        "pipelines/smoke/teacher-pool-v2/rechazos.jsonl"
+      ]
+    }
+  },
+  "contrafactual_nfd": {
+    "que_es": "el mismo corpus con cada texto descompuesto a NFD y las reglas de R12. Los rechazos de `tuteo` que aparecerian si algo en el camino normalizara a NFD: voseo correcto rechazado",
+    "por_motivo": {
+      "tuteo": {
+        "purga_entrada": 211,
+        "purga_salida": 155,
+        "v2_rechazos": 1,
+        "nfd": 408
+      },
+      "spanglish": {
+        "purga_entrada": 99,
+        "purga_salida": 77,
+        "v2_rechazos": 0,
+        "nfd": 270
+      },
+      "pocos_turnos": {
+        "purga_entrada": 18847,
+        "purga_salida": 16915,
+        "v2_rechazos": 0,
+        "nfd": 35762
+      },
+      "charla_de_asistente": {
+        "purga_entrada": 776,
+        "purga_salida": 0,
+        "v2_rechazos": 0,
+        "nfd": 1089
+      },
+      "placeholder_degenerado": {
+        "purga_entrada": 4068,
+        "purga_salida": 0,
+        "v2_rechazos": 0,
+        "nfd": 6053
+      }
+    }
+  },
+  "medicion_spanglish": {
+    "sobre": "purga_entrada",
+    "criterio": "una palabra sale de la lista si el corpus humano la usa con sentido propio. `differente` sale; el resto queda",
+    "palabras": {
+      "differente": {
+        "turnos_de_voz": 10,
+        "texto_entero": 14
+      },
+      "worries": {
+        "turnos_de_voz": 16,
+        "texto_entero": 20
+      },
+      "worry": {
+        "turnos_de_voz": 0,
+        "texto_entero": 0
+      },
+      "okay": {
+        "turnos_de_voz": 16,
+        "texto_entero": 96
+      },
+      "okey": {
+        "turnos_de_voz": 23,
+        "texto_entero": 27
+      },
+      "whatever": {
+        "turnos_de_voz": 4,
+        "texto_entero": 6
+      },
+      "actually": {
+        "turnos_de_voz": 65,
+        "texto_entero": 69
+      },
+      "basically": {
+        "turnos_de_voz": 0,
+        "texto_entero": 0
+      },
+      "anyway": {
+        "turnos_de_voz": 1,
+        "texto_entero": 1
+      },
+      "anyways": {
+        "turnos_de_voz": 0,
+        "texto_entero": 0
+      },
+      "dude": {
+        "turnos_de_voz": 13,
+        "texto_entero": 17
+      },
+      "buddy": {
+        "turnos_de_voz": 6,
+        "texto_entero": 6
+      },
+      "guys": {
+        "turnos_de_voz": 14,
+        "texto_entero": 16
+      },
+      "amazing": {
+        "turnos_de_voz": 1,
+        "texto_entero": 1
+      },
+      "awesome": {
+        "turnos_de_voz": 15,
+        "texto_entero": 24
+      },
+      "by the way": {
+        "turnos_de_voz": 0,
+        "texto_entero": 0
+      },
+      "you know": {
+        "turnos_de_voz": 0,
+        "texto_entero": 0
+      },
+      "i mean": {
+        "turnos_de_voz": 1,
+        "texto_entero": 3
+      },
+      "it's": {
+        "turnos_de_voz": 111,
+        "texto_entero": 125
+      },
+      "don't": {
+        "turnos_de_voz": 53,
+        "texto_entero": 69
+      },
+      "can't": {
+        "turnos_de_voz": 19,
+        "texto_entero": 23
+      }
+    }
+  }
+}

@@ -31,7 +31,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-T = Path(os.environ.get("KATETO_HOME", "/run/media/chaos/terciario/proyectos/kateto-train"))
+T = Path("/run/media/chaos/terciario/proyectos/kateto-train")
 sys.path.insert(0, str(T / "scripts"))
 from gen_toolcalling_dataset import validate  # noqa: E402
 

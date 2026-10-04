@@ -3,13 +3,13 @@ import torch
 from pathlib import Path
 from safetensors.torch import load_file, save_file
 
-PROJECT = Path(os.environ.get("KATETO_HOME", "/run/media/chaos/terciario/proyectos/kateto-train"))
+PROJECT = Path("/run/media/chaos/terciario/proyectos/kateto-train")
 STAGE2_DIR = PROJECT / "out/qwen35-0.8b-kateto-2stage/stage2"
 MERGED_DIR = PROJECT / "out/qwen35-0.8b-kateto-merged"
 F16_GGUF = PROJECT / "out/qwen35-0.8b-kateto-f16.gguf"
 IMATRIX_DAT = PROJECT / "out/qwen35-0.8b-kateto.imatrix.dat"
 Q4_GGUF = PROJECT / "out/qwen35-0.8b-kateto-Q4_K_M.gguf"
-CONVERTER = Path(os.environ.get("LLAMA_CPP_CONVERTER", "/run/media/chaos/terciario/Backup/Proyectos/kateto/llama.cpp/convert_hf_to_gguf.py"))
+CONVERTER = Path("/run/media/chaos/terciario/Backup/Proyectos/kateto/llama.cpp/convert_hf_to_gguf.py")
 
 # 1. Encontrar archivo base
 base_files = glob.glob(os.path.expanduser("~/.cache/huggingface/hub/models--Qwen--Qwen3.5-0.8B/snapshots/*/model.safetensors*"))

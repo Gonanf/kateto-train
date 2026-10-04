@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-PROJECT="${KATETO_HOME:-/run/media/chaos/terciario/proyectos/kateto-train}"
+PROJECT="/run/media/chaos/terciario/proyectos/kateto-train"
 cd "$PROJECT"
 
 export HSA_OVERRIDE_GFX_VERSION=10.3.0

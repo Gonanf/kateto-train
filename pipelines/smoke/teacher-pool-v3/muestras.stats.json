@@ -1,0 +1,19 @@
+{
+  "aceptadas": 6,
+  "rechazadas": 12,
+  "motivos": {
+    "voz_eco": 6,
+    "purga": 6,
+    "pregunta_en_todos_los_turnos": 1
+  },
+  "ecos_rechazados": 2,
+  "motivos_eco": {
+    "arranque": 2
+  },
+  "usuario_eco": 2,
+  "voz_eco": 17,
+  "motivos_eco_voz": {
+    "arranque": 15,
+    "trigramas": 2
+  }
+}
