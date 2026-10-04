@@ -25,6 +25,12 @@ Los cuatro roles del loop:
   4. juez      — el pipeline. En el loop decide si el turno se acepta (largo,
                  vacio); al final es el Step `AnotarValidacion`
 
+R18 — los teachers de los roles 1 y 2 son INDEPENDIENTES: `--usuario-base-url`,
+`--usuario-model`, `--usuario-key` y `--usuario-reasoning` son de otro modelo en
+otro server, y cada turno se mide por rol (`rol_modelo` / `rol_segundos` en la
+muestra, promedio y porcentaje de pared en las stats). Sin esos flags los dos
+roles usan el MISMO server: es el comportamiento de siempre.
+
 Se reusa de la referencia, sin duplicar: `SCENARIOS`, `ALL_TOOLS`, `firmas`,
 `validate`, `extraer_bloques`, `normalize_backticks`, `clean_teacher_output`,
 `build_turn_prompt`, `generate`, `get_freellm_key`, `REAL_ERRORS`, `SENTINELS`.
@@ -92,6 +98,8 @@ MAX_INTENTOS = 3
 # otra. El mismo numero para los dos lados: es el mismo defecto espejado.
 MAX_ECOS = 1
 REINTENTOS_401 = 4
+
+ROLES = ("usuario", "voz")
 
 # El teacher del brief es `auto` de freellmapi y esta prohibido pinear otro.
 DEFAULT_MODEL = {"http": "auto", "opencode": "auto", "cline": "auto"}
@@ -515,12 +523,19 @@ REGLA_ANTIECO = """\
 def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
                     n_ex: int, *, max_retries: int = MAX_INTENTOS,
                     usar_registro: bool = True, max_ecos: int = MAX_ECOS,
-                    stats: dict[str, Any] | None = None) -> tuple[str, ToolState]:
+                    stats: dict[str, Any] | None = None,
+                    teacher_usuario: Callable[[str], str] | None = None
+                    ) -> tuple[str, ToolState]:
     """Arma UNA conversacion turno por turno. Devuelve `(texto, estado)`.
 
     El transcript lo arma este codigo: no hay marcador que el modelo pueda
     romper, ni turnos desbalanceados, ni falta de cierre. Los centinelas los
     pone el codigo por indice de intercambio, nunca se los pide al modelo.
+
+    `teacher` es el de la VOZ (Kateto). `teacher_usuario`, si viene, es el del
+    simulador de usuario: pueden ser modelos distintos en servers distintos
+    (R18). Sin ese kwarg los dos son el mismo callable, que es el comportamiento
+    de siempre.
 
     `usar_registro=False` es el brazo OFF del A/B: mismo loop, mismo teacher,
     mismo escenario, sin el registro inyectado.
@@ -531,6 +546,11 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
     R10). Los contadores van separados porque los defectos son distintos y se
     miden por separado. Es un out-param y no un valor de retorno para no romper
     los 8 call sites que desarman la tupla de dos.
+
+    Con R18 se le suman `rol_segundos` (el tiempo de pared que se llevo cada rol)
+    y `rol_modelo` (que modelo atendio cada rol). El nombre del modelo sale del
+    propio teacher (`TeacherHTTP.model`), asi que un teacher que no lo tenga
+    queda como `"?"` en vez de inventar uno.
     """
     sc = {**sc, "txt": sin_receta(sc["txt"])}
     estado = ToolState(voces_vivas=(voice,))
@@ -544,7 +564,15 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
     if stats is None:
         stats = {}
     stats.update(ecos=0, motivos_eco={}, corte_eco=False,
-                 voz_eco=0, motivos_eco_voz={}, descarte_voz_eco=False)
+                 voz_eco=0, motivos_eco_voz={}, descarte_voz_eco=False,
+                 rol_segundos={r: 0.0 for r in ROLES},
+                 rol_modelo={r: getattr(t, "model", "?") for r, t in
+                             (("usuario", teacher_usuario or teacher), ("voz", teacher))})
+
+    # Los DOS teachers ya cronometrados. A partir de aca el loop no sabe mas
+    # cual era cual: por eso ROL 1 usa `t_usuario` y ROL 2/3 `t_voz`.
+    t_usuario = _cronometrar(teacher_usuario or teacher, stats, "usuario")
+    t_voz = _cronometrar(teacher, stats, "voz")
 
     def anotar_eco(motivo: str, *, voz: bool = False) -> None:
         if voz:
@@ -601,7 +629,7 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         linea_u = ""
         for _ in range(max_ecos + 1):
             cand = _un_turno(
-                teacher, build_user_prompt(sc, voice, historial, n_ex),
+                t_usuario, build_user_prompt(sc, voice, historial, n_ex),
                 min_len=min_len_u, con_tools=False, max_retries=max_retries,
             )
             if not cand:
@@ -632,7 +660,7 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         if not con_tools:
             linea_v = turno_de_voz(
                 lambda: _un_turno(
-                    teacher, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
+t_voz, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
                     min_len=min_len_v, con_tools=False, max_retries=max_retries,
                 ),
                 previa_u,
@@ -647,8 +675,8 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
             for _ in range(max_retries):
                 cand = ref.normalize_backticks(
                     _limpiar_linea(
-                        teacher(de_kateto(build_voice_tool_prompt(sc, voice, historial,
-                                                                 n_ex, estado))),
+                            t_voz(de_kateto(build_voice_tool_prompt(sc, voice, historial,
+                                                                    n_ex, estado))),
                         con_tools=True,
                     )
                 )
@@ -690,7 +718,7 @@ def generar_muestra(sc: dict, voice: str, teacher: Callable[[str], str],
         historial.append((voice, bloque))
         comentario = turno_de_voz(
             lambda: _un_turno(
-                teacher, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
+                    t_voz, de_kateto(ref.build_turn_prompt(sc, voice, historial, voice, n_ex)),
                 min_len=min_len_v, con_tools=False, max_retries=max_retries,
             ),
             previa_u,
@@ -710,6 +738,40 @@ def _un_turno(teacher: Callable[[str], str], prompt: str, *, min_len: int,
         if _turno_valido(cand, min_len):
             return cand
     return ""
+
+
+def _cronometrar(teacher: Callable[[str], str], stats: dict[str, Any],
+                 rol: str) -> Callable[[str], str]:
+    """El teacher de un rol, anotando su tiempo de pared en `stats["rol_segundos"]`.
+
+    Se mide alrededor de la llamada y no con un reloj en el loop: asi el tiempo
+    incluye los reintentos de `TeacherHTTP` (401) y los de `ref.generate`
+    (429/503, con la espera adentro), que son segundos de pared del rol aunque no
+    sean de inferencia. El `finally` cuenta tambien cuando la llamada revienta.
+    """
+    def medir(prompt: str) -> str:
+        t0 = time.perf_counter()
+        try:
+            return teacher(prompt)
+        finally:
+            stats["rol_segundos"][rol] += time.perf_counter() - t0
+    return medir
+
+
+def resumen_roles(seg: dict[str, float], n: int) -> dict[str, Any]:
+    """El reparto en numeros, para las stats de la corrida.
+
+    `pared_pct` es sobre la SUMA de los dos roles, no sobre el wall del proceso:
+    el loop es SECUENCIAL (usuario -> voz -> usuario), asi que la suma es el
+    tiempo que hoy cuesta un turno. Con los dos modelos en dispositivos distintos
+    el turno cuesta el MAXIMO de los dos, y ese maximo se lee con estos numeros.
+    """
+    total = sum(seg[r] for r in ROLES)
+    return {
+        "segundos": {r: round(seg[r], 3) for r in ROLES},
+        "promedio": {r: round(seg[r] / n, 3) if n else 0.0 for r in ROLES},
+        "pared_pct": {r: round(100 * seg[r] / total, 1) if total else 0.0 for r in ROLES},
+    }
 
 
 def ensamblar(historial: list[tuple[str, str]], voice: str) -> str:
@@ -780,6 +842,11 @@ class GenerarMuestras(Step):
     El teacher se arma DENTRO de `process` y no se guarda como campo: distilabel
     corre cada Step en otro proceso y al serializar los campos un callable
     llega como dict.
+
+    Los campos `usuario_*` con default `None` significan "el mismo server, el
+    mismo modelo, la misma key y el mismo reasoning que los de la voz": sin
+    ellos el Step se comporta exactamente como antes de R18, con un solo cliente
+    atendiendo los dos roles.
     """
 
     voice: str = "seco"
@@ -787,6 +854,10 @@ class GenerarMuestras(Step):
     model: str = "auto"
     teacher_key: str | None = None
     reasoning: str = "none"
+    usuario_base_url: str | None = None
+    usuario_model: str | None = None
+    usuario_key: str | None = None
+    usuario_reasoning: str | None = None
     n_ex: int | None = None
     sin_registro: bool = False
     max_ecos: int = MAX_ECOS
@@ -798,10 +869,18 @@ class GenerarMuestras(Step):
     @property
     def outputs(self) -> "StepColumns":
         return ["text", "scenario", "cat", "voice", "fallo", "ecos", "motivos_eco",
-                "voz_eco", "motivos_eco_voz"]
+                "voz_eco", "motivos_eco_voz", "rol_modelo", "rol_segundos"]
 
     def process(self, *inputs: StepInput) -> "StepOutput":
-        teacher = TeacherHTTP(self.base_url, self.model, self.teacher_key, self.reasoning)
+        # El unico lugar donde se resuelve "mismo server o distinto". Con los
+        # `usuario_*` en None los dos clientes quedan identicos.
+        voz = TeacherHTTP(self.base_url, self.model, self.teacher_key, self.reasoning)
+        usuario = TeacherHTTP(
+            self.usuario_base_url or self.base_url,
+            self.usuario_model or self.model,
+            self.usuario_key or self.teacher_key,
+            self.usuario_reasoning or self.reasoning,
+        )
         for rows in inputs:
             for row in rows:
                 sc = row["escenario"]
@@ -809,9 +888,10 @@ class GenerarMuestras(Step):
                     "n_ex", 1 if sc.get("min_turns", 2) == 1 else 3
                 )
                 st: dict[str, Any] = {}
-                txt, _ = generar_muestra(sc, self.voice, teacher, n_ex,
+                txt, _ = generar_muestra(sc, self.voice, voz, n_ex,
                                          usar_registro=not self.sin_registro,
-                                         max_ecos=self.max_ecos, stats=st)
+                                         max_ecos=self.max_ecos, stats=st,
+                                         teacher_usuario=usuario)
                 row["text"] = txt
                 row["scenario"] = sc["id"]
                 row["cat"] = sc["cat"]
@@ -822,6 +902,8 @@ class GenerarMuestras(Step):
                 row["motivos_eco"] = st["motivos_eco"]
                 row["voz_eco"] = st["voz_eco"]
                 row["motivos_eco_voz"] = st["motivos_eco_voz"]
+                row["rol_modelo"] = st["rol_modelo"]
+                row["rol_segundos"] = st["rol_segundos"]
                 if st["corte_eco"]:
                     row["fallo"] = "usuario_eco"
             yield rows
@@ -897,11 +979,13 @@ class EscribirDataset(Step):
     _motivos_eco: Counter = PrivateAttr(default_factory=Counter)
     _voz_eco: int = PrivateAttr(default=0)
     _motivos_eco_voz: Counter = PrivateAttr(default_factory=Counter)
+    _seg: dict = PrivateAttr(default_factory=lambda: {r: 0.0 for r in ROLES})
+    _filas: int = PrivateAttr(default=0)
 
     @property
     def inputs(self) -> "StepColumns":
         return ["text", "scenario", "cat", "voice", "_errores", "ecos", "motivos_eco",
-                "voz_eco", "motivos_eco_voz"]
+                "voz_eco", "motivos_eco_voz", "rol_modelo", "rol_segundos"]
 
     @property
     def outputs(self) -> "StepColumns":
@@ -923,6 +1007,9 @@ class EscribirDataset(Step):
             self._voz_eco += row.get("voz_eco", 0)
             for m, n in (row.get("motivos_eco_voz") or {}).items():
                 self._motivos_eco_voz[m] += n
+            self._filas += 1
+            for rol, s in (row.get("rol_segundos") or {}).items():
+                self._seg[rol] = self._seg.get(rol, 0.0) + s
             errs = row["_errores"]
             if errs:
                 self._rech += 1
@@ -930,12 +1017,16 @@ class EscribirDataset(Step):
                     self._motivos[e.split(":")[0].split("(")[0]] += 1
                 self._rej.write(
                     json.dumps({"scenario": row["scenario"], "errors": errs,
-                                "text": row["text"]}, ensure_ascii=False) + "\n"
+                                "text": row["text"],
+                                "rol_modelo": row.get("rol_modelo"),
+                                "rol_segundos": row.get("rol_segundos")},
+                               ensure_ascii=False) + "\n"
                 )
                 continue
             self._ok += 1
             self._out.write(
-                json.dumps({k: row[k] for k in ("text", "scenario", "cat", "voice")},
+                json.dumps({k: row[k] for k in ("text", "scenario", "cat", "voice",
+                                                "rol_modelo", "rol_segundos")},
                            ensure_ascii=False) + "\n"
             )
         yield inputs
@@ -958,7 +1049,10 @@ class EscribirDataset(Step):
                  "motivos_eco": dict(self._motivos_eco),
                  "usuario_eco": self._ecos,
                  "voz_eco": self._voz_eco,
-                 "motivos_eco_voz": dict(self._motivos_eco_voz)},
+                 "motivos_eco_voz": dict(self._motivos_eco_voz),
+                 # R18: el reparto. Sin esto no se sabe si mover un rol a otro
+                 # device sirvio, porque el dato final no cambia ni un caracter.
+                 "roles": resumen_roles(self._seg, self._filas)},
                 ensure_ascii=False, indent=2,
             ) + "\n",
             encoding="utf-8",
@@ -1020,6 +1114,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", default="pipelines/smoke/tc_r2.jsonl")
     ap.add_argument("--rejects", default=None, help="default: <out>_rejects.jsonl")
     ap.add_argument("--reasoning", default="none", choices=["none", "minimal", "low", "medium", "high"])
+    # R18: el simulador de usuario puede ser otro modelo en otro server. Cada
+    # flag cae en el valor del suyo (no en un default fijo), asi que sin ninguno
+    # los dos roles usan el mismo server, modelo, key y reasoning.
+    ap.add_argument("--usuario-base-url", default=None,
+                    help="default: --base-url")
+    ap.add_argument("--usuario-model", default=None, help="default: --model")
+    ap.add_argument("--usuario-key", default=None, help="default: --key")
+    ap.add_argument("--usuario-reasoning", default=None,
+                    choices=["none", "minimal", "low", "medium", "high"],
+                    help="default: --reasoning")
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--sin-registro", action="store_true",
                     help="brazo OFF del A/B: no inyecta prompts/prompt-compartido.md")
@@ -1037,7 +1141,15 @@ def main(argv: list[str] | None = None) -> int:
 
     escenarios = elegir_escenarios(args.n, args.seed, args.scenario)
     cache = Path(os.environ.get("GEN_CACHE_DIR", "/run/media/chaos/secundario/gen-cache"))
-    print(f"generando {len(escenarios)} muestras (teacher={args.model})", flush=True)
+    # Con los defaults puestos aca se ve, antes de gastar un solo pedido, si el
+    # reparto esta activo o si los dos roles van al mismo server.
+    voz = (args.base_url, args.model)
+    usuario = (args.usuario_base_url or args.base_url,
+               args.usuario_model or args.model)
+    reparto = "REPARTO" if voz != usuario else "un solo server"
+    print(f"generando {len(escenarios)} muestras "
+          f"(voz={voz[1]}@{voz[0]} usuario={usuario[1]}@{usuario[0]}, {reparto})",
+          flush=True)
 
     with Pipeline(name="kateto-gen", cache_dir=cache) as pipeline:
         load = LoadDataFromDicts(
@@ -1046,6 +1158,8 @@ def main(argv: list[str] | None = None) -> int:
         generar = GenerarMuestras(
             name="generar_turnwise", input_batch_size=4, voice=args.voice,
             base_url=args.base_url, model=args.model, teacher_key=key, reasoning=args.reasoning,
+            usuario_base_url=args.usuario_base_url, usuario_model=args.usuario_model,
+            usuario_key=args.usuario_key, usuario_reasoning=args.usuario_reasoning,
             sin_registro=args.sin_registro, max_ecos=args.max_ecos,
         )
         gate = AnotarValidacion(name="anotar_validacion", input_batch_size=4)
