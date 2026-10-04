@@ -1,0 +1,23 @@
+# Capa 1 PiSSA — referencia de hiperparámetros (el train real va por train_layer1_pissa.sh)
+# Canonical local: base/rwkv7-g1j-2.9b-20260831-ctx16384.pth (sha 966f3420…, 32L/2560).
+# SPEC nombra 2.3B pero ese checkpoint HF 404ea (todo-3) — este archivo documenta
+# los valores para cuando el peso exista; el default local es 2.9B.
+model: base/rwkv7-g1j-2.9b-20260831-ctx16384.pth
+n_layer: 32
+n_embd: 2560
+peft: pissa
+peft_config: {}
+pissa_config:
+  pissa_load: ""
+  pissa_init: ""
+  pissa_r: 32
+  svd_niter: 4
+ctx_len: 512
+micro_bsz: 1
+epoch_steps: 750
+epoch_count: 2
+lr_init: 2.0e-04
+lr_final: 2.0e-05
+fallback:
+  peft: lora
+  peft_config: {r: 16, lora_alpha: 32, lora_dropout: 0.01}
