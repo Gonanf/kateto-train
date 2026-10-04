@@ -43,7 +43,22 @@ REAL_2_TURNOS = (
     "genio.<|im_end|>"
 )
 
-LINEAS_REALES_ACEPTADAS = [REAL_1_TURNO, REAL_2_TURNOS]
+# R23: dos similes DISTINTOS en turnos DISTINTOS de una muestra corta no es un
+# bucle de plantilla. Este caso estaba en la lista de descartes; el dueno lo
+# revirtio con el item de Orion v1.1 como evidencia: lo juzgo correcto, y lo
+# rechazaba `simil_repetido` por la rama de <= 3 turnos, que contaba similes en vez
+# de mirar si se repiten. En el item real los dos son `como si fueras un chorro que
+# se olvido de robar` y `como si fuera un hotel pero sin concierge`.
+ACEPTADA_SIMIL_DISTINTO = (
+    "<|im_user|>?<|im_end|>\n"
+    "<|im_start|>seco\n"
+    "Es como el pan.<|im_end|>\n"
+    "<|im_user|>?<|im_end|>\n"
+    "<|im_start|>seco\n"
+    "Es como una piedra.<|im_end|>\n"
+)
+
+LINEAS_REALES_ACEPTADAS = [REAL_1_TURNO, REAL_2_TURNOS, ACEPTADA_SIMIL_DISTINTO]
 
 
 # --- casos de descarte, uno por rama de cada regla ---
@@ -82,12 +97,32 @@ DESCARTE = {
         "<|im_start|>seco\nFin.<|im_end|>\n"
         "<|im_start|>seco\nListo.<|im_end|>"
     ),
-    # 2 turnos de voz con 2 similes -> la rama de <= 3 turnos
-    "simil_repetido_muestra_corta": (
+# R23: muestra corta con el MISMO simil en los dos turnos. La rama corta
+    # compara el simil normalizado, asi que "cuando llueve" == "cuando llueve".
+    "simil_repetido_mismo_simil": (
         "<|im_user|>?<|im_end|>\n"
-        "<|im_start|>seco\nEs como el pan.<|im_end|>\n"
+        "<|im_start|>seco\n"
+        "Es como cuando llueve.<|im_end|>\n"
         "<|im_user|>?<|im_end|>\n"
-        "<|im_start|>seco\nEs como una piedra.<|im_end|>"
+        "<|im_start|>seco\n"
+        "Es como cuando llueve.<|im_end|>\n"
+    ),
+    # R23: la comparacion es sobre texto normalizado, asi que el mismo simil con
+    # otra capitalizacion y sin acento sigue siendo el mismo.
+    "simil_repetido_normalizado": (
+        "<|im_user|>?<|im_end|>\n"
+        "<|im_start|>seco\n"
+        "Es como un PÁJARO.<|im_end|>\n"
+        "<|im_user|>?<|im_end|>\n"
+        "<|im_start|>seco\n"
+        "Es como un pajaro.<|im_end|>\n"
+    ),
+    # R23: 2+ similes en un MISMO turno. Con un solo turno de voz la muestra es
+    # corta por definicion, asi que la densidad degenerada es la unica senal.
+    "simil_repetido_densidad": (
+        "<|im_user|>?<|im_end|>\n"
+        "<|im_start|>seco\n"
+        "Es como el pan y como una piedra.<|im_end|>\n"
     ),
     # R8: la voz de asistente (aclaracion + autodeclaracion + rechazo). El patron
     # va sin acentos a proposito: el texto real trae `importante` con tilde y la
@@ -116,7 +151,9 @@ CASOS = {
     "exclamacion_prosodia": [DESCARTE["exclamacion_prosodia"]],
     "simil_repetido": [
         DESCARTE["simil_repetido_consecutivo"],
-        DESCARTE["simil_repetido_muestra_corta"],
+        DESCARTE["simil_repetido_mismo_simil"],
+        DESCARTE["simil_repetido_normalizado"],
+        DESCARTE["simil_repetido_densidad"],
     ],
     "charla_de_asistente": [
         DESCARTE["charla_de_asistente"],

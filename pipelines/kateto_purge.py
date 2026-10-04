@@ -10,10 +10,11 @@ reglas de purga que dispara, y escribe la salida limpia + el reporte.
 El formato del dato no se toca:
     <|im_user|>texto<|im_end|>\n<|im_start|>{voz}\nrespuesta<|im_end|>
 
-Plan B documentado en `reporte-purga-v2.json` (`-v1.json` es la evidencia
-del bug de la rama `token_repetido`, ya corregido): distilabel 1.5.3 si instalo y su
-modelo de Steps sirve, con el matiz de que los Steps conservan el numero de filas
-(anotan columnas) y el filtrado real ocurre en el Step sink.
+Plan B documentado en `reporte-purga-v3.json` (`-v1.json` es la evidencia del
+bug de la rama `token_repetido` y `-v2.json` la de la rama corta de `simil_repetido`,
+las dos ya corregidas): distilabel 1.5.3 si instalo y su modelo de Steps sirve, con
+el matiz de que los Steps conservan el numero de filas (anotan columnas) y el
+filtrado real ocurre en el Step sink.
 """
 
 # Sin `from __future__ import annotations`: distilabel detects el parametro de
@@ -21,6 +22,7 @@ modelo de Steps sirve, con el matiz de que los Steps conservan el numero de fila
 # anotacion llega como string y el Step se rechaza.
 import json
 import os
+import random
 import re
 import sys
 import unicodedata
@@ -36,9 +38,10 @@ TRAIN_PATH = REPO / "data" / "rwkv_kateto_base_train_plus.jsonl"
 SHARD_GLOB = "parcial-w*.jsonl"
 SHARD_DIR = REPO / "out" / "dataset" / "shards"
 OUT_DIR = Path("/home/chaos/harness-run/kateto-purge")
-REPORT_PATH = REPO / "pipelines" / "reporte-purga-v2.json"
-# R1 queda como evidencia del bug: nunca se sobreescribe.
+REPORT_PATH = REPO / "pipelines" / "reporte-purga-v3.json"
+# R1 y R23 quedan como evidencia: los reportes viejos nunca se sobreescriben.
 V1_REPORT_PATH = REPO / "pipelines" / "reporte-purga.json"
+V2_REPORT_PATH = REPO / "pipelines" / "reporte-purga-v2.json"
 
 TRAIN_KEY = "train_set"
 SHARDS_KEY = "shards"
@@ -61,6 +64,11 @@ KEEP_COLS = {
 TURN_RE = re.compile(r"<\|im_(?:user|start)\|>(.*?)<\|im_end\|>", re.S)
 VOICE_TURN_RE = re.compile(r"<\|im_start\|>([^\n]*)\n(.*?)<\|im_end\|>", re.S)
 SIMIL_RE = re.compile(r"\bcomo (?:cuando|si|el|la|un|una)\b", re.I)
+# El simil que se compara es el texto que arranca en el `como` y corta en el
+# primer separador de clausula, no en el fin del turno: dos vueltas de
+# plantilla con el mismo comparativo y distinta prosa alrededor tienen que
+# contar como el MISMO simil.
+SIMIL_CLAUSA_RE = re.compile(r"[^,.;:!?\n]*")
 # `KATET+O+` del brief es notacion de regex: KATET seguido de una o mas O.
 PLACEHOLDER_RE = re.compile(r"KATETO+", re.I)
 ANDAMIAJE_RE = re.compile(r"Diagnóstico:|Cierre:")
@@ -122,6 +130,7 @@ CHATLA_PATRONES: tuple[str, ...] = (
 
 MAX_EJEMPLOS = 3
 EJEMPLO_CHARS = 400
+MAX_MUESTRAS = 5
 
 
 # --------------------------------------------------------------------------
@@ -204,20 +213,51 @@ def exclamacion_prosodia(text: str) -> bool:
     return bool(EXCLAMACION_RE.search(text))
 
 
+def _similes_normalizados(respuestas: list[str]) -> list[str]:
+    """Cada simil de cada turno, reducido a su clausula sin acentos y en minusculas."""
+    out: list[str] = []
+    for respuesta in respuestas:
+        for match in SIMIL_RE.finditer(respuesta):
+            out.append(sin_acentos(SIMIL_CLAUSA_RE.match(respuesta, match.start()).group()))
+    return out
+
+
+def _similes_en_turnos_consecutivos(conteos: list[int]) -> bool:
+    return any(conteos[i] >= 1 and conteos[i + 1] >= 1 for i in range(len(conteos) - 1))
+
+
 def simil_repetido(text: str) -> bool:
     """Similes `como (cuando|si|el|la|un|una)` repetidos en los turnos de la voz.
 
-    Descarta si hay 2+ en turnos consecutivos, o si hay >= 2 en una muestra con
-    <= 3 turnos de voz. Un simil suelto se cuenta pero no descarta.
+    4+ turnos de voz: 2+ similes en turnos consecutivos es bucle de plantilla.
+
+    <= 3 turnos de voz (R23): la muestra es corta, asi que "2 similes" NO alcanza
+    para descartar — dos comparaciones distintas en turnos distintos son material
+    bueno, y la rama anterior se llevaba justamente eso. Descarta solo si el MISMO
+    simil se repite (comparado sobre el texto normalizado) o si un mismo turno
+    tiene 2+ similes, que es densidad degenerada. Un simil suelto no descarta.
     """
+    respuestas = turnos_voz(text)
+    conteos = _conteo_similes(respuestas)
+    if sum(conteos) < 2:
+        return False
+    if len(conteos) <= 3:
+        if any(c >= 2 for c in conteos):
+            return True
+        similes = _similes_normalizados(respuestas)
+        return len(set(similes)) < len(similes)
+    return _similes_en_turnos_consecutivos(conteos)
+
+
+def _simil_repetido_v2(text: str) -> bool:
+    """La rama corta de R23 tal cual (contaba similes, no comparaba). Vive solo
+    para medir cuantas lineas recupera el arreglo; no participa de la decision."""
     conteos = _conteo_similes(turnos_voz(text))
     if sum(conteos) < 2:
         return False
     if len(conteos) <= 3:
         return True
-    return any(
-        conteos[i] >= 1 and conteos[i + 1] >= 1 for i in range(len(conteos) - 1)
-    )
+    return _similes_en_turnos_consecutivos(conteos)
 
 
 def charla_disparadores(text: str) -> set[str]:
@@ -335,6 +375,11 @@ class EscribirPurgado(Step):
     _clausulas: Counter = PrivateAttr(default_factory=Counter)
     _recuperadas: int = PrivateAttr(default=0)
     _recuperadas_vivas: int = PrivateAttr(default=0)
+    _recup_simil: int = PrivateAttr(default=0)
+    _recup_simil_vivas: int = PrivateAttr(default=0)
+    _vistos: int = PrivateAttr(default=0)
+    _rng: Any = PrivateAttr(default_factory=lambda: random.Random(23))
+    _muestras_simil: list = PrivateAttr(default_factory=list)
 
     @property
     def inputs(self) -> "StepColumns":
@@ -358,6 +403,26 @@ class EscribirPurgado(Step):
             self._fh = (OUT_DIR / OUT_FILES[self.fuente]).open("w", encoding="utf-8")
         return self._fh
 
+    def _muestrear_simil(self, text: str, reglas: list[str]) -> None:
+        """Reservoir (algoritmo R) con semilla fija: MAX_MUESTRAS lineas AL AZAR de
+        las que recupera R23, y las mismas en cada corrida (reproducible)."""
+        self._vistos += 1
+        muestra = {
+            "fuente": self.fuente,
+            "reglas": reglas,
+            "similes_por_turno": _conteo_similes(turnos_voz(text)),
+            "text": text[:EJEMPLO_CHARS],
+        }
+        if self._vistos <= MAX_MUESTRAS:
+            self._muestras_simil.append(muestra)
+            return
+        # El guard `j < MAX_MUESTRAS` es lo que hace que sea equiprobable: sin el,
+        # `randrange` tira indices fuera del reservoir y cada linea reciente
+        # pisa una muestra vieja (y revienta con IndexError).
+        j = self._rng.randrange(self._vistos)
+        if j < MAX_MUESTRAS:
+            self._muestras_simil[j] = muestra
+
     def process(self, inputs: StepInput) -> "StepOutput":
         for row in inputs:
             reglas = row["_reglas"]
@@ -376,6 +441,13 @@ class EscribirPurgado(Step):
                 self._recuperadas += 1
                 if not reglas:
                     self._recuperadas_vivas += 1
+
+            # Idem para la rama corta de `simil_repetido` que R23 cambio.
+            if "simil_repetido" not in reglas and _simil_repetido_v2(row["text"]):
+                self._recup_simil += 1
+                if not reglas:
+                    self._recup_simil_vivas += 1
+                self._muestrear_simil(row["text"], reglas)
 
             if reglas:
                 self._salida += 1
@@ -431,6 +503,11 @@ class EscribirPurgado(Step):
                 "rama_v1_disparaba_y_v2_no": self._recuperadas,
                 "vivas_ganadas": self._recuperadas_vivas,
             },
+            "recuperadas_simil_r23": {
+                "rama_v2_disparaba_y_v3_no": self._recup_simil,
+                "vivas_ganadas": self._recup_simil_vivas,
+                "muestras_al_azar": self._muestras_simil,
+            },
             "ejemplos": {r: self._ejemplos[r] for r in self._ejemplos},
         }
 
@@ -468,6 +545,13 @@ def _v1_clausulas() -> dict:
     return json.loads(V1_REPORT_PATH.read_text(encoding="utf-8")).get(
         "placeholder_por_clausula", {}
     )
+
+
+def _v2_por_regla() -> dict:
+    """`por_regla` del reporte de R23, o {} si ya no esta."""
+    if not V2_REPORT_PATH.exists():
+        return {}
+    return json.loads(V2_REPORT_PATH.read_text(encoding="utf-8")).get("por_regla", {})
 
 
 def armar_reporte(fragmentos: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -569,6 +653,15 @@ def armar_reporte(fragmentos: dict[str, dict[str, Any]]) -> dict[str, Any]:
         },
         "ejemplos": ejemplos,
 "notas": {
+            "corrida comparable": (
+                "El corpus de esta corrida es el mismo que el de v2 (95.133 "
+                "lineas): `entradas` y los `similes_por_turno_voz.antes` dan "
+                "identicos a los de `reporte-purga-v2.json`. Si alguna vez no "
+                "dan, el delta de `comparacion_v2` mezcla dos corpus y no dice "
+                "nada. Ojo: el pipeline de distilabel se come la excepcion de un "
+                "Step, saltea el lote y igual sale con codigo 0 — si `entradas` no "
+                "cuadra con el archivo, el paso se rompio en silencio."
+            ),
             "placeholder_por_clausula": (
                 "La rama `token_repetido` de R1 estaba anulada por dos cosas a la "
                 "vez: el marcador del formato pegado al token, y `(\\S)\\1{2,}$` "
@@ -583,6 +676,21 @@ def armar_reporte(fragmentos: dict[str, dict[str, Any]]) -> dict[str, Any]:
             "lineas_de_entrada": (
                 "Los archivos crecian mientras corria la purga (ola kateto-ola170 "
                 "activa), asi que las entradas son mayores que las del brief."
+            ),
+            "simil_repetido_r23": (
+                "La rama de <= 3 turnos de voz no miraba si el simil se repetia: "
+                "contaba, y 2 similes cualesquiera en 2 turnos distintos "
+                "descartaban. El dueno judgingo el item de Orion v1.1 como "
+                "correcto y ese item cae en esa rama, con dos comparaciones "
+                "distintas (`como si fueras un chorro que se olvido de robar` / "
+                "`como si fuera un hotel pero sin concierge`). Ahora la rama corta "
+                "descarta solo si el MISMO simil se repite —comparado sobre el texto "
+                "que sigue al `como`, sin acentos y en minusculas— o si un mismo "
+                "turno tiene 2+ similes. La rama de 4+ turnos (similes en turnos "
+                "consecutivos) queda igual. `comparacion_v2` trae el delta y "
+                "`recuperadas_simil_r23.muestras_al_azar` 5 lineas al azar de las "
+                "recuperadas, con semilla fija para que sean las mismas en cada "
+                "corrida."
             ),
         },
     }
@@ -607,6 +715,74 @@ def armar_reporte(fragmentos: dict[str, dict[str, Any]]) -> dict[str, Any]:
                     .get("KATETO", 0),
                 }
                 for f in SOURCES
+            },
+        }
+
+    v2 = _v2_por_regla()
+    if v2:
+        reporte["comparacion_v2"] = {
+            "reporte": str(V2_REPORT_PATH.relative_to(REPO)),
+            "nota": (
+                "R23: la rama corta de `simil_repetido` ya no cuenta similes, "
+                "compara si el mismo simil se repite. `v2` es lo que esa rama "
+                "descartaba, `v3` lo que descarta ahora. La rama de 4+ turnos no "
+                "cambio, asi que la diferencia es toda de la rama corta."
+            ),
+            "simil_repetido": {
+                f: {
+                    "v2": v2.get("simil_repetido", {}).get(f, 0),
+                    "v3": fragmentos.get(f, {}).get("por_regla", {}).get("simil_repetido", 0),
+                    "recuperadas": fragmentos.get(f, {})
+                    .get("recuperadas_simil_r23", {})
+                    .get("rama_v2_disparaba_y_v3_no", 0),
+                    "vivas_ganadas": fragmentos.get(f, {})
+                    .get("recuperadas_simil_r23", {})
+                    .get("vivas_ganadas", 0),
+                }
+                for f in SOURCES
+            },
+            "otras_reglas_sin_cambio": {
+                regla: {
+                    f: {
+                        "v2": v2.get(regla, {}).get(f, 0),
+                        "v3": fragmentos.get(f, {})
+                        .get("por_regla", {})
+                        .get(regla, 0),
+                    }
+                    for f in SOURCES
+                }
+                for regla in REGLAS
+                if regla != "simil_repetido"
+            },
+            "total": {
+                "v2": sum(v2.get("simil_repetido", {}).get(f, 0) for f in SOURCES),
+                "v3": sum(
+                    fragmentos.get(f, {})
+                    .get("por_regla", {})
+                    .get("simil_repetido", 0)
+                    for f in SOURCES
+                ),
+                "recuperadas": sum(
+                    fragmentos.get(f, {})
+                    .get("recuperadas_simil_r23", {})
+                    .get("rama_v2_disparaba_y_v3_no", 0)
+                    for f in SOURCES
+                ),
+                "vivas_ganadas": sum(
+                    fragmentos.get(f, {})
+                    .get("recuperadas_simil_r23", {})
+                    .get("vivas_ganadas", 0)
+                    for f in SOURCES
+                ),
+                "siguen_cayendo_por_otra_regla": sum(
+                    fragmentos.get(f, {})
+                    .get("recuperadas_simil_r23", {})
+                    .get("rama_v2_disparaba_y_v3_no", 0)
+                    - fragmentos.get(f, {})
+                    .get("recuperadas_simil_r23", {})
+                    .get("vivas_ganadas", 0)
+                    for f in SOURCES
+                ),
             },
         }
 
