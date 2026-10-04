@@ -93,7 +93,13 @@ CHATLA_PATRONES: tuple[str, ...] = (
     "espero que",
     # juicio / valoracion
     "no esta bien",
-    "esta mal",
+    # `esta mal` SALIO de aca (R12, triage #7): como substring suelto matchea
+    # cualquier argumentacion normal ("El capitalismo esta mal", "no esta mal
+    # para 27B"): las 618 lineas que rechazaba sola eran discusiones, no
+    # moralinas. Exigir contexto moral ("esta mal que", "lo que esta mal es")
+    # tampoco servia — sobre esas 618 matcheaba 10 veces y casi ninguna era
+    # moralina. El juicio moral ya lo cubren las de arriba, que no matchean
+    # discusion.
     # autodeclaracion de asistente
     "como asistente",
     "como ia",
@@ -159,9 +165,19 @@ def _token_repetido_v1(text: str) -> bool:
 
 
 def _clausula_placeholder(text: str) -> list[str]:
-    """Cual de las dos ramas de `placeholder_degenerado` dispara, o ninguna."""
+    """Cual de las dos ramas de `placeholder_degenerado` dispara, o ninguna.
+
+    La rama `KATETO` mira SOLO los turnos de la voz, igual que `simil_repetido` y
+    `charla_de_asistente` de esta misma tabla (R12). Antes corria sobre el texto
+    entero y el usuario llamando por su nombre al personaje —"Che Kateto, estas?"—
+    era indistinguishable del placeholder: medido sobre las 95.133 lineas de
+    entrada de la purga, 3.829 descartes-tenian el `KATETO` solo en el turno del
+    usuario. La rama `token_repetido` sigue sobre el texto entero a proposito: una
+    palabra degenerada (`KATETOOOOO`, `holaaaa`) lo es donde este, y achicarla
+    seria volver al bug que R1b ya cerro.
+    """
     ramas = []
-    if PLACEHOLDER_RE.search(text):
+    if any(PLACEHOLDER_RE.search(v) for v in turnos_voz(text)):
         ramas.append("KATETO")
     if _token_repetido(text):
         ramas.append("token_repetido")

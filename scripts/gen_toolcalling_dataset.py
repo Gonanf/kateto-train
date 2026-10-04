@@ -28,6 +28,7 @@ import re
 import subprocess
 import sys
 import time
+import unicodedata
 import urllib.error
 import urllib.request
 from collections import Counter
@@ -153,7 +154,15 @@ def _tuteo_en(texto: str) -> str | None:
 
     Los inequivocos (tienes, dime, hazlo, ...) siempre son error. Los homografos
     (mira, ven, haz) solo si NO estan precedidos por clitico o sujeto.
+
+    El texto se normaliza a NFC antes de matchear (R12). Sin eso la regla depende
+    de como venga la cadena: `Mirá` con á precompuesta NO dispara (es voseo) pero
+    la MISMA palabra con el acento combinante U+0301 (NFD) dispara `tuteo:mira`,
+    porque U+0301 no es un caracter de palabra para `\w` y la Regex se lo come
+    como borde. O sea: el voseo correcto se rechaza segun la normalizacion que
+    haya tenido el texto en el camino. Medido, no teorico.
     """
+    texto = unicodedata.normalize("NFC", texto)
     m = RX_TUTEO_INEQUIVOCO.search(texto)
     if m:
         return m.group(1).lower()
@@ -500,7 +509,16 @@ def extract_legal_moves(text: str) -> set[str]:
 # Spanglish MEDIDO en la voz (fix119: 14 fugas en 506 aceptadas). Lista exacta de
 # las palabras medidas o sin uso rioplatense. Ojo: `chequear` y `chance` NO van
 # (uso rioplatense real), y look/man/bro quedan afuera por falsos positivos en citas.
-RX_SPANGLISH = re.compile(r"\b(worries|worry|differente|okay|okey|whatever|actually|basically|anyway|anyways|dude|buddy|guys|amazing|awesome|by the way|you know|i mean|it's|don't|can't)\b", re.I)
+#
+# R12 — el criterio de la lista, para que no se aplique a ojo: una palabra NO va
+# aca si el corpus humano la usa con sentido propio. Medido sobre las 56.745
+# lineas de `/home/chaos/harness-run/kateto-purge/` (version con los numeros:
+# `pipelines/reporte-validadores.json`). `differente` sale por eso: 4 apariciones,
+# las cuatro en espanol ("un toque differente", "lo recuerdo bien differente"), y
+# es la que rechazo el #3 del brazo v2 (`...pero differente, porque vos tenés
+# merito`). `actually` (37 en turno de voz) y `okay` (2) siguen: ahi el uso es el
+# ingles que la regla viene a cazarle.
+RX_SPANGLISH = re.compile(r"\b(worries|worry|okay|okey|whatever|actually|basically|anyway|anyways|dude|buddy|guys|amazing|awesome|by the way|you know|i mean|it's|don't|can't)\b", re.I)
 # Eximo los tramos entre comillas dentro del turno de la voz: el teacher cita
 # voces ajenas ahi adentro y eso no es spanglish del personaje.
 RX_CITAS = re.compile(r'"[^"]*"|\'[^\']*\'|«[^»]*»')
@@ -816,7 +834,14 @@ SCENARIOS: list[dict] = [
     {"id": "solo_debate", "cat": "B", "tools": 0,
      "txt": "El usuario tira una opinion fuerte (de futbol, musica o politica) y seco le contesta "
             "con postura propia, sin adularlo y sin esquivar. Puede estar en desacuerdo. 3 turnos."},
-    {"id": "no_tool_when_not_needed", "cat": "B", "tools": 0,
+    # `min_turns: 1` — R12, con los dos casos que el triage (R11) cito para este
+    # escenario. Un solo intercambio puede ser una respuesta COMPLETA y sana
+    # (`#11`: pregunta por el fin de semana, la voz contesta con voseo y opinion,
+    # cero defecto en el texto) y rechazarlo por la forma tiraba material bueno.
+    # El que NO era valido (`#10`) no muere por tener un turno: la voz es copia
+    # VERBATIM del usuario, y de eso se encarga `es_eco` del lado de la voz, en el
+    # loop del generador. El eco lo caza la regla que sabe de eco.
+    {"id": "no_tool_when_not_needed", "cat": "B", "tools": 0, "min_turns": 1,
      "txt": "El usuario charla de algo trivial. El contexto del sistema tiene tools disponibles, "
             "pero seco NO usa ninguna: no hacen falta. Eso es tan importante como usarlas bien."},
     {"id": "pregunta_trivial_sin_tool", "cat": "B", "tools": 2, "tool_obligatoria": False,
