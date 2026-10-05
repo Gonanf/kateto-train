@@ -416,13 +416,24 @@ class KatetoInferenceEngine:
             state[i * 3 + 2] = torch.zeros(self.n_embd, dtype=self.dtype, device=self.device)
         return state
 
-    def format_chat_prompt(self, prompt: str, voice: str = "none", history: "list[tuple[str, str]] | None" = None, max_history: int = 10) -> str:
+    def format_chat_prompt(self, prompt: str, voice: str = "none", history: "list[tuple[str, str] | dict] | None" = None, max_history: int = 10, role: str = "user") -> str:
         # ponytail: text-concat history, re-encoded each turn; carry RNN state across turns if context grows
+        # ANCLA: tiene que quedar byte a byte igual a chat_template.render_chat
+        # (lo verifica kateto-medicion/test-chat-template.py). `role` elige la marca
+        # del slot de ENTRADA del turno abierto: "user" -> <|im_user|>,
+        # "developer" -> <|im_dev|>; el historial lleva el rol de cada turno.
         voice = "seco" if voice == "none" else voice
         parts = []
-        for u, a in (history or [])[-max_history:]:
-            parts.append(f"<|im_user|>{u.strip()}<|im_end|>\n<|im_start|>{voice}\n{a.strip()}<|im_end|>")
-        parts.append(f"<|im_user|>{prompt.strip()}<|im_end|>\n<|im_start|>{voice}\n")
+        for t in (history or [])[-max_history:]:
+            if isinstance(t, dict):
+                u, a, r = t["user"], t["answer"], t.get("role", "user")
+            else:
+                u, a = t
+                r = "user"
+            marca = "<|im_dev|>" if r == "developer" else "<|im_user|>"
+            parts.append(f"{marca}{u.strip()}<|im_end|>\n<|im_start|>{voice}\n{a.strip()}<|im_end|>")
+        marca = "<|im_dev|>" if role == "developer" else "<|im_user|>"
+        parts.append(f"{marca}{prompt.strip()}<|im_end|>\n<|im_start|>{voice}\n")
         return "".join(parts)
 
     def _forward(self, tok: int, state: List[torch.Tensor]):
@@ -440,7 +451,7 @@ class KatetoInferenceEngine:
             hidden.view(1, 1, -1), self.rosa_memory)
         return out + gate.view(-1) * rosa_logits.view(-1), state
 
-    def generate(self, prompt: str, voice: str = "none", max_tokens: int = 120, temperature: float = 0.7, top_p: float = 0.65, alpha_presence: float = 0.6, alpha_frequency: float = 0.5, history: "list[tuple[str, str]] | None" = None, max_history: int = 4, allow_no_response: bool = False, ngram_n: int = 3, ngram_repeat_max: int = 12) -> str:
+    def generate(self, prompt: str, voice: str = "none", max_tokens: int = 120, temperature: float = 0.7, top_p: float = 0.65, alpha_presence: float = 0.6, alpha_frequency: float = 0.5, history: "list[tuple[str, str] | dict] | None" = None, max_history: int = 4, allow_no_response: bool = False, ngram_n: int = 3, ngram_repeat_max: int = 12) -> str:
         state = self.build_initial_state("seco" if voice == "none" else voice)
         formatted = self.format_chat_prompt(prompt, voice, history, max_history)
         prompt_tokens = self.tokenizer.encode(formatted)

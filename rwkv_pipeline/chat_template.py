@@ -23,6 +23,13 @@ escribe un marcador: rellena el slot `answer` (o `user`) y nada mas. Si el texto
 que llega a un slot trae un delimitador, `slot_guard()` levanta
 (`SlotContaminado`) en vez de dejar que el marcador entre al dataset.
 
+ROLES
+-----
+El slot de ENTRADA tiene dos marcas, con la MISMA gramatica:
+`<|im_user|>` (rol `user`) y `<|im_dev|>` (rol `developer`, el rol no-humano que
+da instrucciones/contexto). El rol vive en `render_turn(..., role=...)` y en el
+campo `role` de cada turno que devuelve el parser; viaja por todo el round-trip.
+
 USO
 ---
     from chat_template import render_turn, render_historial, render_chat, slot_guard
@@ -50,8 +57,26 @@ import jinja2
 DIALECTO_A = "A"   # turno de usuario CERRADO con <|im_end|>
 DIALECTO_B = "B"   # turno de usuario SIN cerrar
 
-MARCADORES = ("<|im_user|>", "<|im_start|>", "<|im_end|>", "<|endoftext|>")
+#: todos los delimitadores del template. `slot_guard` rechaza cualquiera de
+#: estos si aparece ADENTRO de un slot: los marcadores los pone el template.
+#: `<|im_dev|>` va al final a proposito: `scripts/convert_to_kateto_format.py`
+#: indexa los tres primeros por posicion.
+MARCADORES = ("<|im_user|>", "<|im_start|>", "<|im_end|>", "<|endoftext|>",
+              "<|im_dev|>")
 RX_MARCADOR = re.compile("|".join(re.escape(m) for m in MARCADORES))
+
+#: marca de apertura de un slot de ENTRADA por rol. El rol no-humano
+#: (`developer`) usa la MISMA gramatica que `<|im_user|>`: abre con su marca,
+#: cierra con `<|im_end|>` y sigue el bloque `<|im_start|>{voice}\n{answer}`.
+#: El modelo rellena el texto; jamas escribe la marca.
+MARCAS_ROL = {"user": "<|im_user|>", "developer": "<|im_dev|>"}
+
+
+def _marca(role: str) -> str:
+    try:
+        return MARCAS_ROL[role]
+    except KeyError:
+        raise ValueError(f"rol desconocido {role!r}; roles: {sorted(MARCAS_ROL)}")
 
 #: la combinacion que sirve la inferencia: el estandar a partir de ahora
 CANONICO = {"cierra_usuario": True, "salto_antes_cierre": False,
@@ -77,11 +102,12 @@ _ENV = jinja2.Environment(
 
 #: turno cerrado (usuario cerrado, respuesta pegada al cierre, sin salto final)
 TPL_TURNO = _ENV.from_string(
-    "<|im_user|>{{ user }}<|im_end|>\n<|im_start|>{{ voice }}\n{{ answer }}<|im_end|>"
+    "{{ marca }}{{ user }}<|im_end|>\n<|im_start|>{{ voice }}\n{{ answer }}<|im_end|>"
 )
-#: turno del asistente abierto, esperando respuesta (fin del prompt)
+#: turno del asistente abierto, esperando respuesta (fin del prompt). `marca` es
+#: la del rol del slot de entrada: `<|im_user|>` o `<|im_dev|>`.
 TPL_ABIERTO = _ENV.from_string(
-    "<|im_user|>{{ user }}<|im_end|>\n<|im_start|>{{ voice }}\n"
+    "{{ marca }}{{ user }}<|im_end|>\n<|im_start|>{{ voice }}\n"
 )
 
 
@@ -100,22 +126,33 @@ def slot_guard(texto: str, campo: str) -> str:
 
 
 def render_turn(user: str, answer: str, voice: str, *,
+                role: str = "user",
                 cierra_usuario: bool = True, salto_antes_cierre: bool = False,
                 salto_final: str = "") -> str:
-    """Un turno cerrado. Por defecto, la forma canonica (la que sirve el runtime)."""
+    """Un turno cerrado. Por defecto, la forma canonica (la que sirve el runtime).
+
+    `role` elige la marca del slot de ENTRADA: `"user"` -> `<|im_user|>`,
+    `"developer"` -> `<|im_dev|>`. La gramatica es identica para los dos.
+    """
     u, a = user.strip(), answer.strip()
-    cabeza = f"<|im_user|>{u}<|im_end|>\n" if cierra_usuario else f"<|im_user|>{u}\n"
+    marca = _marca(role)
+    cabeza = f"{marca}{u}<|im_end|>\n" if cierra_usuario else f"{marca}{u}\n"
     medio = "\n" if salto_antes_cierre else ""
     return f"{cabeza}<|im_start|>{voice}\n{a}{medio}<|im_end|>{salto_final}"
 
 
 def render_historial(turnos, voice: str, *, salto_entre_turnos: bool = False) -> str:
-    """Turnos pasados, todos cerrados. `turnos` = [(user, answer), ...] o trazas."""
+    """Turnos pasados, todos cerrados. `turnos` = [(user, answer), ...] o trazas.
+
+    Una traza (dict) puede traer `role` (`"user"`/`"developer"`); una tupla
+    `(user, answer)` se asume del rol `user`.
+    """
     turnos = list(turnos)
     out = []
     for i, t in enumerate(turnos):
         if isinstance(t, dict):
             out.append(render_turn(t["user"], t["answer"], t.get("voice", voice),
+                                   role=t.get("role", "user"),
                                    cierra_usuario=t.get("cierra_usuario", True),
                                    salto_antes_cierre=t.get("salto_antes_cierre", False),
                                    salto_final=t.get("salto_final", "")))
@@ -131,13 +168,19 @@ def render_historial(turnos, voice: str, *, salto_entre_turnos: bool = False) ->
 def render_traza(turnos) -> str:
     """Re-renderiza respetando los flags por turno (para round-trip del parser)."""
     return "".join(render_turn(t["user"], t["answer"], t["voice"],
+                               role=t.get("role", "user"),
                                cierra_usuario=t["cierra_usuario"],
                                salto_antes_cierre=t["salto_antes_cierre"],
                                salto_final=t["salto_final"]) for t in turnos)
 
 
-def render_chat(turnos, pregunta: str, voice: str, max_history: int | None = None) -> str:
+def render_chat(turnos, pregunta: str, voice: str, max_history: int | None = None,
+                *, role: str = "user") -> str:
     """Historial cerrado + turno actual abierto. Replica `format_chat_prompt`.
+
+    `role` es el del turno ABIERTO (el que se le pregunta al modelo); el
+    historial lleva el rol de cada turno. Default `"user"`, que es la forma que
+    sirve el runtime de la voz.
 
     OJO con `max_history=0`: el inferidor hace `(history or [])[-max_history:]`, y
     `[-0:]` en Python es `[0:]` = la lista ENTERA, o sea "sin corte", no "sin
@@ -147,11 +190,19 @@ def render_chat(turnos, pregunta: str, voice: str, max_history: int | None = Non
     if max_history is not None:
         turnos = list(turnos)[-max_history:]
     return (render_historial(turnos or [], voice)
-            + TPL_ABIERTO.render(user=pregunta.strip(), voice=voice))
+            + TPL_ABIERTO.render(marca=_marca(role), user=pregunta.strip(),
+                                 voice=voice))
 
 
 # ── parser: modela los tres ejes y exige round-trip ──────────────────────────
-RX_EVENTO = re.compile(r"(<\|im_user\|>|<\|im_start\|>|<\|im_end\|>|<\|endoftext\|>)")
+RX_EVENTO = re.compile(r"(<\|im_user\|>|<\|im_dev\|>|<\|im_start\|>|<\|im_end\|>|<\|endoftext\|>)")
+#: marcador que ABRE un slot de entrada (rol `user` o `developer`); el `\n?`
+#: opcional es el separador entre turnos que algunos dialectos emiten.
+RX_APERTURA = re.compile(r"\n?(<\|im_user\|>|<\|im_dev\|>)")
+
+
+def _rol_de(marca: str) -> str:
+    return "developer" if marca == "<|im_dev|>" else "user"
 
 
 def _eventos(texto: str):
@@ -161,7 +212,7 @@ def _eventos(texto: str):
 def parse_traza(texto: str):
     """Devuelve (turnos, separadores) o levanta `TemplateRoto`.
 
-    `turnos` = lista de dicts con user/voice/answer/cierra_usuario/
+    `turnos` = lista de dicts con user/voice/answer/role/cierra_usuario/
     salto_antes_cierre/salto_final, en el orden en que estan.
     """
     ev = _eventos(texto)
@@ -171,11 +222,12 @@ def parse_traza(texto: str):
     i = 0
     while i < len(ev):
         marc, ini, fin = ev[i]
-        if marc != "<|im_user|>":
-            raise TemplateRoto(f"se esperaba <|im_user|> en {ini}, hay {marc!r}")
-        # texto del usuario: hasta el <|im_end|> o hasta el <|im_start|>
+        if marc not in ("<|im_user|>", "<|im_dev|>"):
+            raise TemplateRoto(f"se esperaba <|im_user|> o <|im_dev|> en {ini}, hay {marc!r}")
+        role = _rol_de(marc)
+        # texto del slot de entrada: hasta el <|im_end|> o hasta el <|im_start|>
         if i + 1 >= len(ev):
-            raise TemplateRoto("turno de usuario sin cierre ni <|im_start|>")
+            raise TemplateRoto("turno de entrada sin cierre ni <|im_start|>")
         sig = ev[i + 1]
         if sig[0] == "<|im_end|>":
             cierra = True
@@ -204,6 +256,7 @@ def parse_traza(texto: str):
             # respuesta vacia
             answer, salto, sgte = resto, False, ev[j + 1][2]
             turnos.append({"user": user, "voice": voice, "answer": answer,
+                           "role": role,
                            "cierra_usuario": cierra, "salto_antes_cierre": salto,
                            "salto_final": ""})
             i = j + 1
@@ -217,10 +270,10 @@ def parse_traza(texto: str):
 def _parse_con_regex(texto: str):
     """Parser alternativo por regex, para los patrones con texto de voz variable."""
     rx_a = re.compile(
-        r"<\|im_user\|>(?P<user>.*?)<\|im_end\|>\n<\|im_start\|>(?P<voice>[^\n]*)\n"
+        r"(?P<marca><\|im_user\|>|<\|im_dev\|>)(?P<user>.*?)<\|im_end\|>\n<\|im_start\|>(?P<voice>[^\n]*)\n"
         r"(?P<answer>.*?)(?P<salto>\n?)<\|im_end\|>(?P<resto>.*)", re.S)
     rx_b = re.compile(
-        r"<\|im_user\|>(?P<user>.*?)\n<\|im_start\|>(?P<voice>[^\n]*)\n"
+        r"(?P<marca><\|im_user\|>|<\|im_dev\|>)(?P<user>.*?)\n<\|im_start\|>(?P<voice>[^\n]*)\n"
         r"(?P<answer>.*?)(?P<salto>\n?)<\|im_end\|>(?P<resto>.*)", re.S)
     for rx, cierra in ((rx_a, True), (rx_b, False)):
         turnos = []
@@ -232,23 +285,21 @@ def _parse_con_regex(texto: str):
                 break
             turnos.append({"user": m.group("user"), "voice": m.group("voice"),
                            "answer": m.group("answer"),
+                           "role": _rol_de(m.group("marca")),
                            "cierra_usuario": cierra,
                            "salto_antes_cierre": bool(m.group("salto")),
                            "salto_final": ""})
-            pos = m.end("resto") - len(m.group("resto")) + len(m.group("resto"))
-            # el "resto" es lo que sigue al <|im_end|>: si arranca con <|im_user|>
-            # o con \n<|im_user|>, se consume el separador
+            # el "resto" es lo que sigue al <|im_end|>: si arranca con la marca de
+            # apertura del turno siguiente (`<|im_user|>` o `<|im_dev|>`), o con
+            # \n + esa marca, se consume el separador
             resto = m.group("resto")
             if resto == "":
                 pos = len(texto)
                 break
-            if resto.startswith("\n<|im_user|>"):
-                turnos[-1]["salto_final"] = "\n"
-                pos = m.end() - len(resto) + 1
-                continue
-            if resto.startswith("<|im_user|>"):
-                turnos[-1]["salto_final"] = ""
-                pos = m.end() - len(resto)
+            m2 = RX_APERTURA.match(resto)
+            if m2:
+                turnos[-1]["salto_final"] = "\n" if m2.start(1) else ""
+                pos = m.end() - len(resto) + m2.start(1)
                 continue
             turnos = None
             break
@@ -279,7 +330,8 @@ def canonicalizar(texto: str):
     if len(voces) != 1:
         raise TemplateRoto(f"la muestra mezcla voces: {sorted(voces)}")
     # canonico SIEMPRE: se arma con los defaults de render_turn, no con la traza
-    nuevo = "".join(render_turn(t["user"], t["answer"], t["voice"]) for t in turnos)
+    nuevo = "".join(render_turn(t["user"], t["answer"], t["voice"],
+                                role=t.get("role", "user")) for t in turnos)
     if nuevo == texto:
         return nuevo, False, "ya_canonico"
     ejes = []
@@ -303,13 +355,22 @@ def es_canonico(texto: str) -> bool:
 if __name__ == "__main__":
     u, a, v = "Che, quien sos?", "Kateto. No me encasillo en ningun rol.", "seco"
     print("canonico :", repr(render_turn(u, a, v)))
+    print("developer:", repr(render_turn("corre los tests", "corriendo", v,
+                                         role="developer")))
     print("dialectoB:", repr(render_turn(u, a, v, cierra_usuario=False,
                                           salto_antes_cierre=True)))
     print("chat     :", repr(render_chat([(u, a)], "y vos?", v)))
-    for kw in ({}, {"cierra_usuario": False}, {"salto_antes_cierre": True},
+    print("chat dev :", repr(render_chat([(u, a)], "y los tests?", v, role="developer")))
+    for kw in ({"cierra_usuario": False}, {"salto_antes_cierre": True},
                {"cierra_usuario": False, "salto_antes_cierre": True}):
         t = render_turn(u, a, v, **kw)
         print(f"  {str(kw):60s} -> canonico? {es_canonico(t)}  canon={canonicalizar(t)[1:]}")
+    # tres roles: user + developer (mismo grammar) + la respuesta del asistente
+    traza = (render_turn(u, "dale", v)
+             + render_turn("ahora corre los tests", "corriendo", v, role="developer"))
+    turnos, _ = parse_turnos(traza)
+    print("tres roles:", [t["role"] for t in turnos], "round-trip?",
+          render_traza(turnos) == traza)
     try:
         slot_guard("respuesta con <|im_end|> adentro", "answer")
     except SlotContaminado as e:
