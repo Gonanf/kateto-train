@@ -1,0 +1,68 @@
+# Kateto v2 unified config
+model:
+  base_checkpoint: out/rwkv_kateto_base_plus_1.5b/rwkv-0.pth
+  n_layer: 24
+  n_embd: 1024
+  vocab_size: 65536
+  ctx_len: 512
+  dtype: bf16
+
+fine_tune:
+  method: pissa
+  pissa_r: 32
+  svd_niter: 4
+  target_modules:
+    - att.receptance
+    - att.key
+    - att.value
+    - att.output
+    - ffn.key
+    - ffn.value
+    - ffn.receptance
+  lr_init: 2.0e-4
+  lr_final: 2.0e-5
+  schedule: cosine
+  warmup_steps: 500
+  micro_bsz: 1
+  grad_accum: 8
+  epochs: 2
+
+rosa:
+  enabled: true
+  retrieval_dim: 256
+  hidden_dim: 1024
+  vocab_size: 65536
+  lr: 3e-3
+  weight_decay: 0.0
+
+orpo:
+  lambda_or: 0.1
+  beta: 0.1
+  lr: 5.0e-5
+  epochs: 2
+  batch: 1
+  accum: 8
+  teacher: space-bunny-free
+  teacher_endpoint: opencode
+
+data:
+  sft:
+    path: data/rwkv_kateto_base_train_plus.jsonl
+    podcast: data/podcast/*.jsonl
+    loss_mask: qa
+    max_len: 512
+  orpo_pairs: data/orpo/anti_sycophancy_rioplatense.jsonl
+
+training:
+  seed: 1337
+  device: cuda
+  env:
+    HSA_OVERRIDE_GFX_VERSION: "10.3.0"
+    PYTORCH_ALLOC_CONF: "expandable_segments:True"
+    TORCH_COMPILE_DISABLE: "1"
+  output_dir: out/kateto_v2
+
+gates:
+  rosa_grad_norm_gt0: true
+  loss_decreasing: true
+  tests: tests/test_rosa_*.py
