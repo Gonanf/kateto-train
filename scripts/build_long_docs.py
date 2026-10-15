@@ -16,7 +16,7 @@ Fuentes:
       documento en texto plano "Speaker: segmento" por linea. index_root se lee de
       ~/.config/video-rag/config.toml (no se asume).
       FILTRO POR CONTENIDO (corpus SOLO streams de estudio): si el texto menciona
-      cliente, cliente, podcast o cliente, el archivo queda afuera y se lista
+      un cliente o podcast, el archivo queda afuera y se lista
       en estadisticas.json con su regla.
   C: transcripts crudos de YouTube: <txt_dir>/<videoId>_trozo_NN.txt generados con
       whisper.cpp en una pasada (sin hablantes, sin marcas). Un documento = todos los
@@ -63,8 +63,8 @@ BUCKETS = [8000, 16000, 32000, 64000, 128000, 256000, 512000, 1048576]
 
 # (subcadena minuscula, regla informada)
 FILTER_RULES = [
-    ("cliente", "menciona cliente (proyecto/cliente, no stream de estudio)"),
-    ("cliente", "menciona cliente (proyecto/cliente)"),
+    ("_cliente_", "contenido de cliente"),  # lista real en clientes-excluidos.txt (no versionado)
+    *[(k, "contenido de cliente") for k in _patrones_clientes()],
     ("podcast", "menciona podcast (no es stream de estudio)"),
     # NOTA: "cliente" es ruidoso (pesca "open cliente", "cliente archinstall",
     # "comunicacion entre clientes..."). Se aplica literal igual porque el brief
@@ -478,7 +478,7 @@ def build(args):
     docs_c, info_c = load_fuente_c(txt_dir)
 
     # Elementos: unidad minima (nunca se corta). Filtro de contenido intacto
-    # (load_fuente_b ya excluyo cliente/cliente/podcast/cliente).
+    # (load_fuente_b ya excluyo cliente/podcast).
     elementos = [(i, t, f) for i, t, f in docs_a + docs_b + docs_c]
     cortos_elem = 0
     chicos = []

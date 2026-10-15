@@ -42,11 +42,17 @@ import gen_toolcalling_dataset as G  # noqa: E402  (validador y teachers del rep
 TRANSCRIPTS = Path("/home/chaos/tmp/kateto-corpus/transcripts")
 VOICE = "seco"
 
-# Material de clientes (cliente/cliente/podcast: 0/149 hoy) y canales de terceros
+# Material de clientes (podcast: 0/149 hoy) y canales de terceros
 # identificables por nombre: goncy, rayos419, rebord69 (14 archivos, leidos: son de
 # otra gente). NO alcanza para atribuir el corpus: 17/149 con ID de video tambien son
 # Rayos419. Ver CONVERSACIONES-LARGAS.md.
-RX_EXCLUIR = re.compile(r"cliente|cliente|podcast|goncy|rayos419|rebord69", re.I)
+# Nombres de clientes: NO van al repo publico. Lista local en clientes-excluidos.txt (gitignored).
+def _patrones_clientes():
+    try:
+        return [x.strip() for x in open("clientes-excluidos.txt", encoding="utf-8") if x.strip() and not x.startswith("#")]
+    except FileNotFoundError:
+        return []
+RX_EXCLUIR = re.compile("|".join(_patrones_clientes()) or r"(?!x)x", re.I)
 
 # Conteo de tokens aproximado, calibrado con el dato del brief: 4,9 MB ~= 1,46 M
 # tokens del corpus ASR -> ~3,4 car/token. Alcanza para el gate min_tokens; el

@@ -17,7 +17,6 @@ Objetivo original del proyecto según su código y docs: proveer la funcionalida
 
 Repo inicializado sin commits: placeholder/estructura base creada, aún sin implementación.
 
-Excepciones del lote (no tocados por consigna): Forks, cliente/cliente, workwatch, El hornero digital, Mali/Meli, cliente.
 
 ## Stack
 

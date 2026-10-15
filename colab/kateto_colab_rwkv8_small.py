@@ -30,7 +30,7 @@ random.seed(42)
 TOOL_NAMES = ['list_events', 'create_task', 'get_project', 'send_message',
               'advance_workflow', 'assign_task']
 IDS = [f't_{random.randint(10**8, 10**9-1)}' for _ in range(400)]
-NAMES = ['cliente', 'Kateto', 'Orion', 'Hermes', 'kanban-general', 'sprint-47']
+NAMES = ['Kateto', 'Orion', 'Hermes', 'kanban-general', 'sprint-47']
 
 def sample_tool_doc():
     tool = random.choice(TOOL_NAMES)

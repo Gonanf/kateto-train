@@ -2,7 +2,7 @@
 
 ## Qué cambió en `scripts/build_long_docs.py`
 
-Dos cambios, como pedía el brief. Filtro de contenido (cliente/cliente/podcast/cliente)
+Dos cambios, como pedía el brief. Filtro de contenido (contenido de clientes/podcast)
 intacto, solo en `load_fuente_b`, ni se tocó.
 
 **1. Agrupar hasta el target, mezclando elementos.**
@@ -85,7 +85,7 @@ Misma corrida con `--min-tokens 8000`: **581 descartados**, 3 docs, 2.586.568 to
 (581 coincide exacto con la corrida del orquestador). Con `--min-tokens 1000`:
 **217 descartados**, 4 docs, 3.788.860 tokens.
 **Recuperados: 364 elementos, +1.202.292 tokens est.** El filtro de contenido no cambió: fuente B sigue excluyendo 44 archivos
-(cliente/cliente/cliente/vacíos), listados en `estadisticas.json`.
+(contenido de clientes/vacíos), listados en `estadisticas.json`.
 
 ## Anti-429: delay + backoff + modo paciente (2026-09-27)
 

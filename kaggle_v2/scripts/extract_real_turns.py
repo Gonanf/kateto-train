@@ -10,7 +10,13 @@ import re
 import sys
 from pathlib import Path
 
-KEYWORDS = ("cliente", "warmatch", "cliente", "podcast", "entrevista")
+# Nombres de clientes: NO van al repo publico. Lista local en clientes-excluidos.txt (gitignored).
+def _patrones_clientes():
+    try:
+        return [x.strip() for x in open("clientes-excluidos.txt", encoding="utf-8") if x.strip() and not x.startswith("#")]
+    except FileNotFoundError:
+        return []
+KEYWORDS = tuple(_patrones_clientes()) + ("podcast", "entrevista")
 ACOUSTIC = ("musica", "música", "aplausos", "risas", "silencio", "ruido")
 CLOSING = ("subtitulos", "subtítulos", "amara.org", "suscrib",
            "dale like", "gracias por ver")

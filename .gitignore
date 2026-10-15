@@ -62,3 +62,13 @@ entities.json
 data/hf/
 *.mp3
 *.parquet
+
+# Datasets y material de cliente: al repo NO (van a HuggingFace)
+data/
+kaggle_v2/data/
+kaggle_upload/data/
+kaggle_v3/data/
+pipelines/smoke/
+*.jsonl
+*.srt
+clientes-excluidos.txt
