@@ -52,7 +52,8 @@ CANDIDATOS_CKPT = [
     REPO_PRINCIPAL / "out/rwkv_kateto_0.4b_ctx256k/rwkv-1.pth",
     REPO_PRINCIPAL / "out/rwkv_kateto_base/rwkv-1.pth",
     REPO_PRINCIPAL / "out/rwkv_kateto_base/rwkv-0.pth",
-    REPO_PRINCIPAL / "base/rwkv7-g1j-2.9b-20260831-ctx16384.pth",
+    Path("/run/media/chaos/secundario/models/rwkv7-1.5b-g1k/rwkv7-g1k-1.5b-20260930-ctx25600.pth"),
+    REPO_PRINCIPAL / "base/rwkv7-g1k-1.5b-20260930-ctx25600.pth",
     REPO_PRINCIPAL / "out/kateto-rwkv29-merged.pth",
 ]
 CANDIDATOS_VOCAB = [

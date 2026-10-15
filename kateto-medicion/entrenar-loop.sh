@@ -87,7 +87,7 @@ if not tots:
     sys.exit(2)
 cands = [
   # nombre, base pth, n_embd, n_layer, tag, proj, ctx
-  ("1.5B", "$T/models/rwkv7-1.5b/rwkv7-g1j-1.5b-20260831-ctx16384.pth", 2048, 24, "1.5b", "$T/out/rwkv_kateto_base_plus_1.5b", 256),
+  ("1.5B", "/run/media/chaos/secundario/models/rwkv7-1.5b-g1k/rwkv7-g1k-1.5b-20260930-ctx25600.pth", 2048, 24, "1.5b", "$T/out/rwkv_kateto_base_plus_1.5b", 256),
   ("0.4B", "$T/models/rwkv7-0.4b/rwkv7-g1d-0.4b-20260210-ctx8192.pth",    1024, 24, "0.4b", "$T/out/rwkv_kateto_base_plus_0.4b", 512),
 ]
 selected = None

@@ -118,7 +118,7 @@ try:
     if not cands and Path("/kaggle/working/kateto-ckpt").exists():
         cands = sorted(Path("/kaggle/working/kateto-ckpt").glob("*.pth"), key=lambda p: p.stat().st_mtime)
     if not cands:
-        cands = [PROJECT / "base" / "rwkv7-g1j-2.9b-20260831-ctx16384.pth"]
+        cands = [Path("/run/media/chaos/secundario/models/rwkv7-1.5b-g1k/rwkv7-g1k-1.5b-20260930-ctx25600.pth"), PROJECT / "base" / "rwkv7-g1k-1.5b-20260930-ctx25600.pth"]
     vocab = PROJECT / "RWKV-PEFT" / "rwkv_vocab_v20230424.txt"
     if not vocab.exists() and Path("/kaggle/working/kateto-train/RWKV-PEFT/rwkv_vocab_v20230424.txt").exists():
         vocab = Path("/kaggle/working/kateto-train/RWKV-PEFT/rwkv_vocab_v20230424.txt")

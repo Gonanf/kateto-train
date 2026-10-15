@@ -28,11 +28,11 @@ def main():
         
     # 3. Descargar el modelo deseado de BlinkDL/rwkv7-g1
     # Modelos soportados:
-    # - rwkv7-g1j-1.5b-20260831-ctx16384.pth (T4 16GB OK)
+    # - rwkv7-g1k-1.5b-20260930-ctx25600.pth (T4 16GB OK, ctx 25600)
     # - rwkv7-g1j-2.9b-20260831-ctx16384.pth (T4 16GB con LoRA r=16 OK)
     # - rwkv7-g1j-7.2b-20260831-ctx16384.pth (A100 40GB/80GB)
-    target_model = os.environ.get("RWKV_TARGET_MODEL", "rwkv7-g1j-1.5b-20260831-ctx16384.pth")
-    print(f"Modelo objetivo G1j: {target_model}")
+    target_model = os.environ.get("RWKV_TARGET_MODEL", "rwkv7-g1k-1.5b-20260930-ctx25600.pth")
+    print(f"Modelo objetivo G1k: {target_model}")
     
     from huggingface_hub import hf_hub_download
     os.makedirs("models", exist_ok=True)

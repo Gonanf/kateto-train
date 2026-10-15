@@ -1,0 +1,86 @@
+# Kateto v2 unified config — Régimen G1k 1.5B (ctx25600)
+model:
+  base_checkpoint: /run/media/chaos/secundario/models/rwkv7-1.5b-g1k/rwkv7-g1k-1.5b-20260930-ctx25600.pth
+  n_layer: 24
+  n_embd: 2048
+  vocab_size: 65536
+  ctx_len: 1024
+  chunk_ctx: 256
+  train_type: infctx
+  dtype: bf16
+
+fine_tune:
+  method: pissa
+  pissa_r: 16
+  svd_niter: 4
+  # Compuertas de decaimiento temporal (w0, w1, w2 / time_decay): CONGELADAS.
+  # G1k está preentrenada a 25.600 tokens y su memoria larga reside en time-mixing (att).
+  # Si el SFT a ctx corto modifica decay gates, optimiza para olvidar rápido y arruina el contexto largo.
+  freeze_decay: true
+  target_modules:
+    - att.receptance
+    - att.key
+    - att.value
+    - att.output
+    - ffn.key
+    - ffn.value
+    - ffn.receptance
+  lr_init: 1.0e-5
+  lr_final: 1.0e-6
+  schedule: cosine
+  warmup_steps: 50
+  micro_bsz: 1
+  grad_accum: 8
+  epochs: 1
+  epoch_steps: 400
+
+rosa:
+  enabled: false     # Congelado en esta tanda (§2)
+  retrieval_dim: 256
+  hidden_dim: 1024
+  vocab_size: 65536
+  lr: 3e-3
+  weight_decay: 0.0
+
+orpo:
+  enabled: false     # Postergado (§3): no correr encima de PiSSA SFT
+  lambda_or: 0.15    # Micro-pulido futuro
+  beta: 0.1
+  lr: 5.0e-6         # La mitad del SFT
+  epochs: 1
+  steps: 150         # Rango 100-150 steps
+  batch: 1
+  accum: 8
+  teacher: space-bunny-free
+  teacher_endpoint: opencode
+
+data:
+  sft:
+    path: data/rwkv_kateto_base_train_plus.jsonl
+    podcast: data/podcast/*.jsonl
+    loss_mask: qa
+    max_len: 1024
+    chunk_ctx: 256
+  orpo_pairs: data/orpo/anti_sycophancy_rioplatense.jsonl
+
+training:
+  seed: 1337
+  device: cuda
+  env:
+    HSA_OVERRIDE_GFX_VERSION: "10.3.0"
+    PYTORCH_ALLOC_CONF: "expandable_segments:True"
+    PYTORCH_HIP_ALLOC_CONF: "expandable_segments:True,garbage_collection_threshold:0.8"
+    TORCH_COMPILE_DISABLE: "1"
+  output_dir: out/kateto_v2
+
+stopping_criteria:
+  eval_interval: 50
+  entropy_floor: 1.15
+  entropy_consecutive_steps: 20
+  plateau_delta: 0.02
+  drift_max_increase: 0.15
+
+gates:
+  rosa_grad_norm_gt0: false
+  loss_decreasing: true
+  tests: tests/test_rosa_*.py

@@ -1,7 +1,8 @@
 # State-tuning (Capa 2) hyperparams — SPEC §2.3.
-# NOTE (todo 15): created here due to parallel race with todo 13 (which owns
-# pissa/orpo configs). Todo 13 may extend this file; the keys below are the
-# SPEC §2.3 contract and must be kept.
+# Régimen nuevo G1k (§2): CONGELADO en esta tanda (foco exclusivo en estabilizar base PiSSA).
+enabled: false        # Congelado en esta tanda
+frozen: true
+
 optimizer: adamw
 lr_init: 1.0e-2      # agresivo para desplazar el atractor dinámico
 lr_final: 1.0e-4

@@ -28,7 +28,7 @@ Q4="$TDIR/out/${NAME}-Q4_K_M.gguf"
 
 source "$TDIR/venv/bin/activate"
 echo "### 1/5 merge LoRA"
-python "$TDIR/merge_lora.py" "$TDIR/base/rwkv7-g1j-2.9b-20260831-ctx16384.pth" "$ADAPTER" "$MERGED"
+python "$TDIR/merge_lora.py" "$TDIR/base/rwkv7-g1k-1.5b-20260930-ctx25600.pth" "$ADAPTER" "$MERGED"
 
 echo "### 2/5 pth a GGUF"
 if [ ! -d "$TDIR/rwkv-mobile" ]; then
