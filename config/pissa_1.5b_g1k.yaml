@@ -1,0 +1,44 @@
+# Capa 1 PiSSA — Régimen nuevo G1k (RWKV-7 1.5B ctx25600)
+# Base: rwkv7-g1k-1.5b-20260930-ctx25600.pth (25.600 ctx preentrenado)
+# Sustituye la base anterior rwkv7-g1j (16.384 ctx).
+model: /run/media/chaos/secundario/models/rwkv7-1.5b-g1k/rwkv7-g1k-1.5b-20260930-ctx25600.pth
+n_layer: 24
+n_embd: 2048
+vocab_size: 65536
+
+# PEFT PiSSA: r=16 (antes r=32), lr=1.0e-05 (antes 2.0e-04)
+peft: pissa
+peft_config:
+  # REGLA CRÍTICA G1k (§2.5): Proyecciones principales adaptadas.
+  # Compuertas de decaimiento temporal (w0, w1, w2 / time_decay): CONGELADAS.
+  # G1k está preentrenada a 25.600 tokens y su memoria de largo plazo vive en time-mixing (att).
+  # Si el SFT a ctx corto (1024) modifica decay gates, optimiza para olvidar rápido
+  # y destruye las cabezas de contexto largo.
+  target_modules:
+    - receptance
+    - key
+    - value
+    - output
+  freeze_decay: true
+
+pissa_config:
+  pissa_load: ""
+  pissa_init: ""
+  pissa_r: 16
+  svd_niter: 4
+
+# Multi-turno infctx (§2.6): chunks de 256 con detach() para charlas de 1024 tokens en 4GB VRAM
+train_type: infctx
+chunk_ctx: 256
+ctx_len: 1024
+micro_bsz: 1
+
+# Régimen de pasos: ~400 steps en una sola pasada (antes 750 x 2 épocas)
+epoch_steps: 400
+epoch_count: 1
+lr_init: 1.0e-05
+lr_final: 1.0e-06
+
+fallback:
+  peft: lora
+  peft_config: {r: 16, lora_alpha: 32, lora_dropout: 0.01}

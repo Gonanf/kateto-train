@@ -51,6 +51,7 @@ export HSA_OVERRIDE_GFX_VERSION=10.3.0
 export TORCH_COMPILE_DISABLE=1
 export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
 export PYTORCH_ALLOC_CONF="expandable_segments:True"
+export PYTORCH_HIP_ALLOC_CONF="expandable_segments:True,garbage_collection_threshold:0.8"
 
 PYTHON_EXEC="${PYTHON_EXEC:-$PROJECT/venv-unsloth-qwen/bin/python}"
 

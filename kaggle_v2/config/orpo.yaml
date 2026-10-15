@@ -1,6 +1,12 @@
-# ORPO single-model (SPEC §2.5): L = L_SFT(chosen) + lambda_or * L_OR
-lambda_or: 0.1
-lr: 5.0e-05
-epochs: 2
+# ORPO single-model: micro-pulido postergado (post-PiSSA).
+# No correr encima de PiSSA SFT: su funcion ya incluye termino SFT, correrlo
+# encima aplica la misma perdida dos veces y degrada la loss por debajo de 0.80.
+# Cuando la base este sana: micro-pulido de 100-150 steps, lr 5.0e-6 (mitad del SFT),
+# lambda_or 0.15, 1 epoca, sobre subconjunto de pares chosen/rejected no vistos en SFT.
+enabled: false        # Postergado - sin correr en esta tanda
+lambda_or: 0.15       # Antes 0.1
+lr: 5.0e-06           # Antes 5.0e-05 (la mitad del SFT de PiSSA)
+epochs: 1             # Antes 2
+steps: 150            # Rango 100-150 steps
 batch: 1
 accum: 8

@@ -30,8 +30,8 @@ if [ -d "$PROJECT/out/rwkv_kateto_base" ] && ls "$PROJECT/out/rwkv_kateto_base"/
     DEFAULT_MODEL=$(ls -t "$PROJECT/out/rwkv_kateto_base"/*.pth | head -n 1)
 elif [ -d "/kaggle/working/out/rwkv_kateto_base" ] && ls "/kaggle/working/out/rwkv_kateto_base"/*.pth 1> /dev/null 2>&1; then
     DEFAULT_MODEL=$(ls -t "/kaggle/working/out/rwkv_kateto_base"/*.pth | head -n 1)
-elif [ -f "/kaggle/working/models/rwkv7-g1j-2.9b-20260831-ctx16384.pth" ]; then
-    DEFAULT_MODEL="/kaggle/working/models/rwkv7-g1j-2.9b-20260831-ctx16384.pth"
+elif [ -f "/kaggle/working/models/rwkv7-g1k-1.5b-20260930-ctx25600.pth" ]; then
+    DEFAULT_MODEL="/kaggle/working/models/rwkv7-g1k-1.5b-20260930-ctx25600.pth"
 else
     DEFAULT_MODEL="$PROJECT/models/rwkv7-0.4b/rwkv7-g1d-0.4b-20260210-ctx8192.pth"
 fi
@@ -101,6 +101,7 @@ export HSA_OVERRIDE_GFX_VERSION=10.3.0
 export TORCH_COMPILE_DISABLE=1
 export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
 export PYTORCH_ALLOC_CONF="expandable_segments:True"
+export PYTORCH_HIP_ALLOC_CONF="expandable_segments:True,garbage_collection_threshold:0.8"
 
 if [ -x "$PROJECT/venv-unsloth-qwen/bin/python" ]; then
     PYTHON_EXEC="$PROJECT/venv-unsloth-qwen/bin/python"
