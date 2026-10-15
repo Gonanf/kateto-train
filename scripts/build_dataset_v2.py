@@ -1,26 +1,37 @@
 #!/usr/bin/env python3
 """
-build_dataset_v2.py — Consolida y balancea el dataset Kateto v2 completo.
+build_dataset_v2.py — Consolida y balancea el dataset Kateto v2 completo con filtros de admisión y esquema único.
 
 Componentes:
 1. data/hermes_qa_7k.jsonl (~7,000 QA y tool calls de Hermes state.db filtrados)
 2. data/sft_out/sft_train.jsonl (Kateto persona + razonamiento <think> + herramientas)
 3. data/toolcalling_sft.jsonl (200 tool-calling curados)
 4. data/toolcalling_v2/*.jsonl (voces: Dagger, gamer, streamer, SrPelo, etc.)
-5. data/youtube_asr_dataset.jsonl (Transcripción ASR + habla argentina directa de streams)
-6. Turn-Taking calibrado: exactamente 150 <NO_RESPONSE> y 150 <WAIT> (~3% del dataset total).
+5. Turn-Taking calibrado: <NO_RESPONSE> y <WAIT> (~3% del dataset total).
+(youtube_asr_dataset.jsonl queda AFUERA según especificación de saneamiento).
 
 Salidas:
 - data/kateto_v2_combined_train.jsonl
 - data/kateto_v2_combined_eval.jsonl
 - data/kateto_v2_calib.txt (para imatrix de llama.cpp)
+- data/quarantine.jsonl (registros que fallan filtros de admisión)
 """
 import os, sys, json, random, re
 from pathlib import Path
 from collections import Counter
 
 PROJECT = Path(__file__).resolve().parents[1]
-DATA_DIR = PROJECT / "data"
+sys.path.insert(0, str(PROJECT / "rwkv_pipeline"))
+sys.path.insert(0, str(PROJECT / "kaggle_upload" / "rwkv_pipeline"))
+from admission_filter import check_admission
+
+# Locate data dir whether in repo root or kaggle_upload
+if (PROJECT / "data").exists():
+    DATA_DIR = PROJECT / "data"
+elif (PROJECT.parent / "data").exists():
+    DATA_DIR = PROJECT.parent / "data"
+else:
+    DATA_DIR = PROJECT / "data"
 
 HERMES_QA = DATA_DIR / "hermes_qa_7k.jsonl"
 SFT_TRAIN = DATA_DIR / "sft_out" / "sft_train.jsonl"
@@ -31,8 +42,11 @@ YOUTUBE_ASR = DATA_DIR / "youtube_asr_dataset.jsonl"
 OUT_TRAIN = DATA_DIR / "kateto_v2_combined_train.jsonl"
 OUT_EVAL  = DATA_DIR / "kateto_v2_combined_eval.jsonl"
 OUT_CALIB = DATA_DIR / "kateto_v2_calib.txt"
+OUT_QUARANTINE = DATA_DIR / "quarantine.jsonl"
 
 SYS_PROMPT = "Sos Kateto, rioplatense seco, con opinion propia."
+
+quarantined_records = []
 
 def normalize_item(item, source_tag=""):
     # Normaliza a formato unificado
@@ -56,7 +70,11 @@ def normalize_item(item, source_tag=""):
                 elif m.get("role") == "assistant" and not a:
                     a = str(m.get("content", "")).strip()
 
-    # Filtros de sanidad y longitud máxima (para evitar truncamientos en max_seq_length=1024)
+    # Limpiar posibles marcadores de fin de texto pegados a slots
+    if a.endswith("<|endoftext|>"):
+        a = a[:-len("<|endoftext|>")].strip()
+
+    # Filtros de sanidad básicos
     if not q or not a:
         return None
     if len(q) < 4 or len(a) < 2:
@@ -66,24 +84,37 @@ def normalize_item(item, source_tag=""):
     if q.startswith("[System note") or q.startswith("[Context") or q.startswith("[Reminder") or "[The user sent an audio" in q:
         return None
 
-    return {
+    # Filtros de admisión: idioma, artefactos de pipeline, asimetría de longitud
+    ok, filt_name, detail = check_admission(q, a)
+    if not ok:
+        quarantined_records.append({
+            "query": q,
+            "response": a,
+            "source_label": item.get("source_label") or source_tag,
+            "quarantine_filter": filt_name,
+            "quarantine_detail": detail,
+        })
+        return None
+
+    res = {
         "query": q,
         "response": a,
-        "question": q,
-        "answer": a,
         "source_label": item.get("source_label") or source_tag,
-        "openai": {
-            "messages": [
-                {"role": "system", "content": SYS_PROMPT},
-                {"role": "user", "content": q},
-                {"role": "assistant", "content": a}
-            ]
-        }
     }
+    if "scenario" in item:
+        res["scenario"] = item["scenario"]
+    res["openai"] = {
+        "messages": [
+            {"role": "system", "content": SYS_PROMPT},
+            {"role": "user", "content": q},
+            {"role": "assistant", "content": a}
+        ]
+    }
+    return res
 
 def main():
     random.seed(42)
-    print("=== Consolidando Dataset Kateto v2 ===")
+    print("=== Consolidando Dataset Kateto v2 (Saneado, Esquema Único) ===")
 
     collected_standard = []
     collected_no_response = []
@@ -114,7 +145,7 @@ def main():
             else:
                 collected_standard.append(norm)
             cnt += 1
-        print(f"  + {tag} ({path.name}): {cnt} items leídos")
+        print(f"  + {tag} ({path.name}): {cnt} items admitidos")
         return cnt
 
     # 1. Hermes QA 7k
@@ -131,11 +162,8 @@ def main():
         for jf in sorted(TOOLCALLING_V2_DIR.glob("*.jsonl")):
             ingest_file(jf, f"v2-{jf.stem}")
 
-    # 5. YouTube ASR dataset
-    if YOUTUBE_ASR.exists():
-        ingest_file(YOUTUBE_ASR, "youtube-asr")
-    else:
-        print(f"Aviso: {YOUTUBE_ASR.name} todavía en generación.")
+    # 5. YouTube ASR dataset: NO SE INGESTA (se descarta completamente)
+    print("  x youtube_asr_dataset.jsonl: EXCLUIDO (0 líneas para entrenamiento)")
 
     # Deduplicar estándar por par (query, response) normalizado
     print(f"\nTotal estándar antes de dedup: {len(collected_standard)}")
@@ -148,7 +176,7 @@ def main():
             deduped_standard.append(it)
     print(f"Total estándar luego de dedup: {len(deduped_standard)}")
 
-    # Balancear turn-taking: exactamente 150 <NO_RESPONSE> y 150 <WAIT>
+    # Balancear turn-taking: min(disponibles, 150)
     random.shuffle(collected_no_response)
     random.shuffle(collected_wait)
 
@@ -171,8 +199,8 @@ def main():
     wait_pct = (len(sampled_wait) / total) * 100 if total else 0
     print(f"\nDataset consolidado final:")
     print(f"  - Total items: {total}")
-    print(f"  - Porcentaje <NO_RESPONSE>: {nr_pct:.2f}% (ratio seguro <3%)")
-    print(f"  - Porcentaje <WAIT>: {wait_pct:.2f}% (ratio seguro <3%)")
+    print(f"  - Porcentaje <NO_RESPONSE>: {nr_pct:.2f}%")
+    print(f"  - Porcentaje <WAIT>: {wait_pct:.2f}%")
 
     # Split 95% Train / 5% Eval
     split_idx = int(total * 0.95)
@@ -187,17 +215,23 @@ def main():
         for it in eval_items:
             f.write(json.dumps(it, ensure_ascii=False) + "\n")
 
-    # Archivo de calibración para imatrix (primeros 500 ejemplos en texto plano de diálogo)
+    # Archivo de calibración para imatrix
     with open(OUT_CALIB, "w", encoding="utf-8") as f:
         for it in train_items[:500]:
             f.write(f"<|im_start|>system\n{SYS_PROMPT}<|im_end|>\n")
             f.write(f"<|im_start|>user\n{it['query']}<|im_end|>\n")
             f.write(f"<|im_start|>assistant\n{it['response']}<|im_end|>\n\n")
 
+    # Escribir registros en cuarentena
+    with open(OUT_QUARANTINE, "w", encoding="utf-8") as f:
+        for q_item in quarantined_records:
+            f.write(json.dumps(q_item, ensure_ascii=False) + "\n")
+
     print(f"\nArchivos generados exitosamente:")
-    print(f"  - Train: {OUT_TRAIN} ({len(train_items)} items, {OUT_TRAIN.stat().st_size / 1024**2:.2f} MB)")
-    print(f"  - Eval:  {OUT_EVAL} ({len(eval_items)} items, {OUT_EVAL.stat().st_size / 1024**2:.2f} MB)")
-    print(f"  - Calib: {OUT_CALIB} ({OUT_CALIB.stat().st_size / 1024**2:.2f} MB)")
+    print(f"  - Train:      {OUT_TRAIN} ({len(train_items)} items, {OUT_TRAIN.stat().st_size / 1024**2:.2f} MB)")
+    print(f"  - Eval:       {OUT_EVAL} ({len(eval_items)} items, {OUT_EVAL.stat().st_size / 1024**2:.2f} MB)")
+    print(f"  - Calib:      {OUT_CALIB} ({OUT_CALIB.stat().st_size / 1024**2:.2f} MB)")
+    print(f"  - Cuarentena: {OUT_QUARANTINE} ({len(quarantined_records)} items)")
 
 if __name__ == "__main__":
     main()
