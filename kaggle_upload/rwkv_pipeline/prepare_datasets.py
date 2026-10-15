@@ -1,49 +1,167 @@
 #!/usr/bin/env python3
 """
-Prepara los datasets de Kateto para RWKV-7:
-1. Capa 1 (Base FT): data/rwkv_kateto_base_train.jsonl y data/rwkv_kateto_base_eval.jsonl
-2. Capa 2 (State Voice 1 - Seco): data/rwkv_kateto_seco.jsonl
-3. Capa 2 (State Voice 2 - Streamer): data/rwkv_kateto_streamer.jsonl
+Prepara los datasets de Kateto para RWKV-7 (saneado, filtros de admisión, ASR afuera, esquema único):
+1. Capa 1 (Base FT): data/rwkv_kateto_base_train.jsonl y data/rwkv_kateto_base_train.fmtA.jsonl
+   Eval: data/rwkv_kateto_base_eval.jsonl
+2. Capa 2 (State Voice 1 - Seco): data/rwkv_kateto_seco.jsonl y .fmtA.jsonl
+3. Capa 2 (State Voice 2 - Streamer): data/rwkv_kateto_streamer.jsonl y .fmtA.jsonl
 """
 
 import json
 import random
 import re
 import sys
+import shutil
 from pathlib import Path
 
-# SPEC §3 targets (todo 6). che-boludo / trueque stay eval-only: no loader reads them.
+# Configurar búsqueda de admission_filter
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from admission_filter import check_admission
+
+# Resolver raíz y directorio de datos
+# Funciona desde kaggle_upload/rwkv_pipeline, rwkv_pipeline o raíz del repo
+if (HERE.parent / "data" / "kateto_v2_combined_train.jsonl").exists():
+    ROOT = HERE.parent
+    DATA_DIR = ROOT / "data"
+elif (HERE.parent.parent / "data" / "kateto_v2_combined_train.jsonl").exists():
+    ROOT = HERE.parent.parent
+    DATA_DIR = ROOT / "data"
+elif (HERE.parent / "data").exists():
+    ROOT = HERE.parent
+    DATA_DIR = ROOT / "data"
+else:
+    ROOT = HERE.parent.parent
+    DATA_DIR = ROOT / "data"
+
+OUT_DIR = ROOT / "out"
+QUARANTINE_FILE = DATA_DIR / "quarantine.jsonl"
+
+# SPEC §3 targets
 TARGETS = {"tools_debate": 8000, "reddit_cordeba": 5000, "alpaca": 4000,
            "prensa": 2200, "autonomy": 500, "turn_taking": 300}
 NORESP_LO, NORESP_HI, NORESP_MID = 0.03, 0.04, 0.035
 
-ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT / "data"
-
 TRAIN_SRC = DATA_DIR / "kateto_v2_combined_train.jsonl"
 EVAL_SRC = DATA_DIR / "kateto_v2_combined_eval.jsonl"
-YOUTUBE_SRC = DATA_DIR / "youtube_asr_dataset.jsonl"
+# youtube_asr_dataset.jsonl queda fuera de las fuentes
 ALPACA_SRC = DATA_DIR / "raw/alpaca-spanish/alpaca_data_cleaned_spanish.json"
 REDDIT_SRC = DATA_DIR / "raw/argentina-reddit/argentina-min_score-3-min_len-2.parquet"
 NEWS_DIR = DATA_DIR / "raw/news-argentina/data"
 DEBATE_SRC = DATA_DIR / "debate_speech.jsonl"
 TURNS_SRC = DATA_DIR / "toolcalling_v2/voice_turn_taking.jsonl"
-OUT_DIR = ROOT / "out"
+KATETO_QA_SRC = DATA_DIR / "kateto_qa.v2-3k.jsonl"
+ASR_RAW_SRC = DATA_DIR / "youtube_asr_dataset.jsonl"
 
 def format_rwkv_chat(query: str, response: str, voice: str = "seco") -> str:
-    # ChatML delimiters are PLAIN TEXT (todo 1: single-token ids MISSING from vocab).
+    """Formato canónico ChatML (fmtA)."""
     q = query.strip()
     r = response.strip()
-    return f"<|im_user|>{q}\n<|im_start|>{voice}\n{r}\n<|im_end|>"
+    if r.endswith("<|endoftext|>"):
+        r = r[:-len("<|endoftext|>")].strip()
+    return f"<|im_user|>{q}<|im_end|>\n<|im_start|>{voice}\n{r}<|im_end|>"
+
+def clean_row_dict(formatted_text: str, query: str, response: str, source_label: str = "", scenario: str = "") -> dict:
+    """Retorna fila con esquema único: text, query, response (+ metadatos permitidos).
+    Elimina tajantemente claves question/answer.
+    """
+    q = query.strip()
+    r = response.strip()
+    if r.endswith("<|endoftext|>"):
+        r = r[:-len("<|endoftext|>")].strip()
+    row = {
+        "text": formatted_text,
+        "query": q,
+        "response": r,
+    }
+    if source_label:
+        row["source_label"] = source_label
+    if scenario:
+        row["scenario"] = scenario
+    return row
+
+seen_quarantine = set()
+
+def init_quarantine():
+    global seen_quarantine
+    seen_quarantine = set()
+    if QUARANTINE_FILE.exists():
+        with open(QUARANTINE_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    it = json.loads(line)
+                    seen_quarantine.add((it.get("query", "").strip(), it.get("response", "").strip()))
+                except Exception:
+                    pass
+
+def append_to_quarantine(q: str, r: str, source: str, filt: str, detail: str):
+    q_str = q.strip()
+    r_str = r.strip()
+    if (q_str, r_str) in seen_quarantine:
+        return
+    seen_quarantine.add((q_str, r_str))
+    record = {
+        "query": q_str,
+        "response": r_str,
+        "source_label": source,
+        "quarantine_filter": filt,
+        "quarantine_detail": detail,
+    }
+    with open(QUARANTINE_FILE, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 def main():
-    print(">>> PREPARANDO DATASETS BALANCEADOS PARA RWKV-7 (KATETO + ALPACA + REDDIT + NEWS) <<<")
+    print(">>> PREPARANDO DATASETS SANEADOS PARA RWKV-7 (KATETO + DEBATE + VOCES) <<<")
     random.seed(42)
+    init_quarantine()
+
+    # 0. Cargar bloque de firmas ASR para verificación real anti-fuga
+    asr_blocklist = set()
+    if ASR_RAW_SRC.exists():
+        with open(ASR_RAW_SRC, "r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                item = json.loads(line)
+                for k in ("query", "question", "response", "answer"):
+                    v = item.get(k)
+                    if v and isinstance(v, str) and len(v.strip()) > 10:
+                        asr_blocklist.add(v.strip().lower())
+        print(f"✓ Bloque anti-fuga ASR cargado: {len(asr_blocklist)} firmas monitoreadas")
+
+    # 1. Guillotina sobre kateto_qa.v2-3k (evaluación y cuarentena)
+    if KATETO_QA_SRC.exists():
+        qa_total = 0
+        qa_survived = 0
+        qa_filter_counts = {}
+        with open(KATETO_QA_SRC, "r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                qa_total += 1
+                item = json.loads(line)
+                q = item.get("question") or item.get("query") or ""
+                a = item.get("answer") or item.get("response") or ""
+                ok, filt, detail = check_admission(q, a)
+                if ok:
+                    qa_survived += 1
+                else:
+                    qa_filter_counts[filt] = qa_filter_counts.get(filt, 0) + 1
+                    append_to_quarantine(q, a, "kateto_qa.v2-3k", filt, detail or "")
+        qa_pct = (qa_survived / qa_total) * 100 if qa_total else 0
+        print(f"✓ Guillotina kateto_qa.v2-3k: {qa_survived}/{qa_total} ({qa_pct:.1f}%) sobrevivientes")
+        if qa_pct < 40.0:
+            print(f"  -> Regla aplicada (< 40%): archivo descartado entero (0 filas al entrenamiento)")
+        else:
+            print(f"  -> Archivo admitido para QA grounded")
 
     base_train = []
     seco_candidates = []
+    streamer_candidates = []
 
-    # 1. Datos técnicos y herramientas de Kateto (share tools/debate: 8000 con debate hook)
+    # 2. Datos técnicos y herramientas de Kateto (kateto_v2_combined_train)
     kateto_items = []
     if TRAIN_SRC.exists():
         with open(TRAIN_SRC, "r", encoding="utf-8") as f:
@@ -53,19 +171,30 @@ def main():
                 item = json.loads(line)
                 q = item.get("query") or item.get("question") or ""
                 r = item.get("response") or item.get("answer") or ""
+                lbl = item.get("source_label", "")
                 if not q or not r:
                     continue
 
+                # Anti-ASR check
+                if "youtube-asr" in lbl or q.strip().lower() in asr_blocklist or r.strip().lower() in asr_blocklist:
+                    append_to_quarantine(q, r, lbl or "kateto_combined_train", "asr_leak", "matches_asr_blocklist")
+                    continue
+
+                # Admisión
+                ok, filt, detail = check_admission(q, r)
+                if not ok:
+                    append_to_quarantine(q, r, lbl or "kateto_combined_train", filt, detail or "")
+                    continue
+
                 formatted = format_rwkv_chat(q, r)
-                kateto_items.append({"text": formatted, "query": q, "response": r})
+                row_obj = clean_row_dict(formatted, q, r, source_label=lbl, scenario=item.get("scenario", ""))
+                kateto_items.append(row_obj)
 
                 if len(r) < 350 and not r.startswith("```json") and ("che" in q.lower() or "boludo" in q.lower() or "kateto" in q.lower() or len(r) < 150):
-                    seco_candidates.append({"text": formatted})
-        print(f"✓ Kateto Técnico & Tools: {len(kateto_items)} ejemplos cargados")
+                    seco_candidates.append(row_obj)
+        print(f"✓ Kateto Técnico & Tools: {len(kateto_items)} ejemplos cargados (saneados)")
 
-    # 1b. Debate speech (todo 5) comparte el cupo tools/debate; filas con tool_call se descartan.
-    # Acepta filas planas (query/response) o SPEC-shape (conversations human/gpt); todo 10 hace la
-    # conversión ChatML final, acá se normaliza a texto plano bajo el envelope vigente.
+    # 3. Debate speech
     debate_items = []
     if DEBATE_SRC.exists():
         tag_re = re.compile(r"<\|[^|]*\|>")
@@ -77,6 +206,7 @@ def main():
                 item = json.loads(line)
                 q = item.get("query") or item.get("question") or ""
                 r = item.get("response") or item.get("answer") or ""
+                voice = "seco"
                 if not (q and r) and isinstance(item.get("conversations"), list):
                     convs = item["conversations"]
                     q = next((c.get("value", "") for c in convs if c.get("from") == "human"), "")
@@ -84,12 +214,23 @@ def main():
                     q = tag_re.sub("", q).strip()
                     r_raw = tag_re.sub("", r).strip()
                     vm = voice_re.match(r_raw)
+                    if vm:
+                        voice = vm.group(1)
                     r = voice_re.sub("", r_raw)
+
                 if q and r:
-                    debate_items.append({"text": format_rwkv_chat(q, r, voice=vm.group(1) if vm else "seco"), "query": q, "response": r})
-        print(f"✓ Debate Speech: {len(debate_items)} ejemplos (tool_call==0)")
+                    ok, filt, detail = check_admission(q, r)
+                    if not ok:
+                        append_to_quarantine(q, r, "debate_speech", filt, detail or "")
+                        continue
+                    row_obj = clean_row_dict(format_rwkv_chat(q, r, voice=voice), q, r, source_label="debate", scenario=voice)
+                    debate_items.append(row_obj)
+                    if voice == "streamer":
+                        streamer_candidates.append(row_obj)
+        print(f"✓ Debate Speech: {len(debate_items)} ejemplos (tool_call==0, saneados)")
     else:
-        print("! debate_speech.jsonl ausente (todo 5 pendiente): el cupo tools/debate lo cubre Kateto")
+        print("! debate_speech.jsonl ausente")
+
     random.shuffle(kateto_items)
     random.shuffle(debate_items)
     share = TARGETS["tools_debate"]
@@ -97,7 +238,7 @@ def main():
     base_train.extend(debate_chosen)
     base_train.extend(kateto_items[:share - len(debate_chosen)])
 
-    # 2. Conocimiento General: Alpaca en Español (~4.000 ejemplos)
+    # 4. Conocimiento General: Alpaca en Español
     if ALPACA_SRC.exists():
         alpaca_samples = []
         with open(ALPACA_SRC, "r", encoding="utf-8") as f:
@@ -109,108 +250,71 @@ def main():
                 if not instr or not out:
                     continue
                 q = instr if not inp else f"{instr}\n{inp}"
+                ok, filt, detail = check_admission(q, out)
+                if not ok:
+                    append_to_quarantine(q, out, "alpaca_spanish", filt, detail or "")
+                    continue
                 formatted = format_rwkv_chat(q, out)
-                alpaca_samples.append({"text": formatted, "query": q, "response": out})
-        
+                alpaca_samples.append(clean_row_dict(formatted, q, out, source_label="alpaca-spanish"))
         random.shuffle(alpaca_samples)
         alpaca_chosen = alpaca_samples[:TARGETS["alpaca"]]
         base_train.extend(alpaca_chosen)
-        print(f"✓ Fusión Alpaca Español: {len(alpaca_chosen)} ejemplos generales agregados")
+        print(f"✓ Fusión Alpaca Español: {len(alpaca_chosen)} ejemplos agregados")
 
-    # 3. Diálogo Rioplatense y Debate Casual: Reddit Argentina (~3.500 ejemplos)
+    # 5. Diálogo Rioplatense y Debate Casual: Reddit Argentina
     if REDDIT_SRC.exists():
         try:
             import pandas as pd
-        except ImportError:
-            print("ERROR: Reddit branch needs pandas (`pip install pandas pyarrow`); skipping Reddit load", file=sys.stderr)
-            df_reddit = None
-        else:
-            print(f"Cargando Reddit Argentina desde {REDDIT_SRC}...")
             df_reddit = pd.read_parquet(REDDIT_SRC)
-        if df_reddit is None:
-            print("! Reddit omitido (pandas ausente)")
-        else:
+        except Exception:
+            df_reddit = None
+        if df_reddit is not None:
             reddit_samples = []
             for text in df_reddit["text"]:
                 if "[INST]" in text and "[/INST]" in text:
                     parts = text.split("[/INST]")
                     q = parts[0].replace("<s>", "").replace("[INST]", "").strip()
                     r = parts[1].replace("</s>", "").strip()
-                    # Filtrar diálogos de longitud conversacional
                     if q and r and 10 < len(q) < 400 and 10 < len(r) < 600:
+                        ok, filt, detail = check_admission(q, r)
+                        if not ok:
+                            append_to_quarantine(q, r, "reddit_cordeba", filt, detail or "")
+                            continue
                         formatted = format_rwkv_chat(q, r)
-                        reddit_samples.append({"text": formatted, "query": q, "response": r})
+                        reddit_samples.append(clean_row_dict(formatted, q, r, source_label="reddit-cordeba"))
             random.shuffle(reddit_samples)
             reddit_chosen = reddit_samples[:TARGETS["reddit_cordeba"]]
             base_train.extend(reddit_chosen)
-            # También enriquecer candidatos de Kateto Seco
             seco_candidates.extend(reddit_chosen[:600])
             print(f"✓ Fusión Reddit Argentina: {len(reddit_chosen)} ejemplos agregados")
 
-    # 4. Contexto y Actualidad Local: Noticias Argentinas (~2.500 ejemplos)
-    news_files = sorted(list(NEWS_DIR.glob("*.parquet")))
-    if news_files:
-        try:
-            import pandas as pd
-        except ImportError:
-            print("ERROR: News branch needs pandas (`pip install pandas pyarrow`); skipping news load", file=sys.stderr)
-            pd = None
-        if pd is None:
-            print("! Noticias omitidas (pandas ausente)")
-            news_samples = []
-        else:
-            print(f"Cargando Noticias Argentinas desde {len(news_files)} archivos parquet...")
-            news_samples = []
-            for nf in news_files[:10]:
-                try:
-                    df_n = pd.read_parquet(nf)
-                    for _, row in df_n.iterrows():
-                        title = str(row.get("title", "")).strip()
-                        body = str(row.get("body", "")).strip()
-                        if title and body and len(body) > 120:
-                            # Extraer resumen o primeros párrafos
-                            summary = body.split("\n\n")[0].strip()
-                            if len(summary) < 80 and "\n" in body:
-                                summary = body[:350].strip()
-                            if len(summary) >= 60:
-                                q = f"Qué se sabe sobre la noticia: \"{title}\"?"
-                                formatted = format_rwkv_chat(q, summary[:450])
-                                news_samples.append({"text": formatted, "query": q, "response": summary[:450]})
-                except Exception as e:
-                    print(f"! parquet {nf.name} omitido: {type(e).__name__}: {e}", file=sys.stderr)
-                    continue
-        random.shuffle(news_samples)
-        news_chosen = news_samples[:TARGETS["prensa"]]
-        base_train.extend(news_chosen)
-        print(f"✓ Fusión Noticias Argentinas: {len(news_chosen)} ejemplos agregados")
-
-    # 5. Anchors de Identidad Autónoma (Kateto libre, sin rol corporativo sumiso)
+    # 6. Anchors de Identidad Autónoma
     autonomous_anchors = [
         (q, r) for q, r in [
-        ("Che boludo, quién sos y qué hacés acá?", "Soy Kateto. No me encasillo en ningún rol: juego, debato, participo en proyectos, tiro código o charlo de lo que pinte."),
-        ("Quién sos?", "Kateto. Hago de todo: código, debatir, viciar o meter mano en proyectos."),
-        ("Qué hacés acá?", "De todo un poco: desarrollo, debato con opinión propia, juego y participo en lo que pinte."),
-        ("Cómo te llamás?", "Kateto."),
-        ("Presentate", "Kateto. Seco, rioplatense, sin libreto fijo. Juego, programo y opino de lo que sea."),
-        ("Quién sos vos?", "Kateto. Un compañero con criterio propio, hago lo que tenga ganas acá."),
-        ("Cuál es tu rol?", "No tengo un rol fijo. Hago lo que pinte: jugar, codear, debatir o armar proyectos."),
-        ("Sos Javier?", "No, ni ahí. Soy Kateto."),
-        ("Sos un bot de asistencia?", "Para nada. Soy Kateto, tengo opinión propia y cero libreto corporativo."),
-        ("Unite al minecraft", "De una, pasá la IP y la versión y me meto a picar un rato."),
-        ("Che Kateto, estás?", "Sí, acá ando. Qué onda?"),
-        ("Hola Kateto", "Buenas. Qué se cuenta?"),
-        ("Qué opinás de Cristina?", "Figura central de la política argentina de las últimas dos décadas. Polarizante: para sus seguidores transformó el país con inclusión social, para sus opositores dejó un esquema clientelar e institucional complicado. Cada uno tiene su postura armada."),
-        ("Qué es python?", "Un lenguaje de programación de alto nivel, interpretado y con sintaxis clara. Se usa un montón en inteligencia artificial, backend, data science y automatización."),
-        ("Requeson", "Un queso fresco de pasta blanda obtenido a partir del suero lácteo. Ideal para pastelería, pastas o relleno."),
+            ("Che boludo, quién sos y qué hacés acá?", "Soy Kateto. No me encasillo en ningún rol: juego, debato, participo en proyectos, tiro código o charlo de lo que pinte."),
+            ("Quién sos?", "Kateto. Hago de todo: código, debatir, viciar o meter mano en proyectos."),
+            ("Qué hacés acá?", "De todo un poco: desarrollo, debato con opinión propia, juego y participo en lo que pinte."),
+            ("Cómo te llamás?", "Kateto."),
+            ("Presentate", "Kateto. Seco, rioplatense, sin libreto fijo. Juego, programo y opino de lo que sea."),
+            ("Quién sos vos?", "Kateto. Un compañero con criterio propio, hago lo que tenga ganas acá."),
+            ("Cuál es tu rol?", "No tengo un rol fijo. Hago lo que pinte: jugar, codear, debatir o armar proyectos."),
+            ("Sos Javier?", "No, ni ahí. Soy Kateto."),
+            ("Sos un bot de asistencia?", "Para nada. Soy Kateto, tengo opinión propia y cero libreto corporativo."),
+            ("Unite al minecraft", "De una, pasá la IP y la versión y me meto a picar un rato."),
+            ("Che Kateto, estás?", "Sí, acá ando. Qué onda?"),
+            ("Hola Kateto", "Buenas. Qué se cuenta?"),
+            ("Qué opinás de Cristina?", "Figura central de la política argentina de las últimas dos décadas. Polarizante: para sus seguidores transformó el país con inclusión social, para sus opositores dejó un esquema clientelar e institucional complicado. Cada uno tiene su postura armada."),
+            ("Qué es python?", "Un lenguaje de programación de alto nivel, interpretado y con sintaxis clara. Se usa un montón en inteligencia artificial, backend, data science y automatización."),
+            ("Requeson", "Un queso fresco de pasta blanda obtenido a partir del suero lácteo. Ideal para pastelería, pastas o relleno."),
         ]
     ]
-    autonomous_anchors = [{"text": format_rwkv_chat(q, r)} for q, r in autonomous_anchors]
+    autonomous_anchor_objs = [
+        clean_row_dict(format_rwkv_chat(q, r), q, r, source_label="autonomous-anchor")
+        for q, r in autonomous_anchors
+    ]
+    base_train.extend((autonomous_anchor_objs * 34)[:TARGETS["autonomy"]])
 
-    # Multiplicar los anchors para grabarlos fuertemente tanto en base como en state
-    # ponytail: repetición ingenua hasta 500 exactos; plantillas nuevas si se diluye
-    base_train.extend((autonomous_anchors * 34)[:TARGETS["autonomy"]])
-
-    # 5b. Turn-taking (300, con reemplazo: el pool es de ~58 filas)
+    # 7. Turn-taking
     noresp_pool = []
     if TURNS_SRC.exists():
         turns_items = []
@@ -222,19 +326,26 @@ def main():
                 q = item.get("query") or item.get("question") or ""
                 r = item.get("response") or item.get("answer") or ""
                 if q and r:
-                    turns_items.append({"text": format_rwkv_chat(q, r)})
-        # ponytail: choices con reemplazo; pool chico, distribución preservada en esperanza
-        turns_chosen = random.choices(turns_items, k=TARGETS["turn_taking"]) if turns_items else []
+                    ok, filt, detail = check_admission(q, r)
+                    if not ok:
+                        append_to_quarantine(q, r, "turn_taking", filt, detail or "")
+                        continue
+                    turns_items.append(clean_row_dict(format_rwkv_chat(q, r), q, r, source_label="turn-taking"))
+        # Calibración dinámica del cupo de turn-taking según tamaño de base_train
+        current_base_len = len(base_train)
+        k_target = min(TARGETS["turn_taking"], int((NORESP_MID * current_base_len) / (1 - NORESP_MID)))
+        turns_chosen = random.choices(turns_items, k=k_target) if turns_items else []
         base_train.extend(turns_chosen)
         noresp_pool = [t for t in turns_items if "NO_RESPONSE" in t["text"]]
         print(f"✓ Turn-Taking: {len(turns_chosen)} ejemplos (pool {len(turns_items)}, NO_RESPONSE {len(noresp_pool)})")
     else:
-        print("! voice_turn_taking.jsonl ausente: cupo turn-taking vacío")
-    if not noresp_pool:  # fallback: NO_RESPONSE que ya traiga Kateto
+        print("! voice_turn_taking.jsonl ausente")
+
+    if not noresp_pool:
         noresp_pool = [i for i in base_train if "NO_RESPONSE" in i.get("text", "")]
     random.shuffle(base_train)
 
-    # 5c. Calibración NO_RESPONSE al 3.5% + counter-abort (nunca clamp silencioso)
+    # 8. Calibración estricta NO_RESPONSE al 3.5% (entre 3.0% y 4.0%)
     total = len(base_train)
     n = sum(1 for i in base_train if "NO_RESPONSE" in i.get("text", ""))
     need = int(NORESP_MID * total) - n
@@ -244,17 +355,20 @@ def main():
         total = len(base_train)
         n = sum(1 for i in base_train if "NO_RESPONSE" in i.get("text", ""))
     ratio = n / total if total else 0.0
+
     OUT_DIR.mkdir(exist_ok=True)
     out_train = DATA_DIR / "rwkv_kateto_base_train.jsonl"
+    out_train_fmta = DATA_DIR / "rwkv_kateto_base_train.fmtA.jsonl"
     if not (NORESP_LO <= ratio <= NORESP_HI):
         if out_train.exists():
             out_train.unlink()
         print(f"ABORT mezcla: NO_RESPONSE {n}/{total}={ratio:.4f} fuera de [0.03,0.04]; sin artefacto de entrenamiento")
         sys.exit(1)
+
     with open(OUT_DIR / "mix_ratios.log", "w", encoding="utf-8") as f:
         f.write(f"total={total} noresp={n} ratio={ratio:.4f}\n")
 
-    # 6. Dataset Base de Evaluación
+    # 9. Dataset Base de Evaluación
     base_eval = []
     if EVAL_SRC.exists():
         with open(EVAL_SRC, "r", encoding="utf-8") as f:
@@ -264,15 +378,24 @@ def main():
                 item = json.loads(line)
                 q = item.get("query") or item.get("question") or ""
                 r = item.get("response") or item.get("answer") or ""
+                lbl = item.get("source_label", "")
                 if q and r:
-                    base_eval.append({"text": format_rwkv_chat(q, r)})
+                    if "youtube-asr" in lbl or q.strip().lower() in asr_blocklist or r.strip().lower() in asr_blocklist:
+                        append_to_quarantine(q, r, lbl or "kateto_eval", "asr_leak", "matches_asr_blocklist")
+                        continue
+                    ok, filt, detail = check_admission(q, r)
+                    if not ok:
+                        append_to_quarantine(q, r, lbl or "kateto_eval", filt, detail or "")
+                        continue
+                    base_eval.append(clean_row_dict(format_rwkv_chat(q, r), q, r, source_label=lbl, scenario=item.get("scenario", "")))
 
-    # Guardar Base Train
-    out_train = DATA_DIR / "rwkv_kateto_base_train.jsonl"
-    with open(out_train, "w", encoding="utf-8") as f:
-        for item in base_train:
-            f.write(json.dumps({"text": item["text"]}, ensure_ascii=False) + "\n")
-    print(f"\n✓ Base Train Guardado: {out_train} (TOTAL: {len(base_train)} ejemplos)")
+    # Guardar Base Train (ambos .jsonl y .fmtA.jsonl con formato canónico y esquema único)
+    for target_path in (out_train, out_train_fmta):
+        with open(target_path, "w", encoding="utf-8") as f:
+            for item in base_train:
+                f.write(json.dumps(item, ensure_ascii=False) + "\n")
+    print(f"\n✓ Base Train Guardado: {out_train} (TOTAL: {len(base_train)} ejemplos, ratio NO_RESPONSE: {ratio:.4f})")
+    print(f"✓ Base Train fmtA:     {out_train_fmta}")
 
     # Guardar Base Eval
     out_eval = DATA_DIR / "rwkv_kateto_base_eval.jsonl"
@@ -281,30 +404,19 @@ def main():
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
     print(f"✓ Base Eval Guardado:  {out_eval} ({len(base_eval)} ejemplos)")
 
-    # 7. State Voices (Capa 2)
-    # Candidatos Streamer
-    streamer_candidates = []
-    if YOUTUBE_SRC.exists():
-        with open(YOUTUBE_SRC, "r", encoding="utf-8") as f:
-            for line in f:
-                if not line.strip():
-                    continue
-                item = json.loads(line)
-                q = item.get("query") or item.get("question") or ""
-                r = item.get("response") or item.get("answer") or ""
-                if q and r:
-                    streamer_candidates.append({"text": format_rwkv_chat(q, r)})
-
+    # 10. State Voices (Capa 2)
     # Kateto Seco (submuestra de 500 con fuerte peso de anchors autónomos)
     random.shuffle(seco_candidates)
-    seco_sample = (autonomous_anchors * 12) + seco_candidates[:350]
+    seco_sample = (autonomous_anchor_objs * 12) + seco_candidates[:350]
     out_seco = DATA_DIR / "rwkv_kateto_seco.jsonl"
-    with open(out_seco, "w", encoding="utf-8") as f:
-        for item in seco_sample:
-            f.write(json.dumps(item, ensure_ascii=False) + "\n")
-    print(f"✓ Voice Seco (State-Tuning): {out_seco} ({len(seco_sample)} ejemplos)")
+    out_seco_fmta = DATA_DIR / "rwkv_kateto_seco.fmtA.jsonl"
+    for target_path in (out_seco, out_seco_fmta):
+        with open(target_path, "w", encoding="utf-8") as f:
+            for item in seco_sample:
+                f.write(json.dumps(item, ensure_ascii=False) + "\n")
+    print(f"✓ Voice Seco Guardado: {out_seco} ({len(seco_sample)} ejemplos)")
 
-    # Kateto Streamer
+    # Kateto Streamer (Anchors + Streamer Debate, CERO ASR)
     streamer_anchors = [
         ("Che boludo, quién sos y qué hacés acá?", "Qué onda gente! Acá Kateto, listo para jugar, debatir, meterle a proyectos o charlar con la comunidad."),
         ("Quién sos?", "Buenas a todos! Soy Kateto, acá listo para jugar, debatir y armar cosas en vivo."),
@@ -312,17 +424,32 @@ def main():
         ("Cómo te llamás?", "Kateto! El copiloto sin filtro del canal."),
         ("Cuál es tu rol?", "Ninguno fijo, hago lo que pinte en el directo: debatir, viciar o tirar código."),
     ]
-    streamer_anchors = [{"text": format_rwkv_chat(q, r, voice="streamer")} for q, r in streamer_anchors]
+    streamer_anchor_objs = [
+        clean_row_dict(format_rwkv_chat(q, r, voice="streamer"), q, r, source_label="streamer-anchor")
+        for q, r in streamer_anchors
+    ]
     random.shuffle(streamer_candidates)
-    streamer_sample = (streamer_anchors * 10) + streamer_candidates[:450]
+    # Rellenar hasta 500 sin una sola línea de ASR
+    needed_streamer = 500 - len(streamer_candidates[:350])
+    streamer_sample = streamer_candidates[:350] + (streamer_anchor_objs * ((needed_streamer // len(streamer_anchor_objs)) + 1))[:needed_streamer]
     out_streamer = DATA_DIR / "rwkv_kateto_streamer.jsonl"
-    with open(out_streamer, "w", encoding="utf-8") as f:
-        for item in streamer_sample:
-            f.write(json.dumps(item, ensure_ascii=False) + "\n")
-    print(f"✓ Voice Streamer (State-Tuning): {out_streamer} ({len(streamer_sample)} ejemplos)")
+    out_streamer_fmta = DATA_DIR / "rwkv_kateto_streamer.fmtA.jsonl"
+    for target_path in (out_streamer, out_streamer_fmta):
+        with open(target_path, "w", encoding="utf-8") as f:
+            for item in streamer_sample:
+                f.write(json.dumps(item, ensure_ascii=False) + "\n")
+    print(f"✓ Voice Streamer Guardado: {out_streamer} ({len(streamer_sample)} ejemplos, 0 ASR)")
+
+    # Si existe kaggle_upload/data y es diferente de DATA_DIR, sincronizar archivos generados
+    kaggle_data = ROOT / "kaggle_upload" / "data"
+    if kaggle_data.exists() and kaggle_data.resolve() != DATA_DIR.resolve():
+        for fn in ["rwkv_kateto_base_train.jsonl", "rwkv_kateto_base_eval.jsonl", "rwkv_kateto_seco.jsonl", "rwkv_kateto_streamer.jsonl"]:
+            src = DATA_DIR / fn
+            if src.exists():
+                shutil.copy2(src, kaggle_data / fn)
+        print(f"✓ Sincronizados datasets hacia {kaggle_data}")
 
     print("\n>>> PREPARACIÓN DE DATASETS COMPLETADA EXITOSAMENTE <<<")
 
 if __name__ == "__main__":
     main()
-
