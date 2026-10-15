@@ -19,7 +19,7 @@ en L(·|p) y L(·|n).
 import argparse, json, statistics as st, sys
 from pathlib import Path
 
-ROOT = Path("/run/media/chaos/terciario/proyectos/kateto-train")
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
@@ -51,6 +51,8 @@ def main():
     ap.add_argument("--n-pairs", type=int, default=808)
     ap.add_argument("--out", required=True)
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--dump-rows", metavar="FILE", default=None,
+                    help="escribir cada fila scored como JSONL en FILE")
     a = ap.parse_args()
 
     items, strata, meta = load_cbb(a.n_pairs, 1337)
@@ -97,6 +99,12 @@ def main():
             "rejected_neutral": round(st.fmean([r["L_r_n"] for r in rows]), 6),
         },
     }
+    if a.dump_rows:
+        Path(a.dump_rows).write_text(
+            "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n",
+            encoding="utf-8",
+        )
+        print(f"[pmi] dump-rows -> {a.dump_rows} ({len(rows)} filas)", flush=True)
     Path(a.out).write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps(res, ensure_ascii=False, indent=1))
     return 0

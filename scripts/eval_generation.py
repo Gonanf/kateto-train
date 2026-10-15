@@ -9,16 +9,16 @@ Uso (local):
   systemd-run --user --scope -p MemoryMax=infinity \
     venv-unsloth-qwen/bin/python scripts/eval_generation.py \
     --ckpt out/rwkv_kateto_base/rwkv-1.pth \
-    --chat-format world \
+    --chat-format chatml \
     --n-items 4 \
     --out out/eval/run1/gen_test.json
 
 Uso (http — llama.cpp router):
   systemd-run --user --scope -p MemoryMax=infinity \
     python scripts/eval_generation.py \
-    --backend http --model RWKV-2.9B \
-    --chat-format world --n-items 4 \
-    --out out/eval/run1/gen_http_rwkvb.json
+    --backend http --model RWKV7-Kateto-Retrain \
+    --chat-format chatml --n-items 4 \
+    --out out/eval/run1/gen_http_kateto.json
 """
 from __future__ import annotations
 
@@ -424,7 +424,11 @@ def main() -> int:
                     help="model preset name for http backend (e.g. RWKV-2.9B)")
     ap.add_argument("--ckpt", default=None,
                     help="checkpoint path (local backend only)")
-    ap.add_argument("--chat-format", default="world", choices=["world", "chatml"],
+    # default "chatml": el formato propio de Kateto (<|im_user|>...<|im_seco|>).
+    # "world" (User:/Assistant:) es el formato OFICIAL de RWKV-G1, que el modelo
+    # nunca vio en entrenamiento: con ese prompt narra las reglas en vez de hablar
+    # (medido 2026-10-10) -> el falso "no habla". No cambiar el default a world.
+    ap.add_argument("--chat-format", default="chatml", choices=["world", "chatml"],
                     help="formato del prompt (§1.3)")
     ap.add_argument("--prompts", default=str(PROJECT / "out/eval/prompts_v1.json"))
     ap.add_argument("--patterns", default=str(PROJECT / "config/behavior_patterns.yaml"))
