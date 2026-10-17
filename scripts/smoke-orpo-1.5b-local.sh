@@ -20,7 +20,7 @@ SMOKE_PROJ="${SMOKE_PROJ:-$SMOKE_OUT/proj-c$SMOKE_CHUNK}"
 SMOKE_LOG="${SMOKE_LOG:-$SMOKE_OUT/orpo-c$SMOKE_CHUNK.log}"
 
 REPO_DIR="${REPO_DIR:-/run/media/chaos/terciario/proyectos/kateto-train}"
-PY="$REPO_DIR/venv-unsloth-qwen/bin/python"
+PY="${PYTHON_BIN:-$REPO_DIR/venv-unsloth-qwen/bin/python}"
 BASE_MODEL="${BASE_MODEL:-/run/media/chaos/secundario/kateto-v7-epoca1/proj-c256/rwkv-0.pth}"
 SMOKE_DATA="${SMOKE_DATA:-$REPO_DIR/data/kateto_orpo_v7.jsonl}"
 SCRIPT_PATH="$(realpath "$0" 2>/dev/null || echo "$0")"
