@@ -62,3 +62,9 @@ entities.json
 data/hf/
 *.mp3
 *.parquet
+
+# datasets van a HF, no a git
+data/*.jsonl
+data/podcast/
+
+data/*.jsonl
