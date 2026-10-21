@@ -234,6 +234,10 @@ def report_md(rows, pairs, summ, contrast, ckpt, manifest, outdir, xcheck) -> st
       f"{len(rows)} filas). Heurístico de degeneración: `check_degenerate()` de la celda 9 "
       "del notebook, recalculado desde el campo `text` de cada fila.")
     A("")
+    A("Reporte de análisis, companion de `REPORTE-t_18a835fb.md` (la corrida v5). **`SUMMARY.md` no se "
+      "tocó**: es salida del kernel y editarla rompería la provenance. Generado por "
+      "`scripts/analyze_eval29_coherence.py` (commit `f977d1d`, con `--self-check`).")
+    A("")
     A("## 1. Coherencia por par")
     A("")
     A("Un **par** = mismo prompt, turno `frio` (estado limpio) + turno `caliente` "
