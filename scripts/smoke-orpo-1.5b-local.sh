@@ -15,6 +15,10 @@ SMOKE_ACCUM="${SMOKE_ACCUM:-4}"
 SMOKE_LR="${SMOKE_LR:-5e-6}"
 SMOKE_LR_FINAL="${SMOKE_LR_FINAL:-1e-6}"
 SMOKE_LAMBDA="${SMOKE_ORPO_LAMBDA:-0.2}"
+SMOKE_OP="${SMOKE_OP:-triton}"
+SMOKE_DEVICES="${SMOKE_DEVICES:-1}"
+SMOKE_STRATEGY="${SMOKE_STRATEGY:-auto}"
+SMOKE_CLIP="${SMOKE_CLIP:-}"
 SMOKE_OUT="${SMOKE_OUT:-/run/media/chaos/secundario/kateto-orpo-v7}"
 SMOKE_PROJ="${SMOKE_PROJ:-$SMOKE_OUT/proj-c$SMOKE_CHUNK}"
 SMOKE_LOG="${SMOKE_LOG:-$SMOKE_OUT/orpo-c$SMOKE_CHUNK.log}"
@@ -34,6 +38,12 @@ if [ -e "$SMOKE_PROJ" ]; then
 fi
 mkdir -p "$SMOKE_PROJ"
 mkdir -p "$(dirname "$SMOKE_LOG")"
+
+# TAREA C: --gradient_clip_val solo si SMOKE_CLIP no esta vacio.
+CLIP_ARGS=()
+if [ -n "$SMOKE_CLIP" ]; then
+  CLIP_ARGS=(--gradient_clip_val "$SMOKE_CLIP")
+fi
 
 if [ -f "$SMOKE_DATA" ]; then
   DATASET_LINES=$(wc -l < "$SMOKE_DATA" | tr -d ' ')
@@ -75,11 +85,11 @@ set +e
   --ctx_len "$SMOKE_CTX" --train_type ${SMOKE_TRAINTYPE:-none} \
   --micro_bsz "$SMOKE_BSZ" --epoch_steps "$SMOKE_STEPS" --epoch_count 1 --epoch_save 1 \
   --lr_init "$SMOKE_LR" --lr_final "$SMOKE_LR_FINAL" \
-  --accelerator gpu --precision ${SMOKE_PREC:-fp32} --devices 1 --strategy auto --grad_cp ${SMOKE_GRADCP:-0} \
-  --my_testing x070 --op triton --num_workers 2 \
+  --accelerator gpu --precision ${SMOKE_PREC:-fp32} --devices "$SMOKE_DEVICES" --strategy "$SMOKE_STRATEGY" --grad_cp ${SMOKE_GRADCP:-0} \
+  --my_testing x070 --op "$SMOKE_OP" --num_workers 2 \
   --peft pissa --pissa_config '{"pissa_r":16,"svd_niter":4}' \
   --train_parts '["time","ln"]' --freeze_decay 1 --merge ${SMOKE_MERGE:-0} \
-  --accumulate_grad_batches "$SMOKE_ACCUM" 2>&1 | tee -a "$SMOKE_LOG"
+  --accumulate_grad_batches "$SMOKE_ACCUM" "${CLIP_ARGS[@]}" 2>&1 | tee -a "$SMOKE_LOG"
 RC=${PIPESTATUS[0]}
 END_TIME=$(date +%s)
 WALL_S=$(( END_TIME - START_TIME ))
