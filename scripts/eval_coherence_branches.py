@@ -36,11 +36,13 @@ sys.path.insert(0, str(PROJECT / "scripts"))
 sys.path.insert(0, str(PROJECT / "rwkv_pipeline"))
 
 from analyze_eval29_coherence import check_degenerate
+from chat_template import render_chat
 
 # --------------------------------------------------------------------------- #
-# Constantes de umbral
+# Constantes de template y umbral
 # --------------------------------------------------------------------------- #
 
+TPL_VOICE = "seco"
 UMBRAL_TEXTO = (
     "cada escenario PASA si >=2 seeds dan 8/8 turnos coherentes; el VEREDICTO global "
     "PASA si pasan los 3 escenarios"
@@ -246,6 +248,26 @@ def coherente(ident_ok: bool, no_rep: bool, ref_ok: bool, degen: bool) -> bool:
     return bool(ident_ok and no_rep and ref_ok and not degen)
 
 
+def construir_prompt(
+    historial: list[tuple[str, str]],
+    user: str,
+    max_tokens: int,
+    encode,
+) -> tuple[str, list[int], int]:
+    """render_chat(..., TPL_VOICE) descartando turnos VIEJOS hasta entrar en max_tokens.
+    Devuelve (texto_prompt, ids_prompt, turnos_descartados). El encabezado
+    (<|im_user|>...<|im_start|>seco\n) NUNCA se corta."""
+    turnos_descartados = 0
+    sub_historial = list(historial)
+    while True:
+        texto = render_chat(sub_historial, user, TPL_VOICE)
+        ids = encode(texto)
+        if len(ids) <= max_tokens or not sub_historial:
+            return texto, ids, turnos_descartados
+        sub_historial.pop(0)
+        turnos_descartados += 1
+
+
 def _selfcheck() -> None:
     """Asserts con fixtures fijos, sin torch. Corre con --selfcheck."""
     # 1. identidad_ok
@@ -270,7 +292,24 @@ def _selfcheck() -> None:
     assert degenera("Listo, compra la 3090 primero") is False
     assert degenera("") is True
 
-    print("selfcheck OK: identidad, repeticion, referencia, degen")
+    # 5. prompt-template y truncado por turnos
+    assert TPL_VOICE == "seco"
+    enc = lambda s: list(s.split())
+
+    txt1, ids1, disc1 = construir_prompt([], "hola que tal", 1000, enc)
+    assert disc1 == 0
+    assert txt1.endswith("<|im_start|>seco\n")
+
+    hist5 = [(f"user {i}", f"bot {i}") for i in range(5)]
+    txt2, ids2, disc2 = construir_prompt(hist5, "hola que tal", 12, enc)
+    assert disc2 > 0
+    assert txt2.endswith("<|im_start|>seco\n")
+
+    txt3, ids3, disc3 = construir_prompt([], "hola que tal", 1, enc)
+    assert disc3 == 0
+    assert txt3.endswith("<|im_start|>seco\n")
+
+    print("selfcheck OK: identidad, repeticion, referencia, degen, prompt-template")
 
 
 # --------------------------------------------------------------------------- #
@@ -421,11 +460,9 @@ def main() -> int:
                     if hasattr(engine, "rosa_memory"):
                         engine.rosa_memory = None
 
-                texto_prompt = render_chat(historial, user, "none")
-                ids_prompt = engine.tokenizer.encode(texto_prompt)
-                if len(ids_prompt) > args.ctx_truncate:
-                    texto_prompt = engine.tokenizer.decode(ids_prompt[-args.ctx_truncate:])
-                    ids_prompt = ids_prompt[-args.ctx_truncate:]
+                texto_prompt, ids_prompt, turnos_descartados = construir_prompt(
+                    historial, user, args.ctx_truncate, engine.tokenizer.encode
+                )
 
                 t_turn = time.time()
                 respuesta, state, stop_reason, n_gen = generar_turno(
@@ -474,6 +511,8 @@ def main() -> int:
                     "eco_del_prompt": eco,
                     "len_chars": len(respuesta),
                     "n_tokens_gen": n_gen,
+                    "prompt_tokens": len(ids_prompt),
+                    "turnos_descartados": turnos_descartados,
                     "stop_reason": stop_reason,
                     "state_norm": round(norm, 4),
                     "state_hash": h,
@@ -485,7 +524,7 @@ def main() -> int:
                     f"[{sc_id}] s={seed} t={t_idx} len={fila['len_chars']:3d} "
                     f"tok={n_gen:2d} ident={int(ident_ok)} no_rep={int(no_rep)} "
                     f"ref={ref_hits}/{ref_total} no_deg={int(not degen)} "
-                    f"=> coh={int(coh)} ({dt:.1f}s)"
+                    f"=> coh={int(coh)} ({dt:.1f}s) txt={respuesta[:60]!r}"
                 )
 
                 if not es_vacia(respuesta):
@@ -545,6 +584,7 @@ def main() -> int:
         "host": socket.gethostname(),
         "seeds_pedidas": seeds,
         "seeds_efectivas": seeds_efectivas,
+        "voice_template": TPL_VOICE,
         "temperature": args.temperature,
         "top_p": args.top_p,
         "max_tokens": args.max_tokens,
@@ -606,6 +646,7 @@ def main() -> int:
         f"- **Seeds**: `{seeds_efectivas}` (pedidas: `{seeds}`)",
         f"- **Temperatura**: `{args.temperature}` (top_p={args.top_p}, max_tokens={args.max_tokens})",
         f"- **State Policy**: `{args.state_policy}` (ctx_truncate={args.ctx_truncate})",
+        f"- **Voice Template**: `{TPL_VOICE}`",
         f"- **Umbral declarado**: {UMBRAL_TEXTO}",
         f"- **Umbral aplicado**: {umbral_aplicado} seeds por escenario con 8/8 turnos coherentes",
         "",
