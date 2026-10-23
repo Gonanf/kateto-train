@@ -344,6 +344,17 @@ def report_md(rows, pairs, summ, contrast, ckpt, manifest, outdir, xcheck) -> st
     return "\n".join(L) + "\n"
 
 
+def evaluar_longitud(rows: list[dict], min_chars: float = 160.0) -> tuple[int, dict]:
+    chars = [r["_chars"] if "_chars" in r else len((r.get("text") or "").strip()) for r in rows]
+    longitud_media_chars = round(float(statistics.median(chars)), 2) if chars else 0.0
+    longitud_ok = bool(longitud_media_chars >= min_chars)
+    rc = 0 if longitud_ok else 1
+    return rc, {
+        "longitud_media_chars": longitud_media_chars,
+        "longitud_ok": longitud_ok,
+    }
+
+
 def self_check() -> None:
     rows = [
         {"set": "s", "id": "p1", "turno": "frio", "prompt_sha256": "a", "prompt": "x", "text": "hola que tal",
@@ -373,6 +384,25 @@ def self_check() -> None:
     assert check_degenerate("bueno" * 20)[0] is True
     assert check_degenerate("hola que tal")[0] is False
     assert check_degenerate("") == (False, 0)
+
+    rows_largo = [
+        {"text": "x" * 200, "_chars": 200},
+        {"text": "y" * 205, "_chars": 205},
+        {"text": "z" * 195, "_chars": 195},
+    ]
+    rc_largo, info_largo = evaluar_longitud(rows_largo, 160)
+    assert rc_largo == 0, rc_largo
+    assert info_largo["longitud_ok"] is True, info_largo
+
+    rows_corto = [
+        {"text": "x" * 100, "_chars": 100},
+        {"text": "y" * 105, "_chars": 105},
+        {"text": "z" * 95, "_chars": 95},
+    ]
+    rc_corto, info_corto = evaluar_longitud(rows_corto, 160)
+    assert rc_corto == 1, rc_corto
+    assert info_corto["longitud_ok"] is False, info_corto
+
     print("self-check OK")
 
 
@@ -383,6 +413,7 @@ def main() -> int:
     ap.add_argument("--csv", default=None)
     ap.add_argument("--report", default=None)
     ap.add_argument("--self-check", action="store_true")
+    ap.add_argument("--min-chars", type=float, default=160)
     args = ap.parse_args()
     if args.self_check:
         self_check()
@@ -433,13 +464,23 @@ def main() -> int:
             if summ[s]["pares"] else 0.0)
         for s in sorted(summ) if s != "total"
     }
+    rc_longitud, info_longitud = evaluar_longitud(rows, args.min_chars)
     metric_out = {
         "coherentes_pct": coherentes_pct,
         "pares": pares,
         "pares_coherentes": pares_coherentes,
         "por_set": por_set,
+        "longitud_media_chars": info_longitud["longitud_media_chars"],
+        "longitud_ok": info_longitud["longitud_ok"],
     }
     print(json.dumps(metric_out, ensure_ascii=False))
+    if rc_longitud != 0:
+        print(
+            f"anti-hack longitud: longitud_media_chars={info_longitud['longitud_media_chars']} < "
+            f"--min-chars={args.min_chars:g} (la metrica no puede subir truncando)",
+            file=sys.stderr,
+        )
+        return rc_longitud
     return 0
 
 
