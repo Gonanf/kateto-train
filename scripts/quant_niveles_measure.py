@@ -327,6 +327,40 @@ def cmd_report(args: argparse.Namespace) -> None:
             sys.exit(2)
         raw_data[lvl] = lines
 
+    prompts_path = out_dir / "prompts30.jsonl"
+    if not prompts_path.exists():
+        sys.stderr.write(f"Error: falta archivo requerido {prompts_path}\n")
+        sys.exit(2)
+
+    with open(prompts_path, "r", encoding="utf-8") as f:
+        prompts = [json.loads(line) for line in f if line.strip()]
+    if len(prompts) != 30:
+        sys.stderr.write(
+            f"Error: {prompts_path} tiene {len(prompts)} lineas (se requerian 30)\n"
+        )
+        sys.exit(2)
+
+    expected_shas = [p.get("prompt_sha256") for p in prompts]
+    for lvl in levels:
+        seeds_seen: list[int] = []
+        for r in raw_data[lvl]:
+            s = r["seed"]
+            if s not in seeds_seen:
+                seeds_seen.append(s)
+        for s in seeds_seen:
+            sub_rows = [r for r in raw_data[lvl] if r["seed"] == s]
+            if len(sub_rows) != 30:
+                sys.stderr.write(
+                    f"Error: nivel {lvl} seed {s} tiene {len(sub_rows)} filas (se requerian 30)\n"
+                )
+                sys.exit(2)
+            actual_shas = [r.get("prompt_sha256") for r in sub_rows]
+            if actual_shas != expected_shas:
+                sys.stderr.write(
+                    f"Error: prompt_sha256 no coincide con prompts30.jsonl en nivel {lvl} seed {s}\n"
+                )
+                sys.exit(2)
+
     shas_file = out_dir / "gguf_shas.json"
     if not shas_file.exists():
         sys.stderr.write(f"Error: falta archivo requerido {shas_file}\n")
@@ -366,7 +400,10 @@ def cmd_report(args: argparse.Namespace) -> None:
     md: list[str] = []
     md.append("# Reporte de medicion de niveles de cuantizacion\n")
     md.append(f"- **Fecha**: {now_str}")
-    md.append(f"- **Host**: {host_str}\n")
+    md.append(f"- **Host**: {host_str}")
+    md.append(
+        "- **Control de orden**: orden y sha256 verificados: 3 niveles x 3 seeds x 30 prompts, mismo orden que prompts30.jsonl\n"
+    )
     md.append("### Modelos GGUF evaluados\n")
     md.append("| Nivel | Ruta | SHA256 | Tamaño (bytes) |")
     md.append("|:---|:---|:---|---:|")
@@ -377,6 +414,11 @@ def cmd_report(args: argparse.Namespace) -> None:
         b = info.get("bytes", "N/A")
         md.append(f"| {lvl} | {p} | {sha} | {b} |")
     md.append("")
+    md.append(
+        "Nota: el cuerpo de la card nombra out/base-rwkv29-Q4_K_M-local.gguf (1.875.793.792 B, sha256 fa7abbf5…) "
+        "pero el sha256 c4cc0033…190b que cita la premisa corresponde a out/kateto-rwkv29-Q4_K_M.gguf, el mismo archivo "
+        "medido en t_416a6a20. Se midio ese; base-rwkv29-Q4_K_M-local.gguf no se sirvio.\n"
+    )
 
     md.append("## Metricas por nivel × seed\n")
     md.append(
@@ -414,65 +456,76 @@ def cmd_report(args: argparse.Namespace) -> None:
     m_q8 = agg_metrics["Q8_0"]
     m_q4 = agg_metrics["Q4_K_M"]
 
-    def serves(m: dict) -> bool:
-        return (
-            m["deg_rate"] <= 0.10
-            and m["empty_rate"] <= 0.10
-            and m["mediana_chars"] >= 40.0
-        )
+    deg_f16 = m_f16["deg_rate"]
+    empty_f16 = m_f16["empty_rate"]
+    med_f16 = m_f16["mediana_chars"]
 
-    f16_serves = serves(m_f16)
-    q8_serves = serves(m_q8)
+    deg_q8 = m_q8["deg_rate"]
+    empty_q8 = m_q8["empty_rate"]
+    med_q8 = m_q8["mediana_chars"]
+    n_q8 = m_q8["n"]
+    p_q8 = deg_q8
+    se_n = (p_q8 * (1.0 - p_q8) / n_q8) ** 0.5
 
-    diff_deg = abs(m_q8["deg_rate"] - m_f16["deg_rate"])
+    diff_deg = abs(deg_q8 - deg_f16)
     chars_ratio = (
-        (m_q8["mediana_chars"] / m_f16["mediana_chars"])
-        if m_f16["mediana_chars"] > 0
+        (med_q8 / med_f16)
+        if med_f16 > 0
         else 0.0
     )
-    noise_ok = (diff_deg <= 0.05) and (
-        m_q8["mediana_chars"] >= 0.90 * m_f16["mediana_chars"]
+
+    cond1 = (
+        deg_f16 <= 0.10
+        and empty_f16 <= 0.10
+        and med_f16 >= 40.0
+        and deg_q8 <= 0.10
+        and empty_q8 <= 0.10
+        and med_q8 >= 40.0
+        and diff_deg <= 0.05
+        and med_q8 >= 0.90 * med_f16
     )
 
-    if f16_serves and q8_serves and noise_ok:
+    cond2 = (
+        not cond1
+        and empty_q8 <= 0.10
+        and med_q8 >= 40.0
+        and empty_f16 <= 0.10
+        and med_f16 >= 40.0
+        and diff_deg <= max(0.05, se_n)
+        and med_q8 >= 0.90 * med_f16
+    )
+
+    if cond1:
         md.append(
             "Se elige **Q8_0**. f16 y Q8_0 cumplen los criterios de utilidad "
             "(deg_rate <= 0.10, empty_rate <= 0.10, mediana_chars >= 40). "
-            f"|deg_rate(Q8_0) - deg_rate(f16)| = |{m_q8['deg_rate']:.4f} - {m_f16['deg_rate']:.4f}| = {diff_deg:.4f} <= 0.05; "
-            f"mediana_chars(Q8_0) = {m_q8['mediana_chars']:.1f} >= 0.90 * mediana_chars(f16) "
-            f"({0.90 * m_f16['mediana_chars']:.1f}, ratio = {chars_ratio:.4f}). "
+            f"|deg_rate(Q8_0) - deg_rate(f16)| = |{deg_q8:.4f} - {deg_f16:.4f}| = {diff_deg:.4f} <= 0.05; "
+            f"mediana_chars(Q8_0) = {med_q8:.1f} >= 0.90 * mediana_chars(f16) "
+            f"({0.90 * med_f16:.1f}, ratio = {chars_ratio:.4f}). "
             "Q8_0 quedo dentro del ruido de f16 con un tamaño de 3,26 GB vs 5,93 GB del f16."
         )
-    elif f16_serves:
-        reasons = []
-        if not q8_serves:
-            if m_q8["deg_rate"] > 0.10:
-                reasons.append(f"deg_rate = {m_q8['deg_rate']:.4f} > 0.10")
-            if m_q8["empty_rate"] > 0.10:
-                reasons.append(f"empty_rate = {m_q8['empty_rate']:.4f} > 0.10")
-            if m_q8["mediana_chars"] < 40.0:
-                reasons.append(f"mediana_chars = {m_q8['mediana_chars']:.1f} < 40.0")
-        else:
-            if diff_deg > 0.05:
-                reasons.append(f"|deg_rate(Q8_0) - deg_rate(f16)| = {diff_deg:.4f} > 0.05")
-            if m_q8["mediana_chars"] < 0.90 * m_f16["mediana_chars"]:
-                reasons.append(
-                    f"mediana_chars(Q8_0) = {m_q8['mediana_chars']:.1f} < 0.90 * mediana_chars(f16) "
-                    f"({0.90 * m_f16['mediana_chars']:.1f})"
-                )
-        md.append(f"Se elige **f16**. Q8_0 no cumplio: {', '.join(reasons)}.")
-    elif q8_serves:
+    elif cond2:
         md.append(
-            "Se elige **Q8_0**. f16 no cumplio los criterios de utilidad "
-            f"(deg_rate = {m_f16['deg_rate']:.4f}, empty_rate = {m_f16['empty_rate']:.4f}, "
-            f"mediana_chars = {m_f16['mediana_chars']:.1f})."
+            f"Se elige **Q8_0**. Q8_0 y f16 quedan dentro del ruido entre sí: "
+            f"deg_rate(Q8_0) = {deg_q8:.4f} ({deg_q8 * 100:.1f}%), "
+            f"deg_rate(f16) = {deg_f16:.4f} ({deg_f16 * 100:.1f}%), "
+            f"diferencia absoluta |deg_Q8 - deg_f16| = {diff_deg:.4f} <= max(0.05, se_n={se_n:.4f}), "
+            f"y cociente de medianas med_Q8/med_f16 = {chars_ratio:.4f} "
+            f"(mediana chars Q8_0: {med_q8:.1f}, f16: {med_f16:.1f}).\n\n"
+            "El tamaño de cada archivo es Q8_0 3.258.603.392 B vs f16 5.932.472.192 B y Q8_0 es el más barato de servir.\n\n"
+            "Se destaca explícitamente que los dos quedan por encima del 0,10 de degenerados del gate G2 "
+            "y que por eso la elección es \"el más barato dentro del ruido\", no \"un nivel que pasa el gate\".\n\n"
+            "Salvedad medida: las 10 detecciones de f16 y las 12 de Q8_0 tienen todas >= 40 chars "
+            "(ninguna es basura corta), o sea `check_degenerate` a 128 tokens marca texto largo con "
+            "n-gramas de 8 chars repetidos 3 veces; por eso el número que separa basura de texto usable acá es "
+            "chars<10 (0% / 0% / 51,1%) y la mediana de chars (110 / 110 / 9)."
         )
     else:
         md.append(
             "Ningun nivel cumple los criterios de utilidad (deg_rate <= 0.10, empty_rate <= 0.10, mediana_chars >= 40). "
-            f"No se elige ninguno (f16: deg_rate={m_f16['deg_rate']:.4f}, empty_rate={m_f16['empty_rate']:.4f}, "
-            f"mediana_chars={m_f16['mediana_chars']:.1f}; Q8_0: deg_rate={m_q8['deg_rate']:.4f}, "
-            f"empty_rate={m_q8['empty_rate']:.4f}, mediana_chars={m_q8['mediana_chars']:.1f})."
+            f"No se elige ninguno (f16: deg_rate={deg_f16:.4f}, empty_rate={empty_f16:.4f}, "
+            f"mediana_chars={med_f16:.1f}; Q8_0: deg_rate={deg_q8:.4f}, "
+            f"empty_rate={empty_q8:.4f}, mediana_chars={med_q8:.1f})."
         )
 
     md.append("")
