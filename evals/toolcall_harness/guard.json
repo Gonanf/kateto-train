@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "situations": 36,
+  "corpus_files": 8,
+  "corpus_lines": 51258,
+  "corpus_root": "/run/media/chaos/terciario/proyectos/kateto-train",
+  "max_shingle_overlap": 0.0476,
+  "overlaps": []
+}

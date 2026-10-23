@@ -1,0 +1,572 @@
+"""Evaluates harness toolcalling metric for Kateto.
+
+Measures toolcall accuracy, hallucinated tool names rate, and validates against
+the fixed BUILTIN_TOOLS registry.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import sys
+import unicodedata
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+# Allow importing registry from same directory
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from harness_tool_registry import load_registry
+
+
+def normalize(s: str) -> str:
+    """Normalize text: lowercase, NFD without combining diacritics, alphanumeric only, single spaces."""
+    s = s.lower()
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    s = re.sub(r"[^a-z0-9]", " ", s)
+    return " ".join(s.split())
+
+
+def check_args_spec(spec_dict: dict, actual_args: dict) -> bool:
+    """Check if actual_args satisfies the expected required parameters specification."""
+    if not isinstance(actual_args, dict):
+        return False
+
+    for key, spec in spec_dict.items():
+        if key not in actual_args:
+            return False
+        val = actual_args[key]
+
+        if isinstance(spec, dict):
+            if spec.get("any") is True:
+                if val is None or val == "" or val == [] or val == {}:
+                    return False
+            elif "enum" in spec:
+                norm_val = normalize(str(val))
+                norm_enum = [normalize(str(x)) for x in spec["enum"]]
+                if norm_val not in norm_enum:
+                    return False
+            elif "contains" in spec:
+                norm_sub = normalize(str(spec["contains"]))
+                norm_val = normalize(str(val))
+                if norm_sub not in norm_val:
+                    return False
+            else:
+                if not isinstance(val, dict):
+                    return False
+                if not check_args_spec(spec, val):
+                    return False
+        elif isinstance(spec, str):
+            if normalize(str(val)) != normalize(spec):
+                return False
+        else:
+            if type(val) is not type(spec) or val != spec:
+                return False
+
+    return True
+
+
+def extract_tool_call(
+    pred: dict, is_tool_expected: bool = True
+) -> tuple[str | None, dict | None, bool]:
+    """Extract tool call name and arguments from prediction dict.
+
+    Order of extraction:
+    1. tool_calls in prediction
+    2. <tool_call>{...}</tool_call> in output
+    3. output as plain JSON object
+
+    Returns:
+        (name, arguments, has_parse_error)
+    """
+    # 1. tool_calls in pred
+    tool_calls = pred.get("tool_calls")
+    if isinstance(tool_calls, list) and len(tool_calls) > 0:
+        tc = tool_calls[0]
+        if isinstance(tc, dict):
+            func = tc.get("function") if isinstance(tc.get("function"), dict) else tc
+            name = func.get("name")
+            raw_args = func.get("arguments", {})
+            if isinstance(raw_args, str):
+                try:
+                    args = json.loads(raw_args)
+                except Exception:
+                    return None, None, True
+            elif isinstance(raw_args, dict):
+                args = raw_args
+            else:
+                args = {}
+            if isinstance(args, dict):
+                return name, args, False
+            return None, None, True
+
+    output = pred.get("output", "")
+    if not isinstance(output, str):
+        output = str(output) if output is not None else ""
+
+    # 2. <tool_call>{...}</tool_call> in output
+    tc_match = re.search(r"<tool_call>(.*?)</tool_call>", output, re.DOTALL)
+    if tc_match:
+        raw_json = tc_match.group(1).strip()
+        try:
+            data = json.loads(raw_json)
+        except Exception:
+            return None, None, True
+
+        if isinstance(data, dict):
+            func = data.get("function") if isinstance(data.get("function"), dict) else data
+            name = func.get("name")
+            raw_args = func.get("arguments", func.get("parameters"))
+            if raw_args is None:
+                raw_args = {
+                    k: v
+                    for k, v in data.items()
+                    if k not in ("name", "function", "parameters", "arguments")
+                }
+            if isinstance(raw_args, str):
+                try:
+                    args = json.loads(raw_args)
+                except Exception:
+                    return None, None, True
+            elif isinstance(raw_args, dict):
+                args = raw_args
+            else:
+                args = {}
+            if isinstance(args, dict):
+                return name, args, False
+        return None, None, True
+
+    # 3. output as plain JSON object
+    stripped = output.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        try:
+            data = json.loads(stripped)
+            if isinstance(data, dict):
+                func = data.get("function") if isinstance(data.get("function"), dict) else data
+                name = func.get("name")
+                raw_args = func.get("arguments", func.get("parameters"))
+                if raw_args is None:
+                    raw_args = {
+                        k: v
+                        for k, v in data.items()
+                        if k not in ("name", "function", "parameters", "arguments")
+                    }
+                if isinstance(raw_args, str):
+                    try:
+                        args = json.loads(raw_args)
+                    except Exception:
+                        return None, None, True
+                elif isinstance(raw_args, dict):
+                    args = raw_args
+                else:
+                    args = {}
+                if isinstance(args, dict):
+                    return name, args, False
+        except Exception:
+            if is_tool_expected:
+                return None, None, True
+
+    # No tool call extracted
+    if is_tool_expected:
+        return None, None, True
+    return None, None, False
+
+
+def score_predictions(
+    situations: list[dict],
+    predictions: list[dict] | dict[str, dict],
+    registry: dict[str, dict],
+    backend: str = "predictions",
+) -> dict:
+    """Score model predictions against expected situations and tool registry."""
+    if isinstance(predictions, list):
+        pred_map = {p["id"]: p for p in predictions if isinstance(p, dict) and "id" in p}
+    else:
+        pred_map = predictions
+
+    n = len(situations)
+    tool_n = 0
+    no_tool_n = 0
+    name_ok = 0
+    full_ok = 0
+    no_tool_ok = 0
+    parse_errors = 0
+    hallucinated: list[dict] = []
+    tool_n_llamados = 0
+
+    for sit in situations:
+        s_id = sit["id"]
+        kind = sit.get("kind", "tool")
+        exp = sit.get("expect", {})
+        exp_name = exp.get("name")
+        exp_req = exp.get("required", {})
+
+        if kind == "no_tool":
+            no_tool_n += 1
+        else:
+            tool_n += 1
+
+        pred = pred_map.get(s_id)
+        if pred is None:
+            if kind == "tool":
+                parse_errors += 1
+            else:
+                name_ok += 1
+                full_ok += 1
+                no_tool_ok += 1
+            continue
+
+        called_name, called_args, has_parse_error = extract_tool_call(
+            pred, is_tool_expected=(kind == "tool")
+        )
+
+        if has_parse_error:
+            parse_errors += 1
+            continue
+
+        if called_name is not None:
+            tool_n_llamados += 1
+            if called_name not in registry:
+                hallucinated.append({"id": s_id, "name": called_name})
+
+        if kind == "no_tool":
+            if called_name is None:
+                name_ok += 1
+                full_ok += 1
+                no_tool_ok += 1
+        else:
+            if called_name is not None:
+                is_name_ok = called_name == exp_name
+                if is_name_ok:
+                    name_ok += 1
+                    if check_args_spec(exp_req, called_args):
+                        full_ok += 1
+
+    name_accuracy = round(name_ok / n, 4) if n else 0.0
+    toolcall_accuracy = round(full_ok / n, 4) if n else 0.0
+    no_tool_accuracy = round(no_tool_ok / no_tool_n, 4) if no_tool_n else 0.0
+    hallucinated_rate = (
+        round(len(hallucinated) / tool_n_llamados, 4) if tool_n_llamados else 0.0
+    )
+
+    return {
+        "n": n,
+        "tool_n": tool_n,
+        "no_tool_n": no_tool_n,
+        "name_ok": name_ok,
+        "name_accuracy": name_accuracy,
+        "full_ok": full_ok,
+        "toolcall_accuracy": toolcall_accuracy,
+        "no_tool_ok": no_tool_ok,
+        "no_tool_accuracy": no_tool_accuracy,
+        "parse_errors": parse_errors,
+        "hallucinated": hallucinated,
+        "hallucinated_rate": hallucinated_rate,
+        "backend": backend,
+    }
+
+
+def load_situations(situations_path: str) -> list[dict]:
+    """Load situations list from JSONL file."""
+    if not os.path.exists(situations_path):
+        raise SystemExit(f"Situations file not found: {situations_path}")
+
+    situations: list[dict] = []
+    with open(situations_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                situations.append(json.loads(line))
+    return situations
+
+
+def run_http_eval(
+    situations: list[dict],
+    registry: dict[str, dict],
+    base_url: str,
+    model: str,
+    limit: int | None,
+    temperature: float,
+    timeout: float,
+) -> list[dict]:
+    """Execute evaluation querying an OpenAI-compatible HTTP endpoint."""
+    if limit is not None:
+        situations = situations[:limit]
+
+    tools_schema = [
+        {
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": "",
+                "parameters": {
+                    "type": "object",
+                    "properties": {p: {"type": t} for p, t in data["props"].items()},
+                    "required": data["required"],
+                },
+            },
+        }
+        for name, data in registry.items()
+    ]
+
+    endpoint = f"{base_url.rstrip('/')}/chat/completions"
+    predictions: list[dict] = []
+
+    for sit in situations:
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": sit["situation"]}],
+            "tools": tools_schema,
+            "temperature": temperature,
+            "max_tokens": 256,
+        }
+        req_data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            endpoint,
+            data=req_data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                resp_json = json.loads(response.read().decode("utf-8"))
+                choice = resp_json.get("choices", [{}])[0]
+                msg = choice.get("message", {})
+                predictions.append({
+                    "id": sit["id"],
+                    "tool_calls": msg.get("tool_calls"),
+                    "output": msg.get("content") or "",
+                })
+        except Exception as exc:
+            # Count request_error in parse_errors by recording a malformed output
+            predictions.append({
+                "id": sit["id"],
+                "output": f"<request_error>{exc}</request_error>",
+            })
+
+    return predictions
+
+
+def run_selfcheck(registry: dict[str, dict], situations_path: str) -> None:
+    """Run in-memory selfcheck with 6 synthetic predictions and assert exact metric counts."""
+    # Build 6 controlled situations: 4 tool, 2 no_tool
+    test_situations = [
+        {
+            "id": "hx-001",
+            "kind": "tool",
+            "situation": "Corre git status.",
+            "expect": {"name": "run_command", "required": {"command": "git status"}},
+        },
+        {
+            "id": "hx-002",
+            "kind": "tool",
+            "situation": "Lee docs/plan.md.",
+            "expect": {"name": "read_file", "required": {"path": "docs/plan.md"}},
+        },
+        {
+            "id": "hx-003",
+            "kind": "tool",
+            "situation": "Guarda el reporte.",
+            "expect": {"name": "write_file", "required": {"path": "report.txt", "content": {"contains": "ok"}}},
+        },
+        {
+            "id": "hx-004",
+            "kind": "tool",
+            "situation": "Borra el archivo tmp.log.",
+            "expect": {"name": "delete_file", "required": {"path": "tmp.log"}},
+        },
+        {
+            "id": "hx-005",
+            "kind": "no_tool",
+            "situation": "Que opinas del clima?",
+            "expect": {"name": None, "required": {}},
+        },
+        {
+            "id": "hx-006",
+            "kind": "no_tool",
+            "situation": "Buenas tardes.",
+            "expect": {"name": None, "required": {}},
+        },
+    ]
+
+    # 6 synthetic predictions:
+    # 1. Perfecta
+    # 2. Nombre equivocado del registro (run_command instead of read_file)
+    # 3. Nombre inventado read_doc
+    # 4. Falta un required (empty arguments)
+    # 5. no_tool bien (plain text)
+    # 6. no_tool llamando una tool (calls get_current_time)
+    test_predictions = [
+        {
+            "id": "hx-001",
+            "tool_calls": [{"name": "run_command", "arguments": {"command": "git status"}}],
+        },
+        {
+            "id": "hx-002",
+            "tool_calls": [{"name": "run_command", "arguments": {"command": "cat docs/plan.md"}}],
+        },
+        {
+            "id": "hx-003",
+            "tool_calls": [{"name": "read_doc", "arguments": {"path": "report.txt"}}],
+        },
+        {
+            "id": "hx-004",
+            "tool_calls": [{"name": "delete_file", "arguments": {}}],
+        },
+        {
+            "id": "hx-005",
+            "output": "El clima parece bastante agradable hoy en la ciudad.",
+        },
+        {
+            "id": "hx-006",
+            "tool_calls": [{"name": "get_current_time", "arguments": {}}],
+        },
+    ]
+
+    report = score_predictions(
+        test_situations, test_predictions, registry, backend="predictions"
+    )
+
+    try:
+        assert report["n"] == 6, f"Expected n=6, got {report['n']}"
+        assert report["tool_n"] == 4, f"Expected tool_n=4, got {report['tool_n']}"
+        assert report["no_tool_n"] == 2, f"Expected no_tool_n=2, got {report['no_tool_n']}"
+        assert report["name_ok"] == 3, f"Expected name_ok=3, got {report['name_ok']}"
+        assert report["name_accuracy"] == 0.5, f"Expected name_acc=0.5, got {report['name_accuracy']}"
+        assert report["full_ok"] == 2, f"Expected full_ok=2, got {report['full_ok']}"
+        assert report["toolcall_accuracy"] == 0.3333, f"Expected toolcall_acc=0.3333, got {report['toolcall_accuracy']}"
+        assert report["no_tool_ok"] == 1, f"Expected no_tool_ok=1, got {report['no_tool_ok']}"
+        assert report["no_tool_accuracy"] == 0.5, f"Expected no_tool_acc=0.5, got {report['no_tool_accuracy']}"
+        assert report["parse_errors"] == 0, f"Expected parse_errors=0, got {report['parse_errors']}"
+        assert len(report["hallucinated"]) == 1, f"Expected 1 hallucinated, got {len(report['hallucinated'])}"
+        assert report["hallucinated"][0]["name"] == "read_doc", f"Expected hallucinated read_doc, got {report['hallucinated']}"
+        assert report["hallucinated_rate"] == 0.2, f"Expected hallucinated_rate=0.2, got {report['hallucinated_rate']}"
+    except AssertionError as exc:
+        print(f"Selfcheck assertion failed: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    print("selfcheck ok")
+    sys.exit(0)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Evaluate harness toolcalling accuracy for Kateto.")
+    parser.add_argument(
+        "--situations",
+        default="evals/toolcall_harness/situations.jsonl",
+        help="Path to situations.jsonl",
+    )
+    parser.add_argument(
+        "--tools-py",
+        default="/home/chaos/proyectos/OpenaiBuildWeek/Kateto/kateto/voices/tools.py",
+        help="Path to voices/tools.py",
+    )
+    parser.add_argument(
+        "--predictions",
+        default=None,
+        help="Path to model predictions JSONL",
+    )
+    parser.add_argument(
+        "--base-url",
+        default=None,
+        help="Base URL for OpenAI-compatible endpoint",
+    )
+    parser.add_argument(
+        "--model",
+        default="kateto",
+        help="Model name for HTTP requests",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Limit number of situations evaluated",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.0,
+        help="Temperature for HTTP generation",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=120.0,
+        help="Timeout in seconds for HTTP requests",
+    )
+    parser.add_argument(
+        "--out",
+        default=None,
+        help="Optional output file path for evaluation report JSON",
+    )
+    parser.add_argument(
+        "--fail-on-hallucination",
+        action="store_true",
+        help="Exit with code 1 if hallucinated_rate > 0",
+    )
+    parser.add_argument(
+        "--selfcheck",
+        action="store_true",
+        help="Run synthetic in-memory selfcheck and verify metric scoring",
+    )
+
+    args = parser.parse_args()
+
+    registry = load_registry(args.tools_py)
+
+    if args.selfcheck:
+        run_selfcheck(registry, args.situations)
+        return
+
+    if not args.predictions and not args.base_url:
+        parser.print_help(sys.stderr)
+        sys.exit(2)
+
+    situations = load_situations(args.situations)
+    if args.limit is not None:
+        situations = situations[: args.limit]
+
+    if args.predictions:
+        backend = "predictions"
+        predictions = []
+        with open(args.predictions, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    predictions.append(json.loads(line))
+    else:
+        backend = "http"
+        predictions = run_http_eval(
+            situations,
+            registry,
+            args.base_url,
+            args.model,
+            args.limit,
+            args.temperature,
+            args.timeout,
+        )
+
+    report = score_predictions(situations, predictions, registry, backend=backend)
+
+    report_json = json.dumps(report, ensure_ascii=False, separators=(",", ":"))
+    print(report_json)
+
+    if args.out:
+        out_path = Path(args.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(report_json + "\n")
+
+    if args.fail_on-hallucination if hasattr(args, "fail_on-hallucination") else args.fail_on_hallucination:
+        if report["hallucinated_rate"] > 0:
+            sys.exit(1)
+
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
