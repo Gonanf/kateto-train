@@ -423,6 +423,23 @@ def main() -> int:
         Path(args.report).write_text(
             report_md(rows, pairs, summ, contrast, ckpt, manifest, outdir, xcheck), encoding="utf-8")
         print(f"reporte -> {args.report}")
+
+    tot = summ["total"]
+    pares = tot["pares"]
+    pares_coherentes = tot["pares_coherentes_en_ambos"]
+    coherentes_pct = round(100.0 * pares_coherentes / pares, 2) if pares else 0.0
+    por_set = {
+        s: (round(100.0 * summ[s]["pares_coherentes_en_ambos"] / summ[s]["pares"], 2)
+            if summ[s]["pares"] else 0.0)
+        for s in sorted(summ) if s != "total"
+    }
+    metric_out = {
+        "coherentes_pct": coherentes_pct,
+        "pares": pares,
+        "pares_coherentes": pares_coherentes,
+        "por_set": por_set,
+    }
+    print(json.dumps(metric_out, ensure_ascii=False))
     return 0
 
 
