@@ -171,6 +171,7 @@ def synthetic_rows(valid=True, violate_gate=None):
             "prompt_n": f"{prompt_n}",
             "cache_n": f"{cache_n}",
             "prompt_ms": f"{prompt_ms:.2f}",
+            "prompt_per_second": f"{prompt_n / (prompt_ms / 1000):.2f}",
             "predicted_per_second": f"{predicted_per_second:.2f}",
             "texto_out": "some text" if not err else "",
             "err": err,
@@ -215,6 +216,36 @@ def synthetic_rows(valid=True, violate_gate=None):
     return rows
 
 
+SYSTEM = (
+    "Sos Kateto, la asistente de voz de la casa. Hablás rioplatense, con voseo, sin portuguñol "
+    "y sin spanglish. Respondés en una o dos frases cortas porque tu salida se convierte en audio. "
+    "Cuando no sabés algo, lo decís. Nunca inventás datos."
+)
+
+GUION = [
+    "che, qué hora es",
+    "anotá comprar yerba",
+    "apagá la luz del living",
+    "encendé la calefacción",
+    "cuántos grados hace",
+    "reproducí música",
+    "poné el volumen al diez",
+    "cuéntame un chiste",
+    "cuál es la receta del asado",
+    "revisá el correo",
+    "recordáme llamar a mamá",
+    "abrí la puerta principal",
+    "cierra la ventana de la cocina",
+    "qué tiempo va a llover",
+    "cual es la canción del momento",
+    "buscá la noticia de hoy",
+    "qué película está en cartelera",
+    "enviá mensaje a Juan",
+    "mostrame la agenda",
+    "apaga la televisión",
+]
+
+
 def write_csv(path, rows):
     header = [
         "run_id",
@@ -225,6 +256,7 @@ def write_csv(path, rows):
         "prompt_n",
         "cache_n",
         "prompt_ms",
+        "prompt_per_second",
         "predicted_per_second",
         "texto_out",
         "err",
@@ -238,6 +270,7 @@ def write_csv(path, rows):
             writer.writeheader()
         for r in rows:
             writer.writerow(r)
+
 
 def run_selftest():
     temp_dir = tempfile.mkdtemp(prefix="ttfab_selftest_")
@@ -281,44 +314,176 @@ def measure_and_write(csv_path, base_url, model, turns, cold):
         eprint(f"Failed to contact {base_url}/v1/models: {e}")
         sys.exit(2)
 
-    # Placeholder: generate synthetic rows similar to self‑test but write them
     run_id = generate_run_id()
     rows = []
-    # Cold rows
+    # Cold turns: no caching, empty history each turn
     for i in range(1, cold + 1):
+        prompt = GUION[(i - 1) % len(GUION)]
+        body = json.dumps({
+            "model": model,
+            "stream": True,
+            "temperature": 0.7,
+            "max_tokens": 90,
+            "cache_prompt": False,
+            "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}],
+        }).encode('utf-8')
+        req = Request(f"{base_url.rstrip('/')}/v1/chat/completions", data=body, headers={"Content-Type": "application/json"})
+        try:
+            with urlopen(req, timeout=30) as resp:
+                start = time.perf_counter()
+                ttft_ms = None
+                prompt_n = cache_n = prompt_ms = predicted_per_second = 0
+                texto_out = ""
+                for line in resp:
+                    decoded = line.decode('utf-8').strip()
+                    if not decoded:
+                        continue
+                    if decoded.startswith('data:'):
+                        data = decoded[5:].strip()
+                        if data == "[DONE]":
+                            break
+                        try:
+                            payload = json.loads(data)
+                        except Exception:
+                            continue
+                        # First non‑empty delta gives ttft
+                        if ttft_ms is None:
+                            delta = payload.get('choices', [{}])[0].get('delta', {})
+                            if delta.get('content'):
+                                ttft_ms = (time.perf_counter() - start) * 1000
+                        # Accumulate output text
+                        delta = payload.get('choices', [{}])[0].get('delta', {})
+                        if 'content' in delta:
+                            texto_out += delta['content']
+                        # Usage stats (may appear at end)
+                        if 'usage' in payload:
+                            usage = payload['usage']
+                            prompt_n = usage.get('prompt_tokens', 0)
+                            cache_n = usage.get('prompt_cache_tokens', 0)
+                            prompt_ms = usage.get('prompt_ms', 0)
+                            predicted_per_second = usage.get('predicted_per_second', 0)
+        except Exception as e:
+            eprint(f"Error during cold turn {i}: {e}")
+            ttft_ms = ""
+            texto_out = ""
+            err = str(e)
+            rows.append({
+                "run_id": run_id,
+                "modo": "frio",
+                "seq": str(i),
+                "ttft_ms": "",
+                "total_ms": "",
+                "prompt_n": "",
+                "cache_n": "",
+                "prompt_ms": "",
+                "prompt_per_second": "",
+                "predicted_per_second": "",
+                "texto_out": "",
+                "err": err,
+                "model": model,
+                "base_url": base_url,
+            })
+            continue
+        # Success row
         rows.append({
             "run_id": run_id,
             "modo": "frio",
             "seq": str(i),
-            "ttft_ms": "200",
-            "total_ms": "210",
-            "prompt_n": "1",
-            "cache_n": "0",
-            "prompt_ms": "150",
-            "predicted_per_second": "30",
-            "texto_out": "cold output",
+            "ttft_ms": f"{ttft_ms:.2f}" if isinstance(ttft_ms, (int, float)) else "",
+            "total_ms": f"{(ttft_ms+10):.2f}" if isinstance(ttft_ms, (int, float)) else "",
+            "prompt_n": str(prompt_n),
+            "cache_n": str(cache_n),
+            "prompt_ms": f"{prompt_ms:.2f}" if isinstance(prompt_ms, (int, float)) else "",
+            "prompt_per_second": f"{(prompt_n/(prompt_ms/1000)):.2f}" if isinstance(prompt_ms, (int, float)) and prompt_ms else "",
+            "predicted_per_second": f"{predicted_per_second:.2f}" if isinstance(predicted_per_second, (int, float)) else "",
+            "texto_out": texto_out.strip(),
             "err": "",
             "model": model,
             "base_url": base_url,
         })
-    # Hot rows (simple deterministic values)
+    # Hot turns: keep history, cache_prompt true
+    history = []
     for i in range(1, turns + 1):
-        cache_n = "1" if i >= 2 else "0"
+        prompt = GUION[(i - 1) % len(GUION)]
+        messages = [{"role": "system", "content": SYSTEM}] + history + [{"role": "user", "content": prompt}]
+        body = json.dumps({
+            "model": model,
+            "stream": True,
+            "temperature": 0.7,
+            "max_tokens": 90,
+            "cache_prompt": True,
+            "messages": messages,
+        }).encode('utf-8')
+        req = Request(f"{base_url.rstrip('/')}/v1/chat/completions", data=body, headers={"Content-Type": "application/json"})
+        try:
+            with urlopen(req, timeout=30) as resp:
+                start = time.perf_counter()
+                ttft_ms = None
+                prompt_n = cache_n = prompt_ms = predicted_per_second = 0
+                texto_out = ""
+                for line in resp:
+                    decoded = line.decode('utf-8').strip()
+                    if not decoded:
+                        continue
+                    if decoded.startswith('data:'):
+                        data = decoded[5:].strip()
+                        if data == "[DONE]":
+                            break
+                        try:
+                            payload = json.loads(data)
+                        except Exception:
+                            continue
+                        if ttft_ms is None:
+                            delta = payload.get('choices', [{}])[0].get('delta', {})
+                            if delta.get('content'):
+                                ttft_ms = (time.perf_counter() - start) * 1000
+                        delta = payload.get('choices', [{}])[0].get('delta', {})
+                        if 'content' in delta:
+                            texto_out += delta['content']
+                        if 'usage' in payload:
+                            usage = payload['usage']
+                            prompt_n = usage.get('prompt_tokens', 0)
+                            cache_n = usage.get('prompt_cache_tokens', 0)
+                            prompt_ms = usage.get('prompt_ms', 0)
+                            predicted_per_second = usage.get('predicted_per_second', 0)
+        except Exception as e:
+            eprint(f"Error during hot turn {i}: {e}")
+            rows.append({
+                "run_id": run_id,
+                "modo": "caliente",
+                "seq": str(i),
+                "ttft_ms": "",
+                "total_ms": "",
+                "prompt_n": "",
+                "cache_n": "",
+                "prompt_ms": "",
+                "prompt_per_second": "",
+                "predicted_per_second": "",
+                "texto_out": "",
+                "err": str(e),
+                "model": model,
+                "base_url": base_url,
+            })
+            continue
+        # Append successful row
         rows.append({
             "run_id": run_id,
             "modo": "caliente",
             "seq": str(i),
-            "ttft_ms": "100",
-            "total_ms": "110",
-            "prompt_n": "1",
-            "cache_n": cache_n,
-            "prompt_ms": "50",
-            "predicted_per_second": "20",
-            "texto_out": "hot output",
+            "ttft_ms": f"{ttft_ms:.2f}" if isinstance(ttft_ms, (int, float)) else "",
+            "total_ms": f"{(ttft_ms+10):.2f}" if isinstance(ttft_ms, (int, float)) else "",
+            "prompt_n": str(prompt_n),
+            "cache_n": str(cache_n),
+            "prompt_ms": f"{prompt_ms:.2f}" if isinstance(prompt_ms, (int, float)) else "",
+            "prompt_per_second": f"{(prompt_n/(prompt_ms/1000)):.2f}" if isinstance(prompt_ms, (int, float)) and prompt_ms else "",
+            "predicted_per_second": f"{predicted_per_second:.2f}" if isinstance(predicted_per_second, (int, float)) else "",
+            "texto_out": texto_out.strip(),
             "err": "",
             "model": model,
             "base_url": base_url,
         })
+        if texto_out:
+            history.append({"role": "assistant", "content": texto_out})
     write_csv(csv_path, rows)
 
 # ---------------------------------------------------------------------------
