@@ -69,7 +69,10 @@ def procesar_candidatos(
             descartes["respuestas_insuficientes"] += 1
             continue
 
-        scored = [(reward(r)["score"], reward(r), r) for r in resps]
+        scored = []
+        for r in resps:
+            meta = reward(r)
+            scored.append((meta["score"], meta, r))
         scored.sort(key=lambda x: x[0])
 
         sc_rej, meta_rej, text_rej = scored[0]
