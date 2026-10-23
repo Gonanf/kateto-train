@@ -47,6 +47,39 @@ from rwkv_pipeline.teacher_client import TeacherClient  # noqa: E402
 
 EPS = 1e-8
 
+MARKERS = (b"<|im_user|>", b"<|im_start|>", b"<|im_dev|>", b"<|im_end|>", b"<|endoftext|>")
+
+
+def marker_spans(resp_bytes: bytes) -> List[Tuple[int, int]]:
+    """Todas las ocurrencias COMPLETAS de cada marcador, como (start, end) en bytes."""
+    spans: List[Tuple[int, int]] = []
+    for m in MARKERS:
+        start = 0
+        while True:
+            idx = resp_bytes.find(m, start)
+            if idx == -1:
+                break
+            spans.append((idx, idx + len(m)))
+            start = idx + 1
+    return spans
+
+
+def masked_positions(token_bytes: List[bytes], spans: List[Tuple[int, int]]) -> List[int]:
+    """Posiciones del response cuyo rango de bytes interseca algún marcador.
+
+    offsets[0] = 0; offsets[j+1] = offsets[j] + len(token_bytes[j]).
+    j se descarta si [offsets[j], offsets[j+1]) interseca [start, end) de algún span.
+    """
+    masked: List[int] = []
+    offset = 0
+    for j, tb in enumerate(token_bytes):
+        tok_start = offset
+        tok_end = offset + len(tb)
+        offset = tok_end
+        if any(tok_start < sp_end and sp_start < tok_end for sp_start, sp_end in spans):
+            masked.append(j)
+    return masked
+
 
 # --------------------------------------------------------------------------- #
 # Byte-string alignment + reverse KL (pure math, testable standalone)
@@ -81,7 +114,8 @@ def reverse_kl_step(student_row: torch.Tensor, student_idx: Dict[bytes, int],
     if not union:
         return torch.tensor(0.0, device=student_row.device), {
             "loss_rkl": 0.0, "coverage": 1.0, "student_entropy": 0.0,
-            "teacher_entropy": 0.0, "n_union": 0}
+            "teacher_entropy": 0.0, "n_union": 0, "teacher_mass_kept": 0.0,
+            "n_support": 0, "p_t_sum": 0.0}
 
     # P_s over U_t with grad (softmax restricted to the student's known bytes).
     s_logits = torch.full((len(union),), float("-inf"), device=student_row.device)
@@ -98,18 +132,31 @@ def reverse_kl_step(student_row: torch.Tensor, student_idx: Dict[bytes, int],
     ps = s_logp.exp()                       # sum(ps) over union == 1.0 (in [0,1])
     known_s = torch.isfinite(s_logp).to(ps.dtype)
 
-    # P_t over U_t (detached; eps floor where the teacher cannot represent).
+    # P_t over U_t (detached; renormalizado dentro del soporte truncado del teacher).
     dev = student_row.device
     t_raw = torch.tensor([teacher_logp.get(b, float("-inf")) for b in union],
                          device=dev)
-    t_logp = torch.log(F.softmax(t_raw, dim=-1) + EPS).detach()
+    finitos = t_raw[torch.isfinite(t_raw)]
+    if finitos.numel() == 0:
+        return torch.tensor(0.0, device=student_row.device), {
+            "loss_rkl": 0.0, "coverage": 0.0, "student_entropy": 0.0,
+            "teacher_entropy": 0.0, "n_union": len(union),
+            "teacher_mass_kept": 0.0, "n_support": 0, "p_t_sum": 0.0}
+
+    m = finitos.max()
+    p_t = torch.zeros_like(t_raw)
+    p_t[torch.isfinite(t_raw)] = torch.exp(finitos - m)
+    p_t = p_t / p_t.sum()            # suma exactamente 1 dentro del soporte, 0 fuera
+    t_logp = torch.where(p_t > 0, torch.log(p_t), torch.full_like(p_t, float("-inf"))).detach()
 
     teacher_known = torch.tensor(
         [b in teacher_logp for b in union], dtype=torch.float32, device=dev)
 
-    # Reverse KL over the union: terms at student-unknown entries are masked.
-    term = ps * (s_logp - t_logp)
-    term = torch.where(known_s > 0, term, torch.zeros_like(term))
+    # Reverse KL over the union: terms at student-unknown or teacher-unknown entries are masked.
+    s_logp_safe = torch.where(known_s > 0, s_logp, torch.zeros_like(s_logp))
+    t_logp_safe = torch.where(p_t > 0, t_logp, torch.zeros_like(t_logp))
+    term = ps * (s_logp_safe - t_logp_safe)
+    term = torch.where((known_s > 0) & (p_t > 0), term, torch.zeros_like(term))
     loss = term.sum().clamp(min=0.0)
 
     coverage = float((ps * teacher_known * known_s).sum().item() or 0.0)
@@ -118,15 +165,15 @@ def reverse_kl_step(student_row: torch.Tensor, student_idx: Dict[bytes, int],
     se_term = torch.where(known_s > 0, se_term, torch.zeros_like(se_term))
     student_entropy = float(se_term.sum().item())
 
-    tprobs = F.softmax(t_raw, dim=-1)
-    tlog = F.log_softmax(t_raw, dim=-1)
-    t_known = torch.isfinite(tlog).to(tlog.dtype)
-    te_term = -tprobs * tlog
-    te_term = torch.where(t_known > 0, te_term, torch.zeros_like(te_term))
+    te_term = -p_t * t_logp_safe
+    te_term = torch.where(p_t > 0, te_term, torch.zeros_like(te_term))
     teacher_entropy = float(te_term.sum().item())
+
+    teacher_mass_kept = float(torch.exp(finitos).sum().item())
     metrics = {"loss_rkl": float(loss.item()), "coverage": coverage,
                "student_entropy": student_entropy, "teacher_entropy": teacher_entropy,
-               "n_union": len(union)}
+               "n_union": len(union), "teacher_mass_kept": teacher_mass_kept,
+               "n_support": len(teacher_logp), "p_t_sum": float(p_t.sum().item())}
     return loss, metrics
 
 
@@ -175,7 +222,9 @@ def step_losses(student, tokenizer, teacher_client, prompt_text: str,
     if not roll.response_ids:
         return {"loss_rkl": 0.0, "coverage": 0.0, "student_entropy": 0.0,
                 "teacher_entropy": 0.0, "response_tokens": 0, "think": 0.0,
-                "tok_per_s": 0.0}, torch.tensor(0.0)
+                "tok_per_s": 0.0, "n_masked_special": 0, "special_masked_frac": 0.0,
+                "max_abs_t_raw": 0.0, "max_n_union": 0,
+                "min_teacher_mass_kept": 1.0}, torch.tensor(0.0)
     rows, _ = OR.rescore_response(student, tokenizer, roll.prompt_ids,
                                   roll.response_ids, ctx_len=ctx_len)
     resp_text = OR._decode_str(tokenizer, roll.response_ids)
@@ -185,9 +234,17 @@ def step_losses(student, tokenizer, teacher_client, prompt_text: str,
     else:
         tdist = _teacher_dist_router(teacher_client, roll.prefixes, teacher_topk)
 
+    token_bytes = [tokenizer.decodeBytes([i]) for i in roll.response_ids]
+    resp_bytes = b"".join(token_bytes)
+    spans = marker_spans(resp_bytes)
+    masked = set(masked_positions(token_bytes, spans))
+
     total = torch.tensor(0.0, device=rows.device)
     acc = {"loss_rkl": 0.0, "coverage": 0.0, "student_entropy": 0.0,
            "teacher_entropy": 0.0}
+    max_abs_t_raw = 0.0
+    max_n_union = 0
+    min_teacher_mass_kept = 1.0
     for j in range(rows.shape[0]):
         if not tdist[j]:
             # Teacher support empty at this position (router returned no
@@ -198,12 +255,26 @@ def step_losses(student, tokenizer, teacher_client, prompt_text: str,
             # is 0 by construction.
             acc["n_skipped_no_teacher"] = acc.get("n_skipped_no_teacher", 0) + 1
             continue
+        if j in masked:
+            continue
+        abs_t = max((abs(v) for v in tdist[j].values()), default=0.0)
+        if abs_t > max_abs_t_raw:
+            max_abs_t_raw = abs_t
         student_idx = student_topk_indexes(rows[j], top_k, tokenizer)
         loss_j, met = reverse_kl_step(rows[j], student_idx, tdist[j], top_k,
                                       tokenizer)
+        if met["n_union"] > max_n_union:
+            max_n_union = met["n_union"]
+        if met["teacher_mass_kept"] < min_teacher_mass_kept:
+            min_teacher_mass_kept = met["teacher_mass_kept"]
         total = total + loss_j
-        for k in acc:
+        for k in ("loss_rkl", "coverage", "student_entropy", "teacher_entropy"):
             acc[k] += met[k] / rows.shape[0]
+    acc["n_masked_special"] = len(masked)
+    acc["special_masked_frac"] = len(masked) / rows.shape[0] if rows.shape[0] > 0 else 0.0
+    acc["max_abs_t_raw"] = max_abs_t_raw
+    acc["max_n_union"] = max_n_union
+    acc["min_teacher_mass_kept"] = min_teacher_mass_kept
     acc["response_tokens"] = rows.shape[0]
     acc["think"] = roll.think_fraction
     acc["tok_per_s"] = roll.tok_per_s
@@ -257,7 +328,12 @@ def run_opd(ckpt_path: str, run_dir: str, prompts: List[str],
         batch = pool[: min(8, len(pool))]
         opt.zero_grad(set_to_none=True)
         agg = {"loss_rkl": 0.0, "coverage": 0.0, "student_entropy": 0.0,
-               "teacher_entropy": 0.0, "think": 0.0, "tok_per_s": 0.0}
+               "teacher_entropy": 0.0, "think": 0.0, "tok_per_s": 0.0,
+               "special_masked_frac": 0.0}
+        n_masked_special_step = 0
+        max_abs_t_raw = 0.0
+        max_n_union = 0
+        min_teacher_mass_kept = 1.0
         total = torch.tensor(0.0, device=device)
         n = 0
         for p in batch:
@@ -272,15 +348,26 @@ def run_opd(ckpt_path: str, run_dir: str, prompts: List[str],
                 continue
             total = total + t
             for k in ("loss_rkl", "coverage", "student_entropy",
-                      "teacher_entropy", "think", "tok_per_s"):
+                      "teacher_entropy", "think", "tok_per_s",
+                      "special_masked_frac"):
                 agg[k] += acc[k]
+            n_masked_special_step += acc.get("n_masked_special", 0)
+            if acc.get("max_abs_t_raw", 0.0) > max_abs_t_raw:
+                max_abs_t_raw = acc["max_abs_t_raw"]
+            if acc.get("max_n_union", 0) > max_n_union:
+                max_n_union = acc["max_n_union"]
+            if acc.get("min_teacher_mass_kept", 1.0) < min_teacher_mass_kept:
+                min_teacher_mass_kept = acc["min_teacher_mass_kept"]
             n += 1
         if n == 0:
             raise RuntimeError("all prompts failed; aborting run")
+        assert torch.isfinite(total).item(), (
+            f"loss no finito en step {step}: total={float(total):.6f} "
+            f"coverage={agg['coverage'] / n:.4f} max_n_union={max_n_union} "
+            f"max_abs_t_raw={max_abs_t_raw:.4f} n_masked_special={n_masked_special_step} "
+            f"min_teacher_mass_kept={min_teacher_mass_kept:.4f} — aborting "
+            "(no metric invented, rule 3)")
         if lr > 0:
-            assert torch.isfinite(total).item(), (
-                f"loss no finito en step {step}: {float(total)} — aborting "
-                "(no metric invented, rule 3)")
             total.backward()
             torch.nn.utils.clip_grad_norm_(trainable, 1.0)
             opt.step()
@@ -292,6 +379,8 @@ def run_opd(ckpt_path: str, run_dir: str, prompts: List[str],
                "response_tokens": acc["response_tokens"],
                "think_frac": round(agg["think"] / n, 4),
                "tok_per_s": round(agg["tok_per_s"] / n, 2),
+               "n_masked_special": n_masked_special_step,
+               "special_masked_frac": round(agg["special_masked_frac"] / n, 4),
                "wall_s": wall}
         with open(metrics_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(rec) + "\n")
@@ -352,6 +441,9 @@ def main() -> None:
     ap.add_argument("--qa", default=str(PROJECT / "data/kateto_qa.jsonl"))
     ap.add_argument("--n-prompts", type=int, default=8)
     ap.add_argument("--block-think", action="store_true")
+    ap.add_argument("--top-p", type=float, default=0.8)
+    ap.add_argument("--temperature", type=float, default=0.8)
+    ap.add_argument("--prompts-file", default=None)
     ap.add_argument("--rosa", action="store_true",
                     help="engancha ROSA al head del student (apagado por default)")
     ap.add_argument("--selftest", action="store_true")
@@ -363,16 +455,20 @@ def main() -> None:
     if not args.ckpt:
         raise SystemExit("--ckpt required unless --selftest")
 
-    prompts = []
-    with open(args.qa, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            q = json.loads(line).get("question", "")
-            if q and not q.startswith("[DRY"):
-                prompts.append(f"User: {q}\n\nAssistant:")
-    prompts = prompts[: args.n_prompts]
+    if args.prompts_file:
+        with open(args.prompts_file, encoding="utf-8") as f:
+            prompts = json.load(f)
+    else:
+        prompts = []
+        with open(args.qa, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                q = json.loads(line).get("question", "")
+                if q and not q.startswith("[DRY"):
+                    prompts.append(f"User: {q}\n\nAssistant:")
+        prompts = prompts[: args.n_prompts]
     if args.lr <= 0:
         print("Running BASELINE lr=0 (no weight update) — rule 5")
     run_opd(args.ckpt, args.run_dir, prompts, backend=args.backend,
@@ -380,6 +476,7 @@ def main() -> None:
             device=args.device, steps=args.steps, max_len=args.max_len,
             top_k=args.top_k, teacher_topk=args.teacher_topk, lr=args.lr,
             lo_r=args.lo_r, ctx_len=args.ctx_len, block_think=args.block_think,
+            temperature=args.temperature, top_p=args.top_p,
             rosa=args.rosa)
 
 
