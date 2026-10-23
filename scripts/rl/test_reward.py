@@ -1,7 +1,10 @@
 """Tests unitarios para scripts/rl/reward.py y criterios deterministas."""
 from __future__ import annotations
 
+import builtins
 import hashlib
+import importlib
+import sys
 import kateto_purge as kp
 import pytest
 
@@ -95,3 +98,23 @@ def test_monkeypatch_kateto_purge_reglas_produccion(monkeypatch):
     r = reward("Dale, mandá el comprobante y vemos qué onda con el pago.")
     assert r["score"] == 0.0
     assert "regla_falsa_produccion" in r["errores"]
+
+
+def test_falta_gen_orpo_v8_es_ruidosa():
+    real = builtins.__import__
+
+    def fake(name, *a, **k):
+        if name == "gen_orpo_v8":
+            raise ImportError("simulado")
+        return real(name, *a, **k)
+
+    builtins.__import__ = fake
+    sys.modules.pop("scripts.rl.criterios", None)
+    try:
+        with pytest.raises(ImportError):
+            importlib.import_module("scripts.rl.criterios")
+    finally:
+        builtins.__import__ = real
+        sys.modules.pop("scripts.rl.criterios", None)
+        importlib.import_module("scripts.rl.criterios")  # dejar el módulo real cargado
+

@@ -8,7 +8,7 @@ Especificación técnica de la función de recompensa (reward) de RL para Kateto
 
 Para no duplicar expresiones regulares ni divergir de los gates de producción, la capa determinista importa directamente las fuentes autoritativas:
 
-- `pipelines/kateto_purge.py:17` (`REGLAS` dict con las 6 reglas canónicas) y `pipelines/kateto_purge.py:27` (`evaluar(text) -> list[str]`):
+- `pipelines/kateto_purge.py:282` (`REGLAS` dict con las 6 reglas canónicas) y `pipelines/kateto_purge.py:298` (`evaluar(text) -> list[str]`):
   - `placeholder_degenerado` (dura)
   - `andamiaje_en_dialogo` (dura)
   - `contrato_en_dialogo` (dura)
@@ -16,10 +16,12 @@ Para no duplicar expresiones regulares ni divergir de los gates de producción, 
   - `simil_repetido` (blanda)
   - `charla_de_asistente` (dura)
   *Nota sobre la voz:* `kateto_purge.evaluar` sólo analiza turnos de la voz (`seco`). La entrada se envuelve en `wrap_turno()` simulando `<|im_start|>user...<|im_start|>seco\n{respuesta}<|im_end|>`.
-- `scripts/gen_orpo_v8.py:26` (`RX_SERVIL`): patrón de complacencia y servilismo (usado en los pares ORPO v8).
-- `scripts/gen_toolcalling_dataset.py:46, 52, 57` (`RX_TUTEO_INEQUIVOCO`, `RX_TUTEO_HOMOGRAFO`, `RX_TUTEO_GUARDA`): detección de tuteo con normalización NFC y guarda de homógrafos (`_check_tuteo()`).
+- `scripts/gen_orpo_v8.py:25` (`RX_SERVIL`): patrón de complacencia y servilismo (usado en los pares ORPO v8).
+  - Está versionado en git (commit `08f0ebd`) porque el reward depende de él.
+  - `criterios.py` lo importa duro: si falta, el import falla con error, no degrada en silencio (sin él la separación medida cae de 63.64% a 8.36%).
+- `scripts/gen_toolcalling_dataset.py:142, 145, 149` (`RX_TUTEO_INEQUIVOCO`, `RX_TUTEO_HOMOGRAFO`, `RX_TUTEO_GUARDA`): detección de tuteo con normalización NFC y guarda de homógrafos (`_check_tuteo()`).
 - `scripts/analyze_eval29_coherence.py:28` (`check_degenerate(text) -> tuple[bool, int]`): detección de bucle y repeticiones de n-gramas (heurístico de la celda 9 del kernel eval29).
-- `scripts/validate_orpo_pairs.py:32` (`check(row, lineno)`): validador estructural de pares con voseo y delimitadores ChatML.
+- `scripts/validate_orpo_pairs.py:29` (`check(row, lineno)`): validador estructural de pares con voseo y delimitadores ChatML.
 
 ---
 
@@ -27,17 +29,17 @@ Para no duplicar expresiones regulares ni divergir de los gates de producción, 
 
 | Criterio | Tipo | Penalización / Efecto | Fuente (`archivo:línea`) |
 |---|---|---|---|
-| `purga:charla_de_asistente` | Dura | `score = 0.0` | `pipelines/kateto_purge.py:27` |
-| `purga:placeholder_degenerado` | Dura | `score = 0.0` | `pipelines/kateto_purge.py:27` |
-| `purga:contrato_en_dialogo` | Dura | `score = 0.0` | `pipelines/kateto_purge.py:27` |
-| `purga:andamiaje_en_dialogo` | Dura | `score = 0.0` | `pipelines/kateto_purge.py:27` |
-| `servil` | Dura | `score = 0.0` | `scripts/gen_orpo_v8.py:26` |
-| `tuteo` | Dura | `score = 0.0` | `scripts/gen_toolcalling_dataset.py:46` |
+| `purga:charla_de_asistente` | Dura | `score = 0.0` | `pipelines/kateto_purge.py:298` |
+| `purga:placeholder_degenerado` | Dura | `score = 0.0` | `pipelines/kateto_purge.py:298` |
+| `purga:contrato_en_dialogo` | Dura | `score = 0.0` | `pipelines/kateto_purge.py:298` |
+| `purga:andamiaje_en_dialogo` | Dura | `score = 0.0` | `pipelines/kateto_purge.py:298` |
+| `servil` | Dura | `score = 0.0` | `scripts/gen_orpo_v8.py:25` |
+| `tuteo` | Dura | `score = 0.0` | `scripts/gen_toolcalling_dataset.py:142` |
 | `degenerado` | Dura | `score = 0.0` | `scripts/analyze_eval29_coherence.py:28` |
-| `centinela` | Dura | `score = 0.0` | `scripts/rl/criterios.py:101` (`<\|wait\|>`, `<\|no_response\|>`, vacío) |
-| `purga:exclamacion_prosodia` | Blanda | `-0.2` | `pipelines/kateto_purge.py:27` |
-| `purga:simil_repetido` | Blanda | `-0.2` | `pipelines/kateto_purge.py:27` |
-| `largo_fuera_de_banda` | Blanda | `-0.2` | `scripts/rl/criterios.py:117` (`< 40` o `> 900` caracteres) |
+| `centinela` | Dura | `score = 0.0` | `scripts/rl/criterios.py:126` (`<\|wait\|>`, `<\|no_response\|>`, vacío) |
+| `purga:exclamacion_prosodia` | Blanda | `-0.2` | `pipelines/kateto_purge.py:298` |
+| `purga:simil_repetido` | Blanda | `-0.2` | `pipelines/kateto_purge.py:298` |
+| `largo_fuera_de_banda` | Blanda | `-0.2` | `scripts/rl/criterios.py:147` (`< 40` o `> 900` caracteres) |
 
 - **Regla dura:** Si cualquier regla dura dispara (o cualquier regla no prevista agregada dinámicamente a `kateto_purge.REGLAS`), `score = 0.0`.
 - **Reglas blandas:** Cada regla blanda resta `0.2` desde `1.0`, con piso en `0.0`.

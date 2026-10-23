@@ -27,10 +27,10 @@ DEFAULT_PARES = "/run/media/chaos/terciario/proyectos/kateto-train/data/kateto_o
 DEFAULT_EVAL29 = "/home/chaos/kaggle-out-eval29-v5/out-v5/out-eval29/gen29_rows.jsonl"
 
 
-def validar_orpo(pares_path: Path) -> tuple[dict[str, Any], list[str]]:
+def validar_orpo(pares_path: Path) -> tuple[dict[str, Any], list[str], list[str]]:
     """Evalúa la separación score(chosen) > score(rejected) en los pares ORPO."""
     if not pares_path.exists():
-        return {"error": f"Archivo no encontrado: {pares_path}"}, [f"Falta archivo {pares_path}"]
+        return {"error": f"Archivo no encontrado: {pares_path}"}, [f"Falta archivo {pares_path}"], []
 
     lines = [l for l in pares_path.read_text(encoding="utf-8").splitlines() if l.strip()]
     rows = [json.loads(l) for l in lines]
@@ -54,6 +54,21 @@ def validar_orpo(pares_path: Path) -> tuple[dict[str, Any], list[str]]:
             except Exception:
                 pass
 
+    has_inline_cat = any(
+        r.get("cat") or r.get("categoria") or r.get("_cat") for r in rows
+    )
+    if not has_inline_cat:
+        if not meta_rows:
+            raise SystemExit(f"falta metadata de categorías junto a {pares_path}")
+        if len(meta_rows) != len(rows):
+            raise SystemExit(
+                f"metadata desalineada: {len(rows)} pares vs {len(meta_rows)} filas de metadata"
+            )
+    elif meta_rows and len(meta_rows) != len(rows):
+        raise SystemExit(
+            f"metadata desalineada: {len(rows)} pares vs {len(meta_rows)} filas de metadata"
+        )
+
     by_cat: dict[str, dict[str, Any]] = {}
     total_pares = len(rows)
     total_separados = 0
@@ -65,7 +80,7 @@ def validar_orpo(pares_path: Path) -> tuple[dict[str, Any], list[str]]:
             r.get("cat")
             or r.get("categoria")
             or r.get("_cat")
-            or (meta_rows[i].get("categoria") if i < len(meta_rows) else "general")
+            or meta_rows[i].get("categoria")
         )
         if cat not in by_cat:
             by_cat[cat] = {
@@ -107,17 +122,34 @@ def validar_orpo(pares_path: Path) -> tuple[dict[str, Any], list[str]]:
 
     # Chequeo de reglas vacuas / asesinas
     alertas: list[str] = []
+    notas: list[str] = []
     for cat, st in by_cat.items():
         tasa = st["tasa_separacion"]
-        if tasa == 100.0:
-            alertas.append(f"Regla asesina/100% separación en categoría '{cat}' (separación determinista completa)")
+        fp = st["chosen_falsos_positivos"]
+        pares = st["pares"]
+        rej_det = st["rejected_detectados"]
+        if tasa == 100.0 and fp == 0 and rej_det == pares:
+            notas.append(
+                f"separacion_determinista_perfecta: '{cat}' (100%, {pares} pares, 0 chosen falsos positivos)"
+            )
+        elif tasa == 100.0:
+            alertas.append(
+                f"posible regla asesina en '{cat}': 100% de separación pero castiga {fp} chosen"
+            )
         elif tasa == 0.0:
             if cat == "debate":
-                alertas.append("Categoría 'debate': separación 0.0% (hueco conocido sin juez de persona)")
+                notas.append(
+                    f"hueco conocido sin juez de persona: 'debate' 0% ({pares} pares)"
+                )
             else:
-                alertas.append(f"Regla vacua/0% separación en categoría '{cat}'")
+                alertas.append(f"regla vacua: '{cat}' 0% de separación")
 
-    return orpo_out, alertas
+    if total_pares and (total_chosen_fp / total_pares >= 0.5):
+        alertas.append(
+            f"reward castiga los chosen en masa: {total_chosen_fp}/{total_pares}"
+        )
+
+    return orpo_out, alertas, notas
 
 
 def validar_eval29(eval29_path: Path) -> dict[str, Any]:
@@ -176,13 +208,14 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="Imprimir un JSON único")
     args = parser.parse_args()
 
-    orpo_out, alertas = validar_orpo(Path(args.pares))
+    orpo_out, alertas, notas = validar_orpo(Path(args.pares))
     eval29_out = validar_eval29(Path(args.eval29))
 
     payload = {
         "orpo_v8": orpo_out,
         "eval29": eval29_out,
         "alertas": alertas,
+        "notas": notas,
     }
 
     # Se imprime exactamente un JSON único
