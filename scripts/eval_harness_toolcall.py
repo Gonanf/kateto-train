@@ -194,6 +194,7 @@ def score_predictions(
     full_ok = 0
     no_tool_ok = 0
     parse_errors = 0
+    missing = 0
     hallucinated: list[dict] = []
     tool_n_llamados = 0
 
@@ -211,12 +212,9 @@ def score_predictions(
 
         pred = pred_map.get(s_id)
         if pred is None:
+            missing += 1
             if kind == "tool":
                 parse_errors += 1
-            else:
-                name_ok += 1
-                full_ok += 1
-                no_tool_ok += 1
             continue
 
         called_name, called_args, has_parse_error = extract_tool_call(
@@ -263,6 +261,7 @@ def score_predictions(
         "no_tool_ok": no_tool_ok,
         "no_tool_accuracy": no_tool_accuracy,
         "parse_errors": parse_errors,
+        "missing": missing,
         "hallucinated": hallucinated,
         "hallucinated_rate": hallucinated_rate,
         "backend": backend,
@@ -353,45 +352,7 @@ def run_http_eval(
 
 def run_selfcheck(registry: dict[str, dict], situations_path: str) -> None:
     """Run in-memory selfcheck with 6 synthetic predictions and assert exact metric counts."""
-    # Build 6 controlled situations: 4 tool, 2 no_tool
-    test_situations = [
-        {
-            "id": "hx-001",
-            "kind": "tool",
-            "situation": "Corre git status.",
-            "expect": {"name": "run_command", "required": {"command": "git status"}},
-        },
-        {
-            "id": "hx-002",
-            "kind": "tool",
-            "situation": "Lee docs/plan.md.",
-            "expect": {"name": "read_file", "required": {"path": "docs/plan.md"}},
-        },
-        {
-            "id": "hx-003",
-            "kind": "tool",
-            "situation": "Guarda el reporte.",
-            "expect": {"name": "write_file", "required": {"path": "report.txt", "content": {"contains": "ok"}}},
-        },
-        {
-            "id": "hx-004",
-            "kind": "tool",
-            "situation": "Borra el archivo tmp.log.",
-            "expect": {"name": "delete_file", "required": {"path": "tmp.log"}},
-        },
-        {
-            "id": "hx-005",
-            "kind": "no_tool",
-            "situation": "Que opinas del clima?",
-            "expect": {"name": None, "required": {}},
-        },
-        {
-            "id": "hx-006",
-            "kind": "no_tool",
-            "situation": "Buenas tardes.",
-            "expect": {"name": None, "required": {}},
-        },
-    ]
+    situations = load_situations(situations_path)
 
     # 6 synthetic predictions:
     # 1. Perfecta
@@ -418,30 +379,31 @@ def run_selfcheck(registry: dict[str, dict], situations_path: str) -> None:
             "tool_calls": [{"name": "delete_file", "arguments": {}}],
         },
         {
-            "id": "hx-005",
+            "id": "hx-029",
             "output": "El clima parece bastante agradable hoy en la ciudad.",
         },
         {
-            "id": "hx-006",
+            "id": "hx-030",
             "tool_calls": [{"name": "get_current_time", "arguments": {}}],
         },
     ]
 
     report = score_predictions(
-        test_situations, test_predictions, registry, backend="predictions"
+        situations, test_predictions, registry, backend="predictions"
     )
 
     try:
-        assert report["n"] == 6, f"Expected n=6, got {report['n']}"
-        assert report["tool_n"] == 4, f"Expected tool_n=4, got {report['tool_n']}"
-        assert report["no_tool_n"] == 2, f"Expected no_tool_n=2, got {report['no_tool_n']}"
+        assert report["n"] == 36, f"Expected n=36, got {report['n']}"
+        assert report["tool_n"] == 28, f"Expected tool_n=28, got {report['tool_n']}"
+        assert report["no_tool_n"] == 8, f"Expected no_tool_n=8, got {report['no_tool_n']}"
         assert report["name_ok"] == 3, f"Expected name_ok=3, got {report['name_ok']}"
-        assert report["name_accuracy"] == 0.5, f"Expected name_acc=0.5, got {report['name_accuracy']}"
+        assert report["name_accuracy"] == 0.0833, f"Expected name_acc=0.0833, got {report['name_accuracy']}"
         assert report["full_ok"] == 2, f"Expected full_ok=2, got {report['full_ok']}"
-        assert report["toolcall_accuracy"] == 0.3333, f"Expected toolcall_acc=0.3333, got {report['toolcall_accuracy']}"
+        assert report["toolcall_accuracy"] == 0.0556, f"Expected toolcall_acc=0.0556, got {report['toolcall_accuracy']}"
         assert report["no_tool_ok"] == 1, f"Expected no_tool_ok=1, got {report['no_tool_ok']}"
-        assert report["no_tool_accuracy"] == 0.5, f"Expected no_tool_acc=0.5, got {report['no_tool_accuracy']}"
-        assert report["parse_errors"] == 0, f"Expected parse_errors=0, got {report['parse_errors']}"
+        assert report["no_tool_accuracy"] == 0.125, f"Expected no_tool_acc=0.125, got {report['no_tool_accuracy']}"
+        assert report["parse_errors"] == 24, f"Expected parse_errors=24, got {report['parse_errors']}"
+        assert report["missing"] == 30, f"Expected missing=30, got {report['missing']}"
         assert len(report["hallucinated"]) == 1, f"Expected 1 hallucinated, got {len(report['hallucinated'])}"
         assert report["hallucinated"][0]["name"] == "read_doc", f"Expected hallucinated read_doc, got {report['hallucinated']}"
         assert report["hallucinated_rate"] == 0.2, f"Expected hallucinated_rate=0.2, got {report['hallucinated_rate']}"

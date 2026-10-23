@@ -240,3 +240,51 @@ def test_6_scoring_exact():
     assert len(report["hallucinated"]) == 1
     assert report["hallucinated"][0]["name"] == "read_doc"
     assert report["hallucinated_rate"] == 0.25  # 1 hallucinated out of 4 calls
+
+
+def test_7_scoring_partial_predictions():
+    """Partial predictions for 2 ids (1 tool correct, 1 no_tool calling a tool) on the 36 situations."""
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    situations = eval_mod.load_situations(
+        str(REPO_ROOT / "evals" / "toolcall_harness" / "situations.jsonl")
+    )
+    preds = [
+        {
+            "id": "hx-001",
+            "tool_calls": [{"name": "run_command", "arguments": {"command": "git status"}}],
+        },
+        {
+            "id": "hx-030",
+            "tool_calls": [{"name": "get_current_time", "arguments": {}}],
+        },
+    ]
+    report = eval_mod.score_predictions(situations, preds, reg, backend="predictions")
+    assert report["missing"] == 34
+    assert report["no_tool_ok"] == 0
+    assert report["name_ok"] == 1
+
+
+def test_8_scoring_empty_predictions(tmp_path: Path):
+    """Empty predictions file -> parse_errors == tool_n (28), no_tool_ok == 0, missing == 36, toolcall_accuracy == 0.0."""
+    import json
+
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    situations = eval_mod.load_situations(
+        str(REPO_ROOT / "evals" / "toolcall_harness" / "situations.jsonl")
+    )
+    empty_preds_file = tmp_path / "empty_preds.jsonl"
+    empty_preds_file.write_text("", encoding="utf-8")
+
+    preds = []
+    with open(empty_preds_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                preds.append(json.loads(line))
+
+    report = eval_mod.score_predictions(situations, preds, reg, backend="predictions")
+    assert report["parse_errors"] == report["tool_n"]
+    assert report["tool_n"] == 28
+    assert report["no_tool_ok"] == 0
+    assert report["missing"] == 36
+    assert report["toolcall_accuracy"] == 0.0
