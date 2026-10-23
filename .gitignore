@@ -68,3 +68,6 @@ data/*.jsonl
 data/podcast/
 
 data/*.jsonl
+
+# symlink de venv en worktree (nunca se versiona)
+/venv
