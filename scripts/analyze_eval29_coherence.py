@@ -19,6 +19,7 @@ import argparse
 import csv
 import json
 import statistics
+import subprocess
 import sys
 from pathlib import Path
 
@@ -230,6 +231,8 @@ def report_md(rows, pairs, summ, contrast, ckpt, manifest, outdir, xcheck) -> st
     A = L.append
     A("# Coherencia por par — kernel eval29 (RWKV 2.9B merged, 2×T4)")
     A("")
+    A(f"Commit medido (`git rev-parse HEAD`): {git_head()}")
+    A("")
     A(f"Fuente: `{outdir}` (`manifest.json` + `gen29_rows.jsonl`, "
       f"{len(rows)} filas). Heurístico de degeneración: `check_degenerate()` de la celda 9 "
       "del notebook, recalculado desde el campo `text` de cada fila.")
@@ -435,6 +438,23 @@ def self_check() -> None:
     print("self-check OK")
 
 
+def git_head() -> str:
+    """Devuelve el sha del commit medido (git rev-parse HEAD) o 'desconocido' en error."""
+    try:
+        root = Path(__file__).resolve().parent.parent
+        res = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return res.stdout.strip()
+    except (subprocess.SubprocessError, OSError) as exc:
+        print(f"advertencia: fallo git rev-parse HEAD ({exc})", file=sys.stderr)
+        return "desconocido"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("outdir", nargs="?", help="dir con manifest.json + gen29_rows.jsonl")
@@ -509,6 +529,7 @@ def main() -> int:
         "finished_pct": fm["finished_pct"],
         "stop_id_end_pct": fm["stop_id_end_pct"],
         "degeneradas": fm["degeneradas"],
+        "git_head": git_head(),
     }
     print(json.dumps(metric_out, ensure_ascii=False))
     if rc_longitud != 0:
