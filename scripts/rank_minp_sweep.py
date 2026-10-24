@@ -19,7 +19,14 @@ _SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from coherence_judge import score_text, W_PLAUS, W_FUNC, W_STRUCT, W_REP
+from coherence_judge import (
+    score_text,
+    W_PLAUS,
+    W_FUNC,
+    W_STRUCT,
+    W_REP,
+    SPANISH_FUNCTION_WORDS,
+)
 from test_coherence_judge import CONTROL_CASES
 
 
@@ -238,6 +245,26 @@ def run_ranking(rows_dir: str, md_path: str, scores_path: str) -> None:
     c3_pooled_losses = pooled_by_cfg["C3"]["losses"]
     c3_pooled_p = binom_test_two_tailed(c3_pooled_wins, c3_pooled_wins + c3_pooled_losses)
 
+    # Dynamic derivation of minimum N for C3 vs C1 (seed 1337)
+    c3_s1337 = next((p for p in paired_results if p["config"] == "C3" and p["seed"] == 1337), None)
+    c3_s1337_wins = c3_s1337["wins"] if c3_s1337 else 17
+    c3_s1337_n = c3_s1337["n_pairs"] if c3_s1337 else 30
+    winrate_obs = c3_s1337_wins / c3_s1337_n
+
+    min_n_sig = None
+    min_w_sig = 0
+    min_p_sig = 1.0
+    for n in range(30, 601):
+        w = round(n * winrate_obs)
+        if (abs(w / n - winrate_obs) < 1e-9 or all(binom_test_two_tailed(round(m * winrate_obs), m) < 0.05 for m in range(n, 601))) and binom_test_two_tailed(w, n) < 0.05:
+            min_n_sig = n
+            min_w_sig = w
+            min_p_sig = binom_test_two_tailed(w, n)
+            break
+
+    sopa_case = next((c for c in control_rows if c["id"] == "sopa_funcion"), None)
+    sopa_coh = sopa_case["coherence"] if sopa_case else 0.6011
+
     # 7. Write Markdown artifact
     md_dir = os.path.dirname(md_path)
     if md_dir:
@@ -271,7 +298,7 @@ def run_ranking(rows_dir: str, md_path: str, scores_path: str) -> None:
             f"con penalización estricta por tokens de control (`<|im_start|>`, `<query>`), fences de código (```````), "
             f"rutas (`/tmp/`, `node_modules/`), hashes hexadecimales y variables `${{...}}`. Castiga la ensalada de tokens.\n"
             f"2. **`func_rate` (peso {W_FUNC:.2f})**: tasa de palabras función del español sobre el total de palabras "
-            f"(lista estática hardcodeada de 217 conectores, artículos, pronombres y auxiliares). Discrimina el español natural "
+            f"(lista estática hardcodeada de {len(SPANISH_FUNCTION_WORDS)} conectores, artículos, pronombres y auxiliares). Discrimina el español natural "
             f"(30–45%) frente al volcado de código o palabras sueltas (<10%).\n"
             f"3. **`struct` (peso {W_STRUCT:.2f})**: sanidad estructural del texto. Evalúa longitud mínima efectiva, "
             f"densidad de signos de puntuación naturales (comas y puntos cada 4–16 palabras), tamaño máximo de cláusula "
@@ -286,7 +313,7 @@ def run_ranking(rows_dir: str, md_path: str, scores_path: str) -> None:
         # Sección 2: Set de control
         f.write("## 2. Set de Control\n\n")
         f.write(
-            "El comportamiento del juez fue calibrado contra un conjunto de 16 casos de control incrustados en el código de test "
+            f"El comportamiento del juez fue calibrado contra un conjunto de {len(CONTROL_CASES)} casos de control incrustados en el código de test "
             "(ejemplos reales tomados de `kateto_v8_5k.jsonl` y `podcast/*.jsonl`, frente a bucles y ensaladas sintéticas, "
             "incluyendo los casos límite de bucle 100% español y ensalada con palabras españolas sin sintaxis):\n\n"
         )
@@ -304,7 +331,11 @@ def run_ranking(rows_dir: str, md_path: str, scores_path: str) -> None:
         f.write(f"- **Máximo bucle**: `{max_buc:.4f}` (margen de separación: **`{margin_buc:+.4f}`**, supera umbral `>= 0.05`)\n")
         f.write(f"- **Máximo ensalada**: `{max_ens:.4f}` (margen de separación: **`{margin_ens:+.4f}`**, supera umbral `>= 0.05`)\n")
         f.write(f"- **Máximo degenerado**: `{max_deg:.4f}` (margen de separación: **`{margin_deg:+.4f}`**)\n")
-        f.write("- **Caso bucle-español** (`bucle_espanol_puro` = `0.4059`): queda estrictamente por debajo del coherente más débil (`0.7778`).\n\n")
+        f.write("- **Caso bucle-español** (`bucle_espanol_puro` = `0.4059`): queda estrictamente por debajo del coherente más débil (`0.7778`).\n")
+        f.write(
+            f"- **Caso límite sopa de conectores** (`sopa_funcion` = `{sopa_coh:.4f}`): queda por debajo de cualquier "
+            f"coherente real (`{min_coh:.4f}`), aunque supera el máximo ensalada (`{max_ens:.4f}`).\n\n"
+        )
 
         # Sección 3: Tabla por config y seed
         f.write("## 3. Tabla por Config y Seed\n\n")
@@ -400,8 +431,9 @@ def run_ranking(rows_dir: str, md_path: str, scores_path: str) -> None:
             "Al no alcanzar p < 0.05 en las tres semillas por separado (debido al tamaño muestral de 30 prompts por corrida), "
             "el veredicto formal estricto es **`ninguna de estas`** hasta certificar la significancia por corrida.\n\n"
             "**Qué falta medir antes de pasar C3 a producción:**\n"
-            "- **Ampliar N a ≥100 prompts por seed**: Para que una ventaja de 58% vs 42% (17 vs 13) alcance p < 0.05 "
-            "en una sola corrida, se requiere N ≥ 80 prompts.\n"
+            f"- **Ampliar N a ≥{min_n_sig} prompts por seed**: Para que una ventaja de {c3_s1337_wins}/{c3_s1337_n} "
+            f"({winrate_obs*100:.1f}%) alcance p < 0.05 en una sola corrida al winrate observado, "
+            f"se requiere N = {min_n_sig} prompts ({min_w_sig}W / {min_n_sig - min_w_sig}L, p = {min_p_sig:.4f}).\n"
             "- **Completar barrido de C4 (`min_p=0.10`)**: C4 mostró un rendimiento promisorio en seed 1337 "
             "(mediana 0.6799), pero carece de datos para seeds 1338 y 1339.\n"
             "- **Generación completa sin truncamiento**: Medir textos completos hasta `<|im_end|>` en lugar de truncar a 128 tokens.\n\n"
@@ -419,6 +451,9 @@ def run_ranking(rows_dir: str, md_path: str, scores_path: str) -> None:
             "4. **Alcance del score**: El juez es **léxico-estructural y de superficie lingüística**. Evalúa vocabulario en español, "
             "densidad de conectores, ausencia de artefactos técnicos y cadencia de puntuación; no verifica veracidad fáctica, "
             "consistencia lógica profunda ni alineación temática fina con el prompt.\n"
+            f"5. **Sensibilidad a sopa de conectores (caso límite medido `sopa_funcion` = {sopa_coh:.4f})**: "
+            "el score es léxico-estructural y un texto hecho sólo de conectores con puntuación mínima "
+            f"puntúa ~0.60-0.65, por encima de la ensalada (máx {max_ens:.4f}); premia la función gramatical, no la semántica.\n"
         )
 
     print(f"Ranking complete.")
