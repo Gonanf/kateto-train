@@ -1,0 +1,16 @@
+# toolcall.gbnf — GENERADO por scripts/build_toolcall_gbnf.py desde harness_tool_registry. No editar a mano.
+root ::= ws cuerpo ws
+cuerpo ::= tool-call | json-plano | texto
+tool-call ::= "<tool_call>" ws "{" ws "\"name\"" ws ":" ws nombre ws "," ws "\"arguments\"" ws ":" ws objeto ws "}" ws "</tool_call>"
+json-plano ::= "{" ws "\"name\"" ws ":" ws nombre ws "," ws "\"arguments\"" ws ":" ws objeto ws "}"
+nombre ::= "\"create_skill\"" | "\"create_workflow\"" | "\"delete_file\"" | "\"disable_plugin\"" | "\"enable_plugin\"" | "\"get_current_time\"" | "\"list_events\"" | "\"list_plugins\"" | "\"read_file\"" | "\"refine_memory\"" | "\"request_generation\"" | "\"run_command\"" | "\"schedule_event\"" | "\"send_event\"" | "\"update_skill\"" | "\"update_soul\"" | "\"update_workflow\"" | "\"write_file\""
+objeto ::= "{" ws "}" | "{" ws par (ws "," ws par)* ws "}"
+par ::= cadena ws ":" ws valor
+valor ::= cadena | numero | "true" | "false" | "null" | objeto | lista
+lista ::= "[" ws "]" | "[" ws valor (ws "," ws valor)* ws "]"
+cadena ::= "\"" str-char* "\""
+str-char ::= [^"\\\x00-\x1F] | "\\" ( ["\\/bfnrt] | "u" [0-9a-fA-F]{4} )
+numero ::= "-"? ("0" | [1-9] [0-9]{0,15}) ("." [0-9]{1,15})? ([eE] [-+]? [0-9]{1,3})?
+texto ::= texto-char{8,400}
+texto-char ::= [a-zA-Z0-9 .,;:!?'"()\-]
+ws ::= [ \t\n]{0,3}

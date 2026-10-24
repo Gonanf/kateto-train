@@ -1,7 +1,8 @@
 """Evaluates harness toolcalling metric for Kateto.
 
 Measures toolcall accuracy, hallucinated tool names rate, and validates against
-the fixed BUILTIN_TOOLS registry.
+the fixed BUILTIN_TOOLS registry. Supports optional GBNF grammar constraining
+and dual-arm (control vs grammar) evaluation.
 """
 
 from __future__ import annotations
@@ -61,6 +62,14 @@ def git_head() -> str:
     except (subprocess.SubprocessError, OSError) as exc:
         print(f"advertencia: fallo git rev-parse HEAD ({exc})", file=sys.stderr)
         return "desconocido"
+
+
+def get_chat_endpoint(base_url: str) -> str:
+    """Return OpenAI-compatible chat completions endpoint URL."""
+    b_url = base_url.rstrip("/")
+    if not b_url.endswith("/v1"):
+        return f"{b_url}/v1/chat/completions"
+    return f"{b_url}/chat/completions"
 
 
 def normalize(s: str) -> str:
@@ -208,6 +217,8 @@ def extract_tool_call(
                 if isinstance(raw_args, str):
                     try:
                         args = json.loads(raw_args)
+                    except Exception:
+                        return None, None, True
                     except Exception:
                         return None, None, True
                 elif isinstance(raw_args, dict):
@@ -488,6 +499,7 @@ def run_http_eval(
     stop_mode: str = "default",
     dump_predictions: str | Path | None = None,
     max_tokens: int = 256,
+    grammar: str | None = None,
 ) -> list[dict]:
     """Execute evaluation querying an OpenAI-compatible HTTP endpoint."""
     if limit is not None:
@@ -499,7 +511,7 @@ def run_http_eval(
     if transport == "raw":
         endpoint = f"{b}/completions" if b.endswith("/v1") else f"{b}/v1/completions"
     else:
-        endpoint = f"{b}/chat/completions" if b.endswith("/v1") else f"{b}/v1/chat/completions"
+        endpoint = get_chat_endpoint(base_url)
 
     predictions: list[dict] = []
 
@@ -515,23 +527,32 @@ def run_http_eval(
             if stop_mode == "im_end_only":
                 payload["stop"] = ["<|im_end|>"]
                 payload["repeat_penalty"] = 1.0
+            if grammar is not None:
+                payload["grammar"] = grammar
 
             prompt_sha256 = hashlib.sha256(raw_prompt.encode("utf-8")).hexdigest()
         else:
             payload = {
                 "model": model,
                 "messages": [{"role": "user", "content": sit["situation"]}],
-                "tools": tools_schema,
                 "temperature": temperature,
                 "max_tokens": max_tokens,
             }
+            if grammar is not None:
+                # llama.cpp returns HTTP 400 "Cannot use custom grammar constraints with tools."
+                # In this server/template, tools are not rendered in prompt, so omitting tools
+                # produces an identical prompt while allowing custom grammar constraints.
+                payload["grammar"] = grammar
+            else:
+                payload["tools"] = tools_schema
+
             if stop_mode == "im_end_only":
                 payload["stop"] = ["<|im_end|>"]
                 payload["repeat_penalty"] = 1.0
 
             chat_prompt = {
                 "messages": payload["messages"],
-                "tools": payload["tools"],
+                "tools": payload.get("tools", []),
             }
             canon_json = json.dumps(
                 chat_prompt, sort_keys=True, ensure_ascii=False, separators=(",", ":")
@@ -547,7 +568,7 @@ def run_http_eval(
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as response:
+            with urllib.request.urlopen(req, timeout=max(timeout, 600.0)) as response:
                 resp_json = json.loads(response.read().decode("utf-8"))
                 choice = resp_json.get("choices", [{}])[0]
                 finish_reason = choice.get("finish_reason")
@@ -739,6 +760,288 @@ def build_report(
     return report
 
 
+def probe_grammar(
+    base_url: str,
+    model: str,
+    registry: dict[str, dict],
+    gbnf_content: str,
+    temperature: float,
+    timeout: float,
+) -> dict:
+    """Verify that the HTTP endpoint honors GBNF grammar as required."""
+    endpoint = get_chat_endpoint(base_url)
+
+    timeout = max(timeout, 600.0)
+    # 1. Invalid grammar probe: must return HTTP >= 400
+    payload_inv = {
+        "model": model,
+        "messages": [{"role": "user", "content": "herramientas"}],
+        "temperature": temperature,
+        "max_tokens": 16,
+        "grammar": 'root ::= "abc',
+    }
+    req_inv = urllib.request.Request(
+        endpoint,
+        data=json.dumps(payload_inv).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    invalida_status = 0
+    invalida_raw = ""
+    try:
+        with urllib.request.urlopen(req_inv, timeout=timeout) as resp:
+            invalida_status = resp.status
+            invalida_raw = resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        invalida_status = exc.code
+        invalida_raw = exc.read().decode("utf-8", errors="replace")
+    except Exception as exc:
+        invalida_raw = str(exc)
+
+    if invalida_status < 400:
+        print(
+            f"ERROR: Grammar probe invalid check failed. Expected HTTP >= 400, got {invalida_status}: {invalida_raw}",
+            file=sys.stderr,
+        )
+        sys.exit(3)
+
+    # 2. Valid grammar probe: must return 200 and conforming content
+    payload_val = {
+        "model": model,
+        "messages": [{"role": "user", "content": "herramientas"}],
+        "temperature": temperature,
+        "max_tokens": 64,
+        "grammar": gbnf_content,
+    }
+    req_val = urllib.request.Request(
+        endpoint,
+        data=json.dumps(payload_val).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    valida_status = 0
+    valida_raw = ""
+    valida_conforme = False
+    try:
+        with urllib.request.urlopen(req_val, timeout=timeout) as resp:
+            valida_status = resp.status
+            valida_raw = resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        valida_status = exc.code
+        valida_raw = exc.read().decode("utf-8", errors="replace")
+    except Exception as exc:
+        valida_raw = str(exc)
+
+    if valida_status == 200:
+        try:
+            resp_json = json.loads(valida_raw)
+            choice = resp_json.get("choices", [{}])[0]
+            msg = choice.get("message", {})
+            out_content = (msg.get("content") or "").strip()
+            pred = {
+                "id": "probe",
+                "tool_calls": msg.get("tool_calls"),
+                "output": msg.get("content") or "",
+            }
+            _, _, parse_err = extract_tool_call(pred, is_tool_expected=True)
+            if not parse_err:
+                valida_conforme = True
+            elif not out_content.startswith("{") and not out_content.startswith("<tool_call"):
+                valida_conforme = True
+            else:
+                valida_conforme = False
+        except Exception:
+            valida_conforme = False
+    else:
+        valida_conforme = False
+
+    if not valida_conforme:
+        print(
+            f"ERROR: Grammar probe valid check non-conforming. HTTP {valida_status}: {valida_raw}",
+            file=sys.stderr,
+        )
+        sys.exit(3)
+
+    # 3. Apply-template probe: verify that prompt is identical with and without tools
+    b_url = base_url.rstrip("/")
+    root_url = b_url[:-3] if b_url.endswith("/v1") else b_url
+    template_endpoint = f"{root_url}/apply-template"
+
+    probe_messages = [{"role": "user", "content": "herramientas"}]
+    payload_tmpl_no_tools = {"messages": probe_messages}
+
+    first_tool = []
+    if registry:
+        first_name = next(iter(registry))
+        data = registry[first_name]
+        first_tool = [
+            {
+                "type": "function",
+                "function": {
+                    "name": first_name,
+                    "description": "",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {p: {"type": t} for p, t in data.get("props", {}).items()},
+                        "required": data.get("required", []),
+                    },
+                },
+            }
+        ]
+    payload_tmpl_tools = {"messages": probe_messages, "tools": first_tool}
+
+    try:
+        req1 = urllib.request.Request(
+            template_endpoint,
+            data=json.dumps(payload_tmpl_no_tools).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req1, timeout=timeout) as resp1:
+            data1 = json.loads(resp1.read().decode("utf-8"))
+            prompt1 = data1.get("prompt", "")
+
+        req2 = urllib.request.Request(
+            template_endpoint,
+            data=json.dumps(payload_tmpl_tools).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req2, timeout=timeout) as resp2:
+            data2 = json.loads(resp2.read().decode("utf-8"))
+            prompt2 = data2.get("prompt", "")
+    except Exception as exc:
+        print(f"ERROR: Grammar probe /apply-template check failed: {exc}", file=sys.stderr)
+        sys.exit(3)
+
+    tools_en_prompt = (prompt1 != prompt2)
+    prompt_igual_sin_tools = (prompt1 == prompt2)
+
+    if tools_en_prompt:
+        print(
+            "ERROR: /apply-template prompts differ when tools are passed vs omitted:",
+            file=sys.stderr,
+        )
+        print(f"Prompt sin tools:\n{prompt1}", file=sys.stderr)
+        print(f"Prompt con tools:\n{prompt2}", file=sys.stderr)
+        sys.exit(3)
+
+    prompt_sha256 = hashlib.sha256(prompt1.encode("utf-8")).hexdigest()
+
+    return {
+        "invalida_status": invalida_status,
+        "valida_status": valida_status,
+        "valida_conforme": valida_conforme,
+        "endpoint": "/v1/chat/completions",
+        "prompt_igual_sin_tools": prompt_igual_sin_tools,
+        "prompt_sha256": prompt_sha256,
+        "tools_en_prompt": tools_en_prompt,
+    }
+
+
+def dump_predictions(predictions: list[dict], path: str | Path) -> None:
+    """Dump predictions to JSONL file."""
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "w", encoding="utf-8") as f:
+        for pred in predictions:
+            rec = {
+                "id": pred.get("id"),
+                "tool_calls": pred.get("tool_calls"),
+                "output": pred.get("output") or "",
+            }
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+
+def run_selfcheck_grammar(
+    registry: dict[str, dict], tools_py: str, gbnf_path: str = "scripts/toolcall.gbnf"
+) -> None:
+    """Verify GBNF grammar generation, file identity, and structural constraints."""
+    try:
+        from build_toolcall_gbnf import generate_gbnf
+    except ImportError:
+        try:
+            from build_toolcall_gbnf import build_grammar as generate_gbnf
+        except ImportError as exc:
+            print(f"Selfcheck-grammar failed: cannot import build_toolcall_gbnf: {exc}", file=sys.stderr)
+            sys.exit(1)
+
+    generated = generate_gbnf(tools_py)
+    gen_bytes = generated.encode("utf-8")
+
+    # (a) Check scripts/toolcall.gbnf exists and is byte-identical
+    p = Path(gbnf_path)
+    if not p.exists():
+        print(f"Selfcheck-grammar failed: {gbnf_path} does not exist", file=sys.stderr)
+        sys.exit(1)
+    disk_bytes = p.read_bytes()
+    if disk_bytes != gen_bytes:
+        print(f"Selfcheck-grammar failed: {gbnf_path} does not match generated content byte-for-byte", file=sys.stderr)
+        sys.exit(1)
+
+    # (b) Check that it contains all 18 tool names from the registry
+    if len(registry) < 18:
+        print(f"Selfcheck-grammar failed: expected at least 18 tools in registry, got {len(registry)}", file=sys.stderr)
+        sys.exit(1)
+    for name in registry.keys():
+        literal = f'"\\"{name}\\""'
+        if literal not in generated:
+            print(f"Selfcheck-grammar failed: tool name literal {literal} not found in grammar", file=sys.stderr)
+            sys.exit(1)
+
+    # (c) Check branches: tool-call, json-plano, texto
+    for rule in ["tool-call", "json-plano", "texto"]:
+        if f"{rule} ::=" not in generated:
+            print(f"Selfcheck-grammar failed: rule '{rule} ::=' missing in grammar", file=sys.stderr)
+            sys.exit(1)
+    cuerpo_m = re.search(r"cuerpo\s*::=\s*(.+)", generated)
+    if not cuerpo_m:
+        print("Selfcheck-grammar failed: rule 'cuerpo ::=' missing in grammar", file=sys.stderr)
+        sys.exit(1)
+    cuerpo_branches = [b.strip() for b in cuerpo_m.group(1).split("|")]
+    for rule in ["tool-call", "json-plano", "texto"]:
+        if rule not in cuerpo_branches:
+            print(f"Selfcheck-grammar failed: branch '{rule}' missing in cuerpo", file=sys.stderr)
+            sys.exit(1)
+
+    # (d) Check that texto-char does not accept '{', '}', '<'
+    texto_char_m = re.search(r"texto-char\s*::=\s*\[([^\]]+)\]", generated)
+    if not texto_char_m:
+        print("Selfcheck-grammar failed: 'texto-char ::=' character class missing", file=sys.stderr)
+        sys.exit(1)
+    raw_class = texto_char_m.group(1)
+    for forbidden in ["{", "}", "<"]:
+        if forbidden in raw_class:
+            print(f"Selfcheck-grammar failed: texto-char class contains '{forbidden}'", file=sys.stderr)
+            sys.exit(1)
+    compiled = re.compile(f"^[{raw_class}]$")
+    for forbidden in ["{", "}", "<"]:
+        if compiled.match(forbidden):
+            print(f"Selfcheck-grammar failed: texto-char accepts forbidden char '{forbidden}'", file=sys.stderr)
+            sys.exit(1)
+
+    # (e) Check str-char rule and cadena rule
+    if "str-char ::=" not in generated:
+        print("Selfcheck-grammar failed: rule 'str-char ::=' missing in grammar", file=sys.stderr)
+        sys.exit(1)
+    cadena_m = re.search(r"cadena\s*::=\s*(.+)", generated)
+    if not cadena_m or cadena_m.group(1).strip() != '"\\"" str-char* "\\""':
+        print('Selfcheck-grammar failed: rule cadena must be \'"\\"" str-char* "\\""\'', file=sys.stderr)
+        sys.exit(1)
+    str_char_m = re.search(r"str-char\s*::=\s*\[\^([^\]]+)\]", generated)
+    if not str_char_m:
+        print("Selfcheck-grammar failed: negated character class '[^...]' missing in str-char rule", file=sys.stderr)
+        sys.exit(1)
+    str_char_negated = str_char_m.group(1)
+    for forbidden in ["/", "_"]:
+        if forbidden in str_char_negated:
+            print(f"Selfcheck-grammar failed: str-char negated character class contains '{forbidden}' (must allow it)", file=sys.stderr)
+            sys.exit(1)
+
+    print("selfcheck-grammar ok")
+    sys.exit(0)
+
+
 def run_selfcheck(registry: dict[str, dict], situations_path: str) -> None:
     """Run in-memory selfcheck with 6 synthetic predictions and assert exact metric counts."""
     situations = load_situations(situations_path)
@@ -857,7 +1160,7 @@ def main() -> None:
     parser.add_argument(
         "--timeout",
         type=float,
-        default=120.0,
+        default=300.0,
         help="Timeout in seconds for HTTP requests",
     )
     parser.add_argument(
@@ -892,6 +1195,26 @@ def main() -> None:
         action="store_true",
         help="Run synthetic in-memory selfcheck and verify metric scoring",
     )
+    parser.add_argument(
+        "--grammar",
+        default="none",
+        help="Grammar to apply: 'none' or path to GBNF file (default: none)",
+    )
+    parser.add_argument(
+        "--gbnf",
+        default="scripts/toolcall.gbnf",
+        help="Path to GBNF grammar file for --grammar-both (default: scripts/toolcall.gbnf)",
+    )
+    parser.add_argument(
+        "--grammar-both",
+        action="store_true",
+        help="Run both control and grammar arms in the same process",
+    )
+    parser.add_argument(
+        "--selfcheck-grammar",
+        action="store_true",
+        help="Verify GBNF grammar generation and constraints",
+    )
 
     args = parser.parse_args()
 
@@ -901,6 +1224,10 @@ def main() -> None:
         run_selfcheck(registry, args.situations)
         return
 
+    if args.selfcheck_grammar:
+        run_selfcheck_grammar(registry, args.tools_py, args.gbnf)
+        return
+
     if not args.predictions and not args.base_url:
         parser.print_help(sys.stderr)
         sys.exit(2)
@@ -908,6 +1235,160 @@ def main() -> None:
     situations = load_situations(args.situations)
     if args.limit is not None:
         situations = situations[: args.limit]
+
+    servido = modelo_servido(args.base_url)
+    head_sha = git_head()
+    now_iso = datetime.now(timezone(timedelta(hours=-3))).isoformat(timespec="seconds")
+    base_url_str = args.base_url if args.base_url is not None else "n/a"
+
+    if args.grammar_both:
+        if not args.base_url:
+            print("Error: --grammar-both requires --base-url", file=sys.stderr)
+            sys.exit(2)
+
+        gbnf_file_path = Path(args.gbnf)
+        if not gbnf_file_path.exists():
+            print(f"Error: GBNF file not found: {args.gbnf}", file=sys.stderr)
+            sys.exit(1)
+        gbnf_content = gbnf_file_path.read_text(encoding="utf-8")
+        grammar_sha256 = hashlib.sha256(gbnf_content.encode("utf-8")).hexdigest()
+
+        # Probe grammar once before measuring
+        probe_res = probe_grammar(
+            args.base_url,
+            args.model,
+            registry,
+            gbnf_content,
+            args.temperature,
+            args.timeout,
+        )
+
+        # Arm 1: Control (grammar absent)
+        preds_control = run_http_eval(
+            situations,
+            registry,
+            args.base_url,
+            args.model,
+            args.limit,
+            args.temperature,
+            args.timeout,
+            grammar=None,
+        )
+        rep_control = score_predictions(situations, preds_control, registry, backend="http")
+        rep_control.update({
+            "modelo_pedido": args.model,
+            "modelo_servido": servido,
+            "base_url": base_url_str,
+            "medido": now_iso,
+            "cmd": " ".join(sys.argv),
+            "git_head": head_sha,
+            "grammar_aplicada": False,
+            "grammar_sha256": None,
+            "grammar_file": None,
+        })
+        rep_control.update(compute_extra_metrics(situations, preds_control, registry))
+
+        # Arm 2: Gramatica (grammar present)
+        preds_grammar = run_http_eval(
+            situations,
+            registry,
+            args.base_url,
+            args.model,
+            args.limit,
+            args.temperature,
+            args.timeout,
+            grammar=gbnf_content,
+        )
+        rep_grammar = score_predictions(situations, preds_grammar, registry, backend="http")
+        rep_grammar.update({
+            "modelo_pedido": args.model,
+            "modelo_servido": servido,
+            "base_url": base_url_str,
+            "medido": now_iso,
+            "cmd": " ".join(sys.argv),
+            "git_head": head_sha,
+            "grammar_aplicada": True,
+            "grammar_sha256": grammar_sha256,
+            "grammar_file": str(args.gbnf),
+            "grammar_endpoint": "/v1/chat/completions",
+            "grammar_probe": probe_res,
+            "tools_omitidas": True,
+            "motivo_tools": "el build devuelve 400 'Cannot use custom grammar constraints with tools'; /apply-template prueba que el prompt es identico sin tools",
+        })
+        rep_grammar.update(compute_extra_metrics(situations, preds_grammar, registry))
+
+        if args.dump_predictions:
+            dump_p = Path(args.dump_predictions)
+            ctrl_dump = dump_p.parent / f"{dump_p.stem}-control{dump_p.suffix}"
+            gram_dump = dump_p.parent / f"{dump_p.stem}-gramatica{dump_p.suffix}"
+            dump_predictions(preds_control, ctrl_dump)
+            dump_predictions(preds_grammar, gram_dump)
+
+        delta_toolcall_accuracy = round(
+            rep_grammar["toolcall_accuracy"] - rep_control["toolcall_accuracy"], 4
+        )
+        report = {
+            "delta_toolcall_accuracy": delta_toolcall_accuracy,
+            "n": rep_grammar["n"],
+            "n_llamadas_tools": rep_grammar["n_llamadas_tools"],
+            "toolcall_accuracy": rep_grammar["toolcall_accuracy"],
+            "parse_errors": rep_grammar["parse_errors"],
+            "grammar_aplicada": True,
+            "grammar_sha256": grammar_sha256,
+            "modelo_pedido": args.model,
+            "modelo_servido": servido,
+            "base_url": base_url_str,
+            "medido": now_iso,
+            "cmd": " ".join(sys.argv),
+            "git_head": head_sha,
+            "grammar_endpoint": "/v1/chat/completions",
+            "grammar_probe": probe_res,
+            "tools_omitidas": True,
+            "motivo_tools": "el build devuelve 400 'Cannot use custom grammar constraints with tools'; /apply-template prueba que el prompt es identico sin tools",
+            "brazos": {
+                "control": rep_control,
+                "gramatica": rep_grammar,
+            },
+        }
+
+        report_json = json.dumps(report, ensure_ascii=False, separators=(",", ":"))
+        print(report_json)
+
+        if args.out:
+            out_path = Path(args.out)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(out_path, "w", encoding="utf-8") as f:
+                f.write(report_json + "\n")
+
+        if args.fail_on_hallucination:
+            if rep_grammar.get("hallucinated_rate", 0.0) > 0:
+                sys.exit(1)
+
+        sys.exit(0)
+
+    # Single arm execution
+    use_grammar = args.grammar != "none"
+    gbnf_content = None
+    grammar_sha256 = None
+    probe_res = None
+
+    if use_grammar:
+        gbnf_file_path = Path(args.grammar)
+        if not gbnf_file_path.exists():
+            print(f"Error: Grammar file not found: {args.grammar}", file=sys.stderr)
+            sys.exit(1)
+        gbnf_content = gbnf_file_path.read_text(encoding="utf-8")
+        grammar_sha256 = hashlib.sha256(gbnf_content.encode("utf-8")).hexdigest()
+
+        if args.base_url:
+            probe_res = probe_grammar(
+                args.base_url,
+                args.model,
+                registry,
+                gbnf_content,
+                args.temperature,
+                args.timeout,
+            )
 
     if args.predictions:
         backend = "predictions"
@@ -945,6 +1426,7 @@ def main() -> None:
             transport=args.transport,
             stop_mode=args.stop_mode,
             dump_predictions=args.dump_predictions,
+            grammar=gbnf_content if use_grammar else None,
         )
 
     report = build_report(
@@ -959,6 +1441,23 @@ def main() -> None:
         cmd=" ".join(sys.argv),
     )
 
+    report.update({
+        "grammar_aplicada": use_grammar,
+        "grammar_sha256": grammar_sha256 if use_grammar else None,
+        "grammar_file": str(args.grammar) if use_grammar else None,
+    })
+
+    if use_grammar and probe_res is not None:
+        report["grammar_endpoint"] = "/v1/chat/completions"
+        report["grammar_probe"] = probe_res
+
+    if use_grammar:
+        report["tools_omitidas"] = True
+        report["motivo_tools"] = (
+            "el build devuelve 400 'Cannot use custom grammar constraints with tools'; "
+            "/apply-template prueba que el prompt es identico sin tools"
+        )
+
     report_json = json.dumps(report, ensure_ascii=False, separators=(",", ":"))
     print(report_json)
 
@@ -968,8 +1467,8 @@ def main() -> None:
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(report_json + "\n")
 
-    if args.fail_on-hallucination if hasattr(args, "fail_on-hallucination") else args.fail_on_hallucination:
-        if report["hallucinated_rate"] > 0:
+    if args.fail_on_hallucination:
+        if report.get("hallucinated_rate", 0.0) > 0:
             sys.exit(1)
 
     sys.exit(0)
