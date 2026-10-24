@@ -352,83 +352,103 @@ def measure_and_write(csv_path, base_url, model, turns, cold, timeout=30):
             "cache_prompt": False,
             "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}],
         }).encode('utf-8')
-        req = Request(f"{base_url.rstrip('/')}/v1/chat/completions", data=body, headers={"Content-Type": "application/json"})
-        t0 = time.perf_counter()
-        try:
-            with urlopen(req, timeout=timeout) as resp:
-                ttft_ms = None
-                prompt_n = cache_n = prompt_ms = predicted_per_second = prompt_per_second = 0
-                texto_out = ""
-                for line in resp:
-                    decoded = line.decode('utf-8').strip()
-                    if not decoded:
-                        continue
-                    if decoded.startswith('data:'):
-                        data = decoded[5:].strip()
-                        if data == "[DONE]":
-                            break
-                        try:
-                            payload = json.loads(data)
-                        except Exception:
+        for attempt in range(2):
+            req = Request(f"{base_url.rstrip('/')}/v1/chat/completions", data=body, headers={"Content-Type": "application/json"})
+            t0 = time.perf_counter()
+            try:
+                with urlopen(req, timeout=timeout) as resp:
+                    ttft_ms = None
+                    prompt_n = cache_n = prompt_ms = predicted_per_second = prompt_per_second = 0
+                    texto_out = ""
+                    for line in resp:
+                        decoded = line.decode('utf-8').strip()
+                        if not decoded:
                             continue
-                        # First non‑empty delta gives ttft
-                        if ttft_ms is None:
+                        if decoded.startswith('data:'):
+                            data = decoded[5:].strip()
+                            if data == "[DONE]":
+                                break
+                            try:
+                                payload = json.loads(data)
+                            except Exception:
+                                continue
+                            # First non‑empty delta gives ttft
+                            if ttft_ms is None:
+                                delta = payload.get('choices', [{}])[0].get('delta', {})
+                                piece = delta.get("content") or ""
+                                if piece:
+                                    ttft_ms = (time.perf_counter() - t0) * 1000
+                            # Accumulate output text
                             delta = payload.get('choices', [{}])[0].get('delta', {})
                             piece = delta.get("content") or ""
                             if piece:
-                                ttft_ms = (time.perf_counter() - t0) * 1000
-                        # Accumulate output text
-                        delta = payload.get('choices', [{}])[0].get('delta', {})
-                        piece = delta.get("content") or ""
-                        if piece:
-                            texto_out += piece
-                        if "timings" in payload:
-                            timings = payload["timings"]
-                            prompt_n = timings.get("prompt_n", 0)
-                            cache_n = timings.get("cache_n", 0)
-                            prompt_ms = timings.get("prompt_ms", 0)
-                            predicted_per_second = timings.get("predicted_per_second", 0)
-                            prompt_per_second = timings.get("prompt_per_second", 0)
-                total_ms = (time.perf_counter() - t0) * 1000
-        except Exception as e:
-            eprint(f"Error during cold turn {i}: {e}")
-            ttft_ms = ""
-            texto_out = ""
-            err = str(e)
-            rows.append({
-                "run_id": run_id,
-                "modo": "frio",
-                "seq": str(i),
-                "ttft_ms": "",
-                "total_ms": "",
-                "prompt_n": "",
-                "cache_n": "",
-                "prompt_ms": "",
-                "prompt_per_second": "",
-                "predicted_per_second": "",
-                "texto_out": "",
-                "err": err,
-                "model": model,
-                "base_url": base_url,
-            })
-            continue
-        # Success row
-        rows.append({
-            "run_id": run_id,
-            "modo": "frio",
-            "seq": str(i),
-            "ttft_ms": f"{ttft_ms:.2f}" if isinstance(ttft_ms, (int, float)) else "",
-            "total_ms": f"{total_ms:.2f}" if isinstance(total_ms, (int, float)) else "",
-            "prompt_n": str(prompt_n),
-            "cache_n": str(cache_n),
-            "prompt_ms": f"{prompt_ms:.2f}" if isinstance(prompt_ms, (int, float)) else "",
-            "prompt_per_second": f"{prompt_per_second:.2f}" if isinstance(prompt_per_second, (int, float)) else "",
-            "predicted_per_second": f"{predicted_per_second:.2f}" if isinstance(predicted_per_second, (int, float)) else "",
-            "texto_out": texto_out.strip(),
-            "err": "",
-            "model": model,
-            "base_url": base_url,
-        })
+                                texto_out += piece
+                            if "timings" in payload:
+                                timings = payload["timings"]
+                                prompt_n = timings.get("prompt_n", 0)
+                                cache_n = timings.get("cache_n", 0)
+                                prompt_ms = timings.get("prompt_ms", 0)
+                                predicted_per_second = timings.get("predicted_per_second", 0)
+                                prompt_per_second = timings.get("prompt_per_second", 0)
+                    total_ms = (time.perf_counter() - t0) * 1000
+            except Exception as e:
+                eprint(f"Error during cold turn {i}: {e}")
+                rows.append({
+                    "run_id": run_id,
+                    "modo": "frio",
+                    "seq": str(i),
+                    "ttft_ms": "",
+                    "total_ms": "",
+                    "prompt_n": "",
+                    "cache_n": "",
+                    "prompt_ms": "",
+                    "prompt_per_second": "",
+                    "predicted_per_second": "",
+                    "texto_out": "",
+                    "err": str(e),
+                    "model": model,
+                    "base_url": base_url,
+                })
+                break
+
+            if texto_out.strip():
+                # Success row
+                rows.append({
+                    "run_id": run_id,
+                    "modo": "frio",
+                    "seq": str(i),
+                    "ttft_ms": f"{ttft_ms:.2f}" if isinstance(ttft_ms, (int, float)) else "",
+                    "total_ms": f"{total_ms:.2f}" if isinstance(total_ms, (int, float)) else "",
+                    "prompt_n": str(prompt_n),
+                    "cache_n": str(cache_n),
+                    "prompt_ms": f"{prompt_ms:.2f}" if isinstance(prompt_ms, (int, float)) else "",
+                    "prompt_per_second": f"{prompt_per_second:.2f}" if isinstance(prompt_per_second, (int, float)) else "",
+                    "predicted_per_second": f"{predicted_per_second:.2f}" if isinstance(predicted_per_second, (int, float)) else "",
+                    "texto_out": texto_out.strip(),
+                    "err": "",
+                    "model": model,
+                    "base_url": base_url,
+                })
+                break
+            else:
+                if attempt == 0:
+                    continue
+                rows.append({
+                    "run_id": run_id,
+                    "modo": "frio",
+                    "seq": str(i),
+                    "ttft_ms": "",
+                    "total_ms": "",
+                    "prompt_n": "",
+                    "cache_n": "",
+                    "prompt_ms": "",
+                    "prompt_per_second": "",
+                    "predicted_per_second": "",
+                    "texto_out": "",
+                    "err": "sin_texto",
+                    "model": model,
+                    "base_url": base_url,
+                })
     # Hot turns: keep history, cache_prompt true
     history = []
     for i in range(1, turns + 1):
@@ -442,82 +462,104 @@ def measure_and_write(csv_path, base_url, model, turns, cold, timeout=30):
             "cache_prompt": True,
             "messages": messages,
         }).encode('utf-8')
-        req = Request(f"{base_url.rstrip('/')}/v1/chat/completions", data=body, headers={"Content-Type": "application/json"})
-        t0 = time.perf_counter()
-        try:
-            with urlopen(req, timeout=timeout) as resp:
-                ttft_ms = None
-                prompt_n = cache_n = prompt_ms = predicted_per_second = prompt_per_second = 0
-                texto_out = ""
-                first_token_seen = False
-                for line in resp:
-                    decoded = line.decode('utf-8').strip()
-                    if not decoded:
-                        continue
-                    if decoded.startswith('data:'):
-                        data = decoded[5:].strip()
-                        if data == "[DONE]":
-                            break
-                        try:
-                            payload = json.loads(data)
-                        except Exception:
+        for attempt in range(2):
+            req = Request(f"{base_url.rstrip('/')}/v1/chat/completions", data=body, headers={"Content-Type": "application/json"})
+            t0 = time.perf_counter()
+            try:
+                with urlopen(req, timeout=timeout) as resp:
+                    ttft_ms = None
+                    prompt_n = cache_n = prompt_ms = predicted_per_second = prompt_per_second = 0
+                    texto_out = ""
+                    first_token_seen = False
+                    for line in resp:
+                        decoded = line.decode('utf-8').strip()
+                        if not decoded:
                             continue
-                        if not first_token_seen:
+                        if decoded.startswith('data:'):
+                            data = decoded[5:].strip()
+                            if data == "[DONE]":
+                                break
+                            try:
+                                payload = json.loads(data)
+                            except Exception:
+                                continue
+                            if not first_token_seen:
+                                delta = payload.get('choices', [{}])[0].get('delta', {})
+                                piece = delta.get("content") or ""
+                                if piece:
+                                    ttft_ms = (time.perf_counter() - t0) * 1000
+                                    first_token_seen = True
                             delta = payload.get('choices', [{}])[0].get('delta', {})
                             piece = delta.get("content") or ""
                             if piece:
-                                ttft_ms = (time.perf_counter() - t0) * 1000
-                                first_token_seen = True
-                        delta = payload.get('choices', [{}])[0].get('delta', {})
-                        piece = delta.get("content") or ""
-                        if piece:
-                            texto_out += piece
-                        if "timings" in payload:
-                            timings = payload["timings"]
-                            prompt_n = timings.get("prompt_n", 0)
-                            cache_n = timings.get("cache_n", 0)
-                            prompt_ms = timings.get("prompt_ms", 0)
-                            predicted_per_second = timings.get("predicted_per_second", 0)
-                            prompt_per_second = timings.get("prompt_per_second", 0)
-                total_ms = (time.perf_counter() - t0) * 1000
-        except Exception as e:
-            eprint(f"Error during hot turn {i}: {e}")
-            rows.append({
-                "run_id": run_id,
-                "modo": "caliente",
-                "seq": str(i),
-                "ttft_ms": "",
-                "total_ms": "",
-                "prompt_n": "",
-                "cache_n": "",
-                "prompt_ms": "",
-                "prompt_per_second": "",
-                "predicted_per_second": "",
-                "texto_out": "",
-                "err": str(e),
-                "model": model,
-                "base_url": base_url,
-            })
-            continue
-        # Append successful row
-        rows.append({
-            "run_id": run_id,
-            "modo": "caliente",
-            "seq": str(i),
-            "ttft_ms": f"{ttft_ms:.2f}" if isinstance(ttft_ms, (int, float)) else "",
-            "total_ms": f"{total_ms:.2f}" if isinstance(total_ms, (int, float)) else "",
-            "prompt_n": str(prompt_n),
-            "cache_n": str(cache_n),
-            "prompt_ms": f"{prompt_ms:.2f}" if isinstance(prompt_ms, (int, float)) else "",
-            "prompt_per_second": f"{prompt_per_second:.2f}" if isinstance(prompt_per_second, (int, float)) else "",
-            "predicted_per_second": f"{predicted_per_second:.2f}" if isinstance(predicted_per_second, (int, float)) else "",
-            "texto_out": texto_out.strip(),
-            "err": "",
-            "model": model,
-            "base_url": base_url,
-        })
-        if texto_out:
-            history.append({"role": "assistant", "content": texto_out})
+                                texto_out += piece
+                            if "timings" in payload:
+                                timings = payload["timings"]
+                                prompt_n = timings.get("prompt_n", 0)
+                                cache_n = timings.get("cache_n", 0)
+                                prompt_ms = timings.get("prompt_ms", 0)
+                                predicted_per_second = timings.get("predicted_per_second", 0)
+                                prompt_per_second = timings.get("prompt_per_second", 0)
+                    total_ms = (time.perf_counter() - t0) * 1000
+            except Exception as e:
+                eprint(f"Error during hot turn {i}: {e}")
+                rows.append({
+                    "run_id": run_id,
+                    "modo": "caliente",
+                    "seq": str(i),
+                    "ttft_ms": "",
+                    "total_ms": "",
+                    "prompt_n": "",
+                    "cache_n": "",
+                    "prompt_ms": "",
+                    "prompt_per_second": "",
+                    "predicted_per_second": "",
+                    "texto_out": "",
+                    "err": str(e),
+                    "model": model,
+                    "base_url": base_url,
+                })
+                break
+
+            if texto_out.strip():
+                # Append successful row
+                rows.append({
+                    "run_id": run_id,
+                    "modo": "caliente",
+                    "seq": str(i),
+                    "ttft_ms": f"{ttft_ms:.2f}" if isinstance(ttft_ms, (int, float)) else "",
+                    "total_ms": f"{total_ms:.2f}" if isinstance(total_ms, (int, float)) else "",
+                    "prompt_n": str(prompt_n),
+                    "cache_n": str(cache_n),
+                    "prompt_ms": f"{prompt_ms:.2f}" if isinstance(prompt_ms, (int, float)) else "",
+                    "prompt_per_second": f"{prompt_per_second:.2f}" if isinstance(prompt_per_second, (int, float)) else "",
+                    "predicted_per_second": f"{predicted_per_second:.2f}" if isinstance(predicted_per_second, (int, float)) else "",
+                    "texto_out": texto_out.strip(),
+                    "err": "",
+                    "model": model,
+                    "base_url": base_url,
+                })
+                history.append({"role": "assistant", "content": texto_out})
+                break
+            else:
+                if attempt == 0:
+                    continue
+                rows.append({
+                    "run_id": run_id,
+                    "modo": "caliente",
+                    "seq": str(i),
+                    "ttft_ms": "",
+                    "total_ms": "",
+                    "prompt_n": "",
+                    "cache_n": "",
+                    "prompt_ms": "",
+                    "prompt_per_second": "",
+                    "predicted_per_second": "",
+                    "texto_out": "",
+                    "err": "sin_texto",
+                    "model": model,
+                    "base_url": base_url,
+                })
     write_csv(csv_path, rows)
     # Run gate checks on this run_id
     all_rows = read_csv(csv_path, run_id)
