@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import unicodedata
 import urllib.error
@@ -41,6 +42,23 @@ def modelo_servido(base_url: str | None) -> str:
     except Exception:
         pass
     return "desconocido"
+
+
+def git_head() -> str:
+    """Devuelve el sha del commit medido (git rev-parse HEAD) o 'desconocido' en error."""
+    try:
+        root = Path(__file__).resolve().parent.parent
+        res = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return res.stdout.strip()
+    except (subprocess.SubprocessError, OSError) as exc:
+        print(f"advertencia: fallo git rev-parse HEAD ({exc})", file=sys.stderr)
+        return "desconocido"
 
 
 def normalize(s: str) -> str:
@@ -542,6 +560,7 @@ def main() -> None:
         "base_url": args.base_url if args.base_url is not None else "n/a",
         "medido": datetime.now(timezone(timedelta(hours=-3))).isoformat(timespec="seconds"),
         "cmd": " ".join(sys.argv),
+        "git_head": git_head(),
     })
 
     report_json = json.dumps(report, ensure_ascii=False, separators=(",", ":"))
