@@ -290,6 +290,95 @@ def score_predictions(
     }
 
 
+def compute_extra_metrics(
+    situations: list[dict],
+    predictions: list[dict] | dict[str, dict],
+    registry: dict[str, dict],
+) -> dict:
+    """Compute extra toolcall metrics: call counts, accuracy on calls, and spec parseability ceiling."""
+    if isinstance(predictions, list):
+        pred_map = {p["id"]: p for p in predictions if isinstance(p, dict) and "id" in p}
+    else:
+        pred_map = predictions
+
+    n_llamadas_tools = 0
+    full_ok_tool = 0
+    evaluables = 0
+    no_evaluables = 0
+    tool_n = 0
+    exceptions_list: list[Exception] = []
+
+    for sit in situations:
+        s_id = sit.get("id")
+        kind = sit.get("kind", "tool")
+        exp = sit.get("expect", {})
+        exp_name = exp.get("name")
+        exp_req = exp.get("required")
+
+        if kind != "no_tool":
+            tool_n += 1
+            try:
+                check_args_spec(exp_req, {})
+                evaluables += 1
+            except Exception as exc:
+                no_evaluables += 1
+                exceptions_list.append(exc)
+
+        pred = pred_map.get(s_id)
+        if pred is None:
+            continue
+
+        called_name, called_args, has_parse_error = extract_tool_call(
+            pred, is_tool_expected=(kind == "tool")
+        )
+
+        if has_parse_error:
+            continue
+
+        if called_name is not None:
+            n_llamadas_tools += 1
+
+        if kind != "no_tool":
+            if called_name is not None and called_name == exp_name:
+                try:
+                    if check_args_spec(exp_req, called_args):
+                        full_ok_tool += 1
+                except Exception:
+                    pass
+
+    accuracy_sobre_llamadas = (
+        round(full_ok_tool / n_llamadas_tools, 4) if n_llamadas_tools > 0 else 0.0
+    )
+    techo_parseable = round(evaluables / tool_n, 4) if tool_n > 0 else 0.0
+    techo_parseable_n = {
+        "evaluables": evaluables,
+        "no_evaluables": no_evaluables,
+        "tool_n": tool_n,
+    }
+
+    if no_evaluables == 0:
+        techo_parseable_motivo = (
+            f"{evaluables}/{tool_n} evaluables: expect.required es dict en todas"
+        )
+    else:
+        err_counts: dict[str, int] = {}
+        for exc in exceptions_list:
+            key = f"{type(exc).__name__}: {exc}"
+            err_counts[key] = err_counts.get(key, 0) + 1
+        sorted_errs = sorted(err_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+        err_msg = ", ".join(f"{k} (x{v})" for k, v in sorted_errs)
+        techo_parseable_motivo = f"{no_evaluables}/{tool_n} no evaluables: {err_msg}"
+
+    return {
+        "n_llamadas_tools": n_llamadas_tools,
+        "full_ok_tool": full_ok_tool,
+        "accuracy_sobre_llamadas": accuracy_sobre_llamadas,
+        "techo_parseable": techo_parseable,
+        "techo_parseable_n": techo_parseable_n,
+        "techo_parseable_motivo": techo_parseable_motivo,
+    }
+
+
 def load_situations(situations_path: str) -> list[dict]:
     """Load situations list from JSONL file."""
     if not os.path.exists(situations_path):
@@ -433,6 +522,17 @@ def run_selfcheck(registry: dict[str, dict], situations_path: str) -> None:
         print(f"Selfcheck assertion failed: {exc}", file=sys.stderr)
         sys.exit(1)
 
+    extra = compute_extra_metrics(situations, test_predictions, registry)
+    try:
+        assert extra["n_llamadas_tools"] == 5, f"Expected n_llamadas_tools=5, got {extra['n_llamadas_tools']}"
+        assert extra["full_ok_tool"] == 1, f"Expected full_ok_tool=1, got {extra['full_ok_tool']}"
+        assert extra["accuracy_sobre_llamadas"] == 0.2, f"Expected accuracy_sobre_llamadas=0.2, got {extra['accuracy_sobre_llamadas']}"
+        assert extra["techo_parseable"] == 1.0, f"Expected techo_parseable=1.0, got {extra['techo_parseable']}"
+        assert extra["techo_parseable_n"] == {"evaluables": 28, "no_evaluables": 0, "tool_n": 28}, f"Expected techo_parseable_n={{'evaluables': 28, 'no_evaluables': 0, 'tool_n': 28}}, got {extra['techo_parseable_n']}"
+    except AssertionError as exc:
+        print(f"Selfcheck assertion failed: {exc}", file=sys.stderr)
+        sys.exit(1)
+
     print("selfcheck ok")
     sys.exit(0)
 
@@ -543,6 +643,8 @@ def main() -> None:
         "medido": datetime.now(timezone(timedelta(hours=-3))).isoformat(timespec="seconds"),
         "cmd": " ".join(sys.argv),
     })
+
+    report.update(compute_extra_metrics(situations, predictions, registry))
 
     report_json = json.dumps(report, ensure_ascii=False, separators=(",", ":"))
     print(report_json)
