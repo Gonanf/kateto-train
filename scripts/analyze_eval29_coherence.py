@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 
 TURNOS = ("frio", "caliente")
+PISO_CHARS_PREVIO = 556.0  # piso viejo, informativo
 
 
 def check_degenerate(text: str) -> tuple[bool, int]:
@@ -220,7 +221,7 @@ def metrics_crosscheck(outdir: Path, pairs: list[dict]) -> dict:
     return out
 
 
-def report_md(rows, pairs, summ, contrast, ckpt, manifest, outdir, xcheck) -> str:
+def report_md(rows, pairs, summ, contrast, ckpt, manifest, outdir, xcheck, info_longitud=None) -> str:
     def line(b, label):
         return (f"| {label} | {b['pares']} | {b['pares_con_los_dos_turnos']} | "
                 f"{b['pares_con_ge1_turno_degenerado']} | {b['pares_coherentes_en_ambos']} | "
@@ -335,6 +336,29 @@ def report_md(rows, pairs, summ, contrast, ckpt, manifest, outdir, xcheck) -> st
       f"`{manifest.get('base', {}).get('sha256')}` ({manifest.get('base', {}).get('bytes')} bytes)")
     A(f"- adapter sha256: `{manifest.get('adapter_sha256')}`")
     A("")
+    if info_longitud is None:
+        _, info_longitud = evaluar_longitud(rows)
+    tot = summ["total"]
+    pares = tot["pares"]
+    pares_coherentes = tot["pares_coherentes_en_ambos"]
+    coherentes_pct = round(100.0 * pares_coherentes / pares, 2) if pares else 0.0
+    fm = _finishing_metrics(rows)
+    finished_pct = fm["finished_pct"]
+    rc_a = 0 if info_longitud["longitud_media_chars"] >= 556.0 else 1
+    rc_b = 0 if info_longitud["longitud_ok_nocerradas"] else 1
+
+    A("## 3.b Piso de longitud separado por poblacion")
+    A("")
+    A("| poblacion | filas | mediana chars | piso | ¿define el exit code? | filas bajo piso |")
+    A("|---|---|---|---|---|---|")
+    A(f"| no cerradas (`finished` falso) | {info_longitud['n_nocerradas']} | {info_longitud['longitud_media_chars_nocerradas']} | {info_longitud['piso_chars']} (`--min-chars`) | **SI** | {info_longitud['filas_bajo_piso_nocerradas']} |")
+    A(f"| cerradas (`finished` verdadero) | {info_longitud['n_cerradas']} | {info_longitud['longitud_media_chars_cerradas']} | {info_longitud['piso_chars_cerradas']} (`--min-chars-cerradas`) | no (informativo) | {info_longitud['filas_bajo_piso_cerradas']} |")
+    A(f"| todas (lectura legacy) | {len(rows)} | {info_longitud['longitud_media_chars']} | {info_longitud['piso_chars_previo']} (piso viejo) | no (informativo) | {info_longitud['filas_bajo_556_todas']} |")
+    A("")
+    A(f"- rc por variante: Variante A (piso viejo 556 sobre la mediana de todas: {info_longitud['longitud_media_chars']}) = {rc_a}; Variante B (556 sobre las no cerradas: {info_longitud['longitud_media_chars_nocerradas']}) = {rc_b}.")
+    A(f"- coherentes_pct ({coherentes_pct}) y finished_pct ({finished_pct}) son el mismo numero en las dos variantes porque el piso no entra en el calculo de pares coherentes ni en finished_pct: los dos campos salen de summarize() y _finishing_metrics(), que no miran evaluar_longitud (delta 0.0).")
+    A(f"- filas cerradas bajo el piso viejo 556: {info_longitud['filas_bajo_556_cerradas']} de {info_longitud['n_cerradas']} cerradas quedaban bajo 556 (sintoma que motivo la card).")
+    A("")
     A("## 4. Límites de la medición")
     A("")
     A("- La tabla por par cubre **sólo `chatml`**: la celda 9 fija `fmt(prompt, \"chatml\")` y escribe "
@@ -347,15 +371,63 @@ def report_md(rows, pairs, summ, contrast, ckpt, manifest, outdir, xcheck) -> st
     return "\n".join(L) + "\n"
 
 
-def evaluar_longitud(rows: list[dict], min_chars: float = 160.0) -> tuple[int, dict]:
-    chars = [r["_chars"] if "_chars" in r else len((r.get("text") or "").strip()) for r in rows]
-    longitud_media_chars = round(float(statistics.median(chars)), 2) if chars else 0.0
+def _row_chars(r: dict) -> int:
+    return r["_chars"] if "_chars" in r else len((r.get("text") or "").strip())
+
+
+def evaluar_longitud(
+    rows: list[dict],
+    min_chars: float = 160.0,
+    min_chars_cerradas: float = 64.0,
+) -> tuple[int, dict]:
+    todas = rows
+    no_cerradas = [r for r in rows if r.get("turno") in TURNOS and not r.get("finished")]
+    cerradas = [r for r in rows if r.get("turno") in TURNOS and bool(r.get("finished"))]
+
+    chars_todas = [_row_chars(r) for r in todas]
+    chars_nocerradas = [_row_chars(r) for r in no_cerradas]
+    chars_cerradas = [_row_chars(r) for r in cerradas]
+
+    longitud_media_chars = round(float(statistics.median(chars_todas)), 2) if chars_todas else 0.0
+    longitud_media_chars_nocerradas = (
+        round(float(statistics.median(chars_nocerradas)), 2) if chars_nocerradas else 0.0
+    )
+    longitud_media_chars_cerradas = (
+        round(float(statistics.median(chars_cerradas)), 2) if chars_cerradas else 0.0
+    )
+
+    # Si no_cerradas esta vacio, longitud_ok_nocerradas = False y rc = 1 (evita division por cero o mediana vacia)
+    longitud_ok_nocerradas = bool(chars_nocerradas and longitud_media_chars_nocerradas >= min_chars)
+    longitud_ok_cerradas = bool(chars_cerradas and longitud_media_chars_cerradas >= min_chars_cerradas)
     longitud_ok = bool(longitud_media_chars >= min_chars)
-    rc = 0 if longitud_ok else 1
-    return rc, {
+
+    rc = 0 if longitud_ok_nocerradas else 1
+
+    n_nocerradas = len(no_cerradas)
+    n_cerradas = len(cerradas)
+    filas_bajo_piso_nocerradas = sum(1 for c in chars_nocerradas if c < min_chars)
+    filas_bajo_piso_cerradas = sum(1 for c in chars_cerradas if c < min_chars_cerradas)
+    filas_bajo_556_todas = sum(1 for c in chars_todas if c < PISO_CHARS_PREVIO)
+    filas_bajo_556_cerradas = sum(1 for c in chars_cerradas if c < PISO_CHARS_PREVIO)
+
+    res = {
         "longitud_media_chars": longitud_media_chars,
         "longitud_ok": longitud_ok,
+        "longitud_media_chars_nocerradas": longitud_media_chars_nocerradas,
+        "longitud_ok_nocerradas": longitud_ok_nocerradas,
+        "n_nocerradas": n_nocerradas,
+        "filas_bajo_piso_nocerradas": filas_bajo_piso_nocerradas,
+        "longitud_media_chars_cerradas": longitud_media_chars_cerradas,
+        "longitud_ok_cerradas": longitud_ok_cerradas,
+        "n_cerradas": n_cerradas,
+        "filas_bajo_piso_cerradas": filas_bajo_piso_cerradas,
+        "filas_bajo_556_todas": filas_bajo_556_todas,
+        "filas_bajo_556_cerradas": filas_bajo_556_cerradas,
+        "piso_chars": min_chars,
+        "piso_chars_cerradas": min_chars_cerradas,
+        "piso_chars_previo": PISO_CHARS_PREVIO,
     }
+    return rc, res
 
 
 def _finishing_metrics(rows: list[dict]) -> dict:
@@ -418,22 +490,63 @@ def self_check() -> None:
     assert fm["degeneradas"] == 1, fm
 
     rows_largo = [
-        {"text": "x" * 200, "_chars": 200},
-        {"text": "y" * 205, "_chars": 205},
-        {"text": "z" * 195, "_chars": 195},
+        {"turno": "frio", "finished": False, "text": "x" * 200, "_chars": 200},
+        {"turno": "caliente", "finished": False, "text": "y" * 205, "_chars": 205},
+        {"turno": "frio", "finished": False, "text": "z" * 195, "_chars": 195},
     ]
     rc_largo, info_largo = evaluar_longitud(rows_largo, 160)
     assert rc_largo == 0, rc_largo
-    assert info_largo["longitud_ok"] is True, info_largo
+    assert info_largo["longitud_ok_nocerradas"] is True, info_largo
 
     rows_corto = [
-        {"text": "x" * 100, "_chars": 100},
-        {"text": "y" * 105, "_chars": 105},
-        {"text": "z" * 95, "_chars": 95},
+        {"turno": "frio", "finished": False, "text": "x" * 100, "_chars": 100},
+        {"turno": "caliente", "finished": False, "text": "y" * 105, "_chars": 105},
+        {"turno": "frio", "finished": False, "text": "z" * 95, "_chars": 95},
     ]
     rc_corto, info_corto = evaluar_longitud(rows_corto, 160)
     assert rc_corto == 1, rc_corto
-    assert info_corto["longitud_ok"] is False, info_corto
+    assert info_corto["longitud_ok_nocerradas"] is False, info_corto
+
+    # Caso 1: "el que cierra escribe corto y el que no cierra escribe largo" + fila frio_proceso
+    rows_mix = [
+        {"turno": "frio", "finished": True, "text": "a" * 80, "_chars": 80},
+        {"turno": "caliente", "finished": True, "text": "a" * 80, "_chars": 80},
+        {"turno": "frio", "finished": True, "text": "a" * 80, "_chars": 80},
+        {"turno": "frio", "finished": False, "text": "b" * 700, "_chars": 700},
+        {"turno": "caliente", "finished": False, "text": "b" * 700, "_chars": 700},
+        {"turno": "frio", "finished": False, "text": "b" * 700, "_chars": 700},
+        {"turno": "frio_proceso", "finished": False, "text": "w" * 50, "_chars": 50},
+    ]
+    rc_mix, info_mix = evaluar_longitud(rows_mix, min_chars=556, min_chars_cerradas=64)
+    assert rc_mix == 0, rc_mix
+    assert info_mix["longitud_ok_cerradas"] is True, info_mix
+    assert info_mix["longitud_ok_nocerradas"] is True, info_mix
+    assert info_mix["filas_bajo_556_cerradas"] == 3, info_mix
+    assert info_mix["filas_bajo_piso_cerradas"] == 0, info_mix
+    assert info_mix["n_cerradas"] == 3, info_mix
+    assert info_mix["n_nocerradas"] == 3, info_mix
+
+    # Caso 2: "las no cerradas se callan": 3 no cerradas de 100 chars + cerradas largas para elevar longitud_media_chars
+    rows_callan = [
+        {"turno": "frio", "finished": False, "text": "c" * 100, "_chars": 100},
+        {"turno": "caliente", "finished": False, "text": "c" * 100, "_chars": 100},
+        {"turno": "frio", "finished": False, "text": "c" * 100, "_chars": 100},
+        {"turno": "frio", "finished": True, "text": "d" * 1000, "_chars": 1000},
+        {"turno": "caliente", "finished": True, "text": "d" * 1000, "_chars": 1000},
+        {"turno": "frio", "finished": True, "text": "d" * 1000, "_chars": 1000},
+        {"turno": "caliente", "finished": True, "text": "d" * 1000, "_chars": 1000},
+        {"turno": "frio", "finished": True, "text": "d" * 1000, "_chars": 1000},
+        {"turno": "frio_proceso", "finished": False, "text": "w" * 50, "_chars": 50},
+    ]
+    rc_callan, info_callan = evaluar_longitud(rows_callan, min_chars=556, min_chars_cerradas=64)
+    assert rc_callan == 1, rc_callan
+    assert info_callan["longitud_ok_nocerradas"] is False, info_callan
+    # assert explicito de que el rc sale de las no cerradas aunque la legacy este por encima del piso
+    assert info_callan["longitud_media_chars"] >= 556, info_callan
+    assert info_callan["longitud_ok"] is True, info_callan
+    assert rc_callan == (0 if info_callan["longitud_ok_nocerradas"] else 1)
+    assert info_callan["n_nocerradas"] == 3, info_callan
+    assert info_callan["n_cerradas"] == 5, info_callan
 
     print("self-check OK")
 
@@ -462,7 +575,10 @@ def main() -> int:
     ap.add_argument("--csv", default=None)
     ap.add_argument("--report", default=None)
     ap.add_argument("--self-check", action="store_true")
-    ap.add_argument("--min-chars", type=float, default=160)
+    ap.add_argument("--min-chars", type=float, default=160,
+                    help="piso sobre la mediana de las filas no cerradas (define exit code)")
+    ap.add_argument("--min-chars-cerradas", type=float, default=64.0,
+                    help="piso informativo sobre las filas que SI cerraron; nunca define el exit code")
     args = ap.parse_args()
     if args.self_check:
         self_check()
@@ -496,12 +612,15 @@ def main() -> int:
         "los prompts de eval_v2.json no están todos en las filas ep_*"
     assert ckpt["match"], "el basename de las filas no coincide con manifest.merged.path"
 
+    rc_longitud, info_longitud = evaluar_longitud(rows, args.min_chars, args.min_chars_cerradas)
+    fm = _finishing_metrics(rows)
+
     if args.csv:
         write_csv(pairs, Path(args.csv))
         print(f"csv -> {args.csv}")
     if args.report:
         Path(args.report).write_text(
-            report_md(rows, pairs, summ, contrast, ckpt, manifest, outdir, xcheck), encoding="utf-8")
+            report_md(rows, pairs, summ, contrast, ckpt, manifest, outdir, xcheck, info_longitud), encoding="utf-8")
         print(f"reporte -> {args.report}")
 
     tot = summ["total"]
@@ -513,8 +632,6 @@ def main() -> int:
             if summ[s]["pares"] else 0.0)
         for s in sorted(summ) if s != "total"
     }
-    rc_longitud, info_longitud = evaluar_longitud(rows, args.min_chars)
-    fm = _finishing_metrics(rows)
     metric_out = {
         "coherentes_pct": coherentes_pct,
         "pares": pares,
@@ -522,6 +639,19 @@ def main() -> int:
         "por_set": por_set,
         "longitud_media_chars": info_longitud["longitud_media_chars"],
         "longitud_ok": info_longitud["longitud_ok"],
+        "longitud_media_chars_nocerradas": info_longitud["longitud_media_chars_nocerradas"],
+        "longitud_ok_nocerradas": info_longitud["longitud_ok_nocerradas"],
+        "n_nocerradas": info_longitud["n_nocerradas"],
+        "filas_bajo_piso_nocerradas": info_longitud["filas_bajo_piso_nocerradas"],
+        "longitud_media_chars_cerradas": info_longitud["longitud_media_chars_cerradas"],
+        "longitud_ok_cerradas": info_longitud["longitud_ok_cerradas"],
+        "n_cerradas": info_longitud["n_cerradas"],
+        "filas_bajo_piso_cerradas": info_longitud["filas_bajo_piso_cerradas"],
+        "filas_bajo_556_todas": info_longitud["filas_bajo_556_todas"],
+        "filas_bajo_556_cerradas": info_longitud["filas_bajo_556_cerradas"],
+        "piso_chars": info_longitud["piso_chars"],
+        "piso_chars_cerradas": info_longitud["piso_chars_cerradas"],
+        "piso_chars_previo": info_longitud["piso_chars_previo"],
         "n_filas": fm["n_filas"],
         "n_turnos_validos": fm["n_turnos_validos"],
         "n_finished": fm["n_finished"],
@@ -534,11 +664,12 @@ def main() -> int:
     print(json.dumps(metric_out, ensure_ascii=False))
     if rc_longitud != 0:
         print(
-            f"anti-hack longitud: longitud_media_chars={info_longitud['longitud_media_chars']} < "
+            f"anti-hack longitud: longitud_media_chars_nocerradas={info_longitud['longitud_media_chars_nocerradas']} < "
             f"--min-chars={args.min_chars:g} (la metrica no puede subir truncando)",
             file=sys.stderr,
         )
         return rc_longitud
+    return 0
     return 0
 
 
