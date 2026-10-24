@@ -677,7 +677,8 @@ def test_18_no_tool_con_request_error_no_suma_name_ok():
 
     report = eval_mod.score_predictions(situations, preds, reg)
     assert report["no_tool_ok"] == 1
-    assert report["name_ok"] in (28, 29)
+    assert report["name_ok"] == 29
+    assert report["full_ok"] == 7
     assert report["n_request_errors"] == 7
     assert report["n_request_errors_no_tool"] == 7
     assert report["celda_valida"] is False
