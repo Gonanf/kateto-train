@@ -1,0 +1,19 @@
+{
+  "id": "gabrielsolotorevsky/kateto-moe-lora-1xt4",
+  "title": "kateto-moe-lora-1xt4",
+  "code_file": "kateto-moe-lora-1xt4.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "gabrielsolotorevsky/kateto-v7-sft",
+    "gabrielsolotorevsky/kateto-orpo-v8"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}
