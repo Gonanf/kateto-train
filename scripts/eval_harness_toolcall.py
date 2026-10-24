@@ -686,6 +686,24 @@ def run_selfcheck_grammar(
             print(f"Selfcheck-grammar failed: texto-char accepts forbidden char '{forbidden}'", file=sys.stderr)
             sys.exit(1)
 
+    # (e) Check str-char rule and cadena rule
+    if "str-char ::=" not in generated:
+        print("Selfcheck-grammar failed: rule 'str-char ::=' missing in grammar", file=sys.stderr)
+        sys.exit(1)
+    cadena_m = re.search(r"cadena\s*::=\s*(.+)", generated)
+    if not cadena_m or cadena_m.group(1).strip() != '"\\"" str-char* "\\""':
+        print('Selfcheck-grammar failed: rule cadena must be \'"\\"" str-char* "\\""\'', file=sys.stderr)
+        sys.exit(1)
+    str_char_m = re.search(r"str-char\s*::=\s*\[\^([^\]]+)\]", generated)
+    if not str_char_m:
+        print("Selfcheck-grammar failed: negated character class '[^...]' missing in str-char rule", file=sys.stderr)
+        sys.exit(1)
+    str_char_negated = str_char_m.group(1)
+    for forbidden in ["/", "_"]:
+        if forbidden in str_char_negated:
+            print(f"Selfcheck-grammar failed: str-char negated character class contains '{forbidden}' (must allow it)", file=sys.stderr)
+            sys.exit(1)
+
     print("selfcheck-grammar ok")
     sys.exit(0)
 
