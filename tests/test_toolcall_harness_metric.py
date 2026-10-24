@@ -288,3 +288,497 @@ def test_8_scoring_empty_predictions(tmp_path: Path):
     assert report["no_tool_ok"] == 0
     assert report["missing"] == 36
     assert report["toolcall_accuracy"] == 0.0
+
+
+import http.server
+import json
+import threading
+from contextlib import contextmanager
+
+
+class _MockHandler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length)
+        payload = json.loads(body.decode("utf-8")) if body else {}
+        self.server.requests.append({"path": self.path, "payload": payload})
+
+        resp = self.server.response_fn(self.path, payload)
+        data = json.dumps(resp).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        resp = json.dumps({"data": [{"id": "kateto"}]}).encode("utf-8")
+        self.send_header("Content-Length", str(len(resp)))
+        self.end_headers()
+        self.wfile.write(resp)
+
+
+@contextmanager
+def run_mock_server(response_fn=None):
+    if response_fn is None:
+        def response_fn(path, payload):
+            if "chat" in path:
+                return {
+                    "choices": [{
+                        "message": {"role": "assistant", "content": "mock text", "tool_calls": None},
+                        "finish_reason": "stop",
+                    }],
+                    "usage": {"completion_tokens": 10},
+                }
+            else:
+                return {
+                    "choices": [{
+                        "text": "mock text",
+                        "finish_reason": "stop",
+                    }],
+                    "usage": {"completion_tokens": 10},
+                }
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _MockHandler)
+    server.requests = []
+    server.response_fn = response_fn
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    base_url = f"http://127.0.0.1:{port}"
+    try:
+        yield server, base_url
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_10_raw_prompt_es_el_wrapper_del_dataset():
+    assert (
+        eval_mod.build_raw_prompt("Corré git status.")
+        == "<|im_user|>Corré git status.<|im_end|>\n<|im_start|>seco\n"
+    )
+
+
+def test_11_transport_chat_sigue_pegandole_a_chat_completions():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    sit = {"id": "hx-001", "situation": "Corré git status.", "kind": "tool"}
+    with run_mock_server() as (server, base_url):
+        eval_mod.run_http_eval(
+            [sit],
+            reg,
+            base_url,
+            model="kateto",
+            limit=1,
+            temperature=0.0,
+            timeout=5.0,
+            transport="chat",
+            stop_mode="default",
+        )
+        assert len(server.requests) == 1
+        req = server.requests[0]
+        assert req["path"] == "/v1/chat/completions"
+        assert "messages" in req["payload"]
+        assert "tools" in req["payload"]
+        assert "stop" not in req["payload"]
+        assert "repeat_penalty" not in req["payload"]
+
+
+def test_12_transport_raw_pega_a_completions_sin_tools():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    sit = {"id": "hx-001", "situation": "Corré git status.", "kind": "tool"}
+    with run_mock_server() as (server, base_url):
+        eval_mod.run_http_eval(
+            [sit],
+            reg,
+            base_url,
+            model="kateto",
+            limit=1,
+            temperature=0.0,
+            timeout=5.0,
+            transport="raw",
+            stop_mode="default",
+            max_tokens=256,
+        )
+        assert len(server.requests) == 1
+        req = server.requests[0]
+        assert req["path"] == "/v1/completions"
+        assert req["payload"]["prompt"] == eval_mod.build_raw_prompt(sit["situation"])
+        assert "tools" not in req["payload"]
+        assert "messages" not in req["payload"]
+        assert req["payload"]["n_predict"] == 256
+
+
+def test_13_raw_extrae_tool_call_del_texto():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    sit = {
+        "id": "hx-001",
+        "kind": "tool",
+        "situation": "Corre git status.",
+        "expect": {"name": "run_command", "required": {"command": "git status"}},
+    }
+    raw_text = '<tool_call>\n{"name": "run_command", "arguments": "{\\"command\\": \\"git status\\"}"}\n</tool_call>'
+
+    def resp_fn(path, payload):
+        return {
+            "choices": [{"text": raw_text, "finish_reason": "stop"}],
+            "usage": {"completion_tokens": 15},
+        }
+
+    with run_mock_server(resp_fn) as (server, base_url):
+        preds = eval_mod.run_http_eval(
+            [sit],
+            reg,
+            base_url,
+            model="kateto",
+            limit=1,
+            temperature=0.0,
+            timeout=5.0,
+            transport="raw",
+        )
+        report = eval_mod.score_predictions([sit], preds, reg, backend="http")
+        extra = eval_mod.compute_extra_metrics([sit], preds, reg)
+        assert report["toolcall_accuracy"] == 1.0
+        assert extra["n_llamadas_tools"] == 1
+        assert report["parse_errors"] == 0
+
+
+def test_14_stop_mode_im_end_only():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    sit = {"id": "hx-001", "situation": "Corré git status.", "kind": "tool"}
+    with run_mock_server() as (server, base_url):
+        # 1. chat with im_end_only
+        eval_mod.run_http_eval(
+            [sit],
+            reg,
+            base_url,
+            model="kateto",
+            limit=1,
+            temperature=0.0,
+            timeout=5.0,
+            transport="chat",
+            stop_mode="im_end_only",
+        )
+        req_chat_im = server.requests[-1]
+        assert req_chat_im["payload"]["stop"] == ["<|im_end|>"]
+        assert req_chat_im["payload"]["repeat_penalty"] == 1.0
+
+        # 2. raw with im_end_only
+        eval_mod.run_http_eval(
+            [sit],
+            reg,
+            base_url,
+            model="kateto",
+            limit=1,
+            temperature=0.0,
+            timeout=5.0,
+            transport="raw",
+            stop_mode="im_end_only",
+        )
+        req_raw_im = server.requests[-1]
+        assert req_raw_im["payload"]["stop"] == ["<|im_end|>"]
+        assert req_raw_im["payload"]["repeat_penalty"] == 1.0
+
+        # 3. chat with default
+        eval_mod.run_http_eval(
+            [sit],
+            reg,
+            base_url,
+            model="kateto",
+            limit=1,
+            temperature=0.0,
+            timeout=5.0,
+            transport="chat",
+            stop_mode="default",
+        )
+        req_chat_def = server.requests[-1]
+        assert "stop" not in req_chat_def["payload"]
+        assert "repeat_penalty" not in req_chat_def["payload"]
+
+        # 4. raw with default
+        eval_mod.run_http_eval(
+            [sit],
+            reg,
+            base_url,
+            model="kateto",
+            limit=1,
+            temperature=0.0,
+            timeout=5.0,
+            transport="raw",
+            stop_mode="default",
+        )
+        req_raw_def = server.requests[-1]
+        assert "stop" not in req_raw_def["payload"]
+        assert "repeat_penalty" not in req_raw_def["payload"]
+
+
+def test_15_situaciones_sha256_igual_entre_transportes():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    situations = eval_mod.load_situations(
+        str(REPO_ROOT / "evals" / "toolcall_harness" / "situations.jsonl")
+    )
+    with run_mock_server() as (server, base_url):
+        preds_chat = eval_mod.run_http_eval(
+            situations,
+            reg,
+            base_url,
+            model="kateto",
+            limit=None,
+            temperature=0.0,
+            timeout=5.0,
+            transport="chat",
+        )
+        preds_raw = eval_mod.run_http_eval(
+            situations,
+            reg,
+            base_url,
+            model="kateto",
+            limit=None,
+            temperature=0.0,
+            timeout=5.0,
+            transport="raw",
+        )
+        report_chat = eval_mod.build_report(
+            situations,
+            preds_chat,
+            reg,
+            backend="http",
+            transport="chat",
+            base_url=base_url,
+        )
+        report_raw = eval_mod.build_report(
+            situations,
+            preds_raw,
+            reg,
+            backend="http",
+            transport="raw",
+            base_url=base_url,
+        )
+        assert report_chat["situaciones_sha256"] == report_raw["situaciones_sha256"]
+        assert report_chat["request_sha256"] != report_raw["request_sha256"]
+
+
+def test_16_dump_predictions_escribe_36_lineas(tmp_path: Path):
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    situations = eval_mod.load_situations(
+        str(REPO_ROOT / "evals" / "toolcall_harness" / "situations.jsonl")
+    )
+    dump_file = tmp_path / "dump.jsonl"
+    with run_mock_server() as (server, base_url):
+        eval_mod.run_http_eval(
+            situations,
+            reg,
+            base_url,
+            model="kateto",
+            limit=None,
+            temperature=0.0,
+            timeout=5.0,
+            transport="chat",
+            dump_predictions=dump_file,
+        )
+    assert dump_file.exists()
+    lines = [
+        line.strip()
+        for line in dump_file.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert len(lines) == 36
+    expected_keys = {
+        "id",
+        "kind",
+        "output",
+        "tool_calls",
+        "finish_reason",
+        "tokens",
+        "prompt_sha256",
+    }
+    for line in lines:
+        data = json.loads(line)
+        assert set(data.keys()) == expected_keys
+        assert isinstance(data["prompt_sha256"], str) and len(data["prompt_sha256"]) > 0
+
+
+def test_17_marcadores_distinguen_sin_cerrar():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    sit = {
+        "id": "hx-001",
+        "kind": "tool",
+        "situation": "Corre git status.",
+        "expect": {"name": "run_command", "required": {"command": "git status"}},
+    }
+    unclosed_text = '<tool_call>\n{"name": "run_command", "arguments": {"command": "git status"'
+
+    def resp_fn(path, payload):
+        return {
+            "choices": [{"text": unclosed_text, "finish_reason": "length"}],
+            "usage": {"completion_tokens": 256},
+        }
+
+    with run_mock_server(resp_fn) as (server, base_url):
+        preds = eval_mod.run_http_eval(
+            [sit],
+            reg,
+            base_url,
+            model="kateto",
+            limit=1,
+            temperature=0.0,
+            timeout=5.0,
+            transport="raw",
+        )
+        report = eval_mod.build_report(
+            [sit],
+            preds,
+            reg,
+            backend="http",
+            transport="raw",
+            base_url=base_url,
+        )
+        assert report["marcadores"]["con_tool_call_sin_cerrar"] == 1
+        assert report["n_truncados"] == 1
+
+
+def test_18_no_tool_con_request_error_no_suma_name_ok():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    situations = eval_mod.load_situations(
+        str(REPO_ROOT / "evals" / "toolcall_harness" / "situations.jsonl")
+    )
+    preds = []
+    for sit in situations:
+        s_id = sit["id"]
+        kind = sit.get("kind", "tool")
+        if kind == "no_tool":
+            if s_id == "hx-029":
+                preds.append({
+                    "id": s_id,
+                    "kind": kind,
+                    "output": "Hoy es un lindo dia para pasear.",
+                    "tool_calls": None,
+                })
+            else:
+                preds.append({
+                    "id": s_id,
+                    "kind": kind,
+                    "output": "<request_error>Connection refused</request_error>",
+                    "tool_calls": None,
+                })
+        else:
+            exp_name = sit["expect"]["name"]
+            preds.append({
+                "id": s_id,
+                "kind": kind,
+                "output": f'<tool_call>{{"name": "{exp_name}", "arguments": {{}}}}</tool_call>',
+                "tool_calls": None,
+            })
+
+    report = eval_mod.score_predictions(situations, preds, reg)
+    assert report["no_tool_ok"] == 1
+    assert report["name_ok"] == 29
+    assert report["full_ok"] == 7
+    assert report["n_request_errors"] == 7
+    assert report["n_request_errors_no_tool"] == 7
+    assert report["celda_valida"] is False
+    assert report["n_validas"] == 29
+    assert report["parse_errors"] == 0
+    assert report["toolcall_accuracy_validas"] == round(report["full_ok"] / 29, 4)
+
+
+def test_19_celda_toda_request_error_es_invalida():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    situations = eval_mod.load_situations(
+        str(REPO_ROOT / "evals" / "toolcall_harness" / "situations.jsonl")
+    )
+    preds = [
+        {
+            "id": sit["id"],
+            "kind": sit.get("kind", "tool"),
+            "output": "<request_error>Connection refused</request_error>",
+            "tool_calls": None,
+        }
+        for sit in situations
+    ]
+    report = eval_mod.score_predictions(situations, preds, reg)
+    assert report["n_request_errors"] == 36
+    assert report["n_validas"] == 0
+    assert report["celda_valida"] is False
+    assert report["toolcall_accuracy"] == 0.0
+    assert report["toolcall_accuracy_validas"] == 0.0
+    assert report["name_ok"] == 0
+    assert report["full_ok"] == 0
+
+    trace = eval_mod.compute_traceability_metrics(situations, preds)
+    assert trace["marcadores"]["request_error"] == 36
+    assert trace["marcadores"]["vacios"] == 0
+    assert trace["celda_valida"] is False
+
+
+def test_20_chat_tool_calls_nativo_con_content_vacio_cuenta_completo():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    situations = eval_mod.load_situations(
+        str(REPO_ROOT / "evals" / "toolcall_harness" / "situations.jsonl")
+    )
+    sit_hx001 = [s for s in situations if s["id"] == "hx-001"][0]
+    preds = [
+        {
+            "id": "hx-001",
+            "kind": "tool",
+            "output": "",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "run_command",
+                        "arguments": '{"command": "git status"}',
+                    },
+                }
+            ],
+        }
+    ]
+    trace = eval_mod.compute_traceability_metrics([sit_hx001], preds, transport="chat")
+    assert trace["marcadores"]["con_tool_call_completo"] == 1
+    assert trace["marcadores"]["vacios"] == 0
+    assert trace["n_vacios"] == 0
+
+    score = eval_mod.score_predictions([sit_hx001], preds, reg)
+    assert score["name_ok"] == 1
+    extra = eval_mod.compute_extra_metrics([sit_hx001], preds, reg)
+    assert extra["n_llamadas_tools"] == 1
+
+
+def test_21_n_validas_descuenta_missing():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    situations = eval_mod.load_situations(
+        str(REPO_ROOT / "evals" / "toolcall_harness" / "situations.jsonl")
+    )
+    sit1 = [s for s in situations if s["id"] == "hx-001"][0]
+    sit2 = [s for s in situations if s["id"] == "hx-002"][0]
+
+    r = eval_mod.score_predictions([sit1], [], reg)
+    assert r["missing"] == 1
+    assert r["n_validas"] == 0
+    assert r["toolcall_accuracy_validas"] == 0.0
+
+    pred1 = {
+        "id": "hx-001",
+        "kind": "tool",
+        "output": "",
+        "tool_calls": [
+            {
+                "type": "function",
+                "function": {
+                    "name": sit1["expect"]["name"],
+                    "arguments": json.dumps(sit1["expect"]["required"]),
+                },
+            }
+        ],
+    }
+    r2 = eval_mod.score_predictions([sit1, sit2], [pred1], reg)
+    assert r2["missing"] == 1
+    assert r2["n_validas"] == 1
+    assert r2["full_ok"] == 1
+    assert r2["toolcall_accuracy_validas"] == 1.0
+
