@@ -1,0 +1,15 @@
+{
+  "id": "gabrielsolotorevsky/kateto-eval29-cierre-c1-2xt4",
+  "title": "kateto-eval29-cierre-c1-2xt4",
+  "code_file": "eval29_cierre_c1.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "machine_shape": "NvidiaTeslaT4x2",
+  "dataset_sources": [
+    "gabrielsolotorevsky/kateto-eval29",
+    "gabrielsolotorevsky/kateto-eval29-v7-code"
+  ]
+}
