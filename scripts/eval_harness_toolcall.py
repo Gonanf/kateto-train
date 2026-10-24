@@ -329,7 +329,7 @@ def score_predictions(
         round(len(hallucinated) / tool_n_llamados, 4) if tool_n_llamados else 0.0
     )
 
-    n_validas = n - n_request_errors
+    n_validas = n - n_request_errors - missing
     celda_valida = n_request_errors == 0
     toolcall_accuracy_validas = round(full_ok / n_validas, 4) if n_validas > 0 else 0.0
     accuracy_tool_validas = round(full_ok_tool / tool_validas, 4) if tool_validas > 0 else 0.0

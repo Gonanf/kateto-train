@@ -443,8 +443,8 @@ def test_13_raw_extrae_tool_call_del_texto():
         )
         report = eval_mod.score_predictions([sit], preds, reg, backend="http")
         extra = eval_mod.compute_extra_metrics([sit], preds, reg)
-        assert report["toolcall_accuracy"] > 0
-        assert extra["n_llamadas_tools"] >= 1
+        assert report["toolcall_accuracy"] == 1.0
+        assert extra["n_llamadas_tools"] == 1
         assert report["parse_errors"] == 0
 
 
@@ -744,6 +744,41 @@ def test_20_chat_tool_calls_nativo_con_content_vacio_cuenta_completo():
     assert trace["n_vacios"] == 0
 
     score = eval_mod.score_predictions([sit_hx001], preds, reg)
-    assert score["name_ok"] >= 1
+    assert score["name_ok"] == 1
     extra = eval_mod.compute_extra_metrics([sit_hx001], preds, reg)
-    assert extra["n_llamadas_tools"] >= 1
+    assert extra["n_llamadas_tools"] == 1
+
+
+def test_21_n_validas_descuenta_missing():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    situations = eval_mod.load_situations(
+        str(REPO_ROOT / "evals" / "toolcall_harness" / "situations.jsonl")
+    )
+    sit1 = [s for s in situations if s["id"] == "hx-001"][0]
+    sit2 = [s for s in situations if s["id"] == "hx-002"][0]
+
+    r = eval_mod.score_predictions([sit1], [], reg)
+    assert r["missing"] == 1
+    assert r["n_validas"] == 0
+    assert r["toolcall_accuracy_validas"] == 0.0
+
+    pred1 = {
+        "id": "hx-001",
+        "kind": "tool",
+        "output": "",
+        "tool_calls": [
+            {
+                "type": "function",
+                "function": {
+                    "name": sit1["expect"]["name"],
+                    "arguments": json.dumps(sit1["expect"]["required"]),
+                },
+            }
+        ],
+    }
+    r2 = eval_mod.score_predictions([sit1, sit2], [pred1], reg)
+    assert r2["missing"] == 1
+    assert r2["n_validas"] == 1
+    assert r2["full_ok"] == 1
+    assert r2["toolcall_accuracy_validas"] == 1.0
+
