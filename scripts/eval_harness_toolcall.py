@@ -460,12 +460,16 @@ def run_http_eval(
         payload: dict[str, any] = {
             "model": model,
             "messages": [{"role": "user", "content": sit["situation"]}],
-            "tools": tools_schema,
             "temperature": temperature,
             "max_tokens": 256,
         }
         if grammar is not None:
+            # llama.cpp returns HTTP 400 "Cannot use custom grammar constraints with tools."
+            # In this server/template, tools are not rendered in prompt, so omitting tools
+            # produces an identical prompt while allowing custom grammar constraints.
             payload["grammar"] = grammar
+        else:
+            payload["tools"] = tools_schema
 
         req_data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
@@ -597,11 +601,80 @@ def probe_grammar(
         )
         sys.exit(3)
 
+    # 3. Apply-template probe: verify that prompt is identical with and without tools
+    b_url = base_url.rstrip("/")
+    root_url = b_url[:-3] if b_url.endswith("/v1") else b_url
+    template_endpoint = f"{root_url}/apply-template"
+
+    probe_messages = [{"role": "user", "content": "herramientas"}]
+    payload_tmpl_no_tools = {"messages": probe_messages}
+
+    first_tool = []
+    if registry:
+        first_name = next(iter(registry))
+        data = registry[first_name]
+        first_tool = [
+            {
+                "type": "function",
+                "function": {
+                    "name": first_name,
+                    "description": "",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {p: {"type": t} for p, t in data.get("props", {}).items()},
+                        "required": data.get("required", []),
+                    },
+                },
+            }
+        ]
+    payload_tmpl_tools = {"messages": probe_messages, "tools": first_tool}
+
+    try:
+        req1 = urllib.request.Request(
+            template_endpoint,
+            data=json.dumps(payload_tmpl_no_tools).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req1, timeout=timeout) as resp1:
+            data1 = json.loads(resp1.read().decode("utf-8"))
+            prompt1 = data1.get("prompt", "")
+
+        req2 = urllib.request.Request(
+            template_endpoint,
+            data=json.dumps(payload_tmpl_tools).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req2, timeout=timeout) as resp2:
+            data2 = json.loads(resp2.read().decode("utf-8"))
+            prompt2 = data2.get("prompt", "")
+    except Exception as exc:
+        print(f"ERROR: Grammar probe /apply-template check failed: {exc}", file=sys.stderr)
+        sys.exit(3)
+
+    tools_en_prompt = (prompt1 != prompt2)
+    prompt_igual_sin_tools = (prompt1 == prompt2)
+
+    if tools_en_prompt:
+        print(
+            "ERROR: /apply-template prompts differ when tools are passed vs omitted:",
+            file=sys.stderr,
+        )
+        print(f"Prompt sin tools:\n{prompt1}", file=sys.stderr)
+        print(f"Prompt con tools:\n{prompt2}", file=sys.stderr)
+        sys.exit(3)
+
+    prompt_sha256 = hashlib.sha256(prompt1.encode("utf-8")).hexdigest()
+
     return {
         "invalida_status": invalida_status,
         "valida_status": valida_status,
         "valida_conforme": valida_conforme,
         "endpoint": "/v1/chat/completions",
+        "prompt_igual_sin_tools": prompt_igual_sin_tools,
+        "prompt_sha256": prompt_sha256,
+        "tools_en_prompt": tools_en_prompt,
     }
 
 
@@ -966,6 +1039,8 @@ def main() -> None:
             "grammar_file": str(args.gbnf),
             "grammar_endpoint": "/v1/chat/completions",
             "grammar_probe": probe_res,
+            "tools_omitidas": True,
+            "motivo_tools": "el build devuelve 400 'Cannot use custom grammar constraints with tools'; /apply-template prueba que el prompt es identico sin tools",
         })
         rep_grammar.update(compute_extra_metrics(situations, preds_grammar, registry))
 
@@ -995,6 +1070,8 @@ def main() -> None:
             "git_head": head_sha,
             "grammar_endpoint": "/v1/chat/completions",
             "grammar_probe": probe_res,
+            "tools_omitidas": True,
+            "motivo_tools": "el build devuelve 400 'Cannot use custom grammar constraints with tools'; /apply-template prueba que el prompt es identico sin tools",
             "brazos": {
                 "control": rep_control,
                 "gramatica": rep_grammar,
@@ -1081,6 +1158,13 @@ def main() -> None:
     if use_grammar and probe_res is not None:
         report["grammar_endpoint"] = "/v1/chat/completions"
         report["grammar_probe"] = probe_res
+
+    if use_grammar:
+        report["tools_omitidas"] = True
+        report["motivo_tools"] = (
+            "el build devuelve 400 'Cannot use custom grammar constraints with tools'; "
+            "/apply-template prueba que el prompt es identico sin tools"
+        )
 
     report.update(compute_extra_metrics(situations, predictions, registry))
 
