@@ -355,18 +355,38 @@ def evaluar_longitud(rows: list[dict], min_chars: float = 160.0) -> tuple[int, d
     }
 
 
+def _finishing_metrics(rows: list[dict]) -> dict:
+    """Compute finishing/stop metrics from rows."""
+    n_filas = len(rows)
+    n_turnos_validos = sum(1 for r in rows if r.get("turno") in TURNOS)
+    n_finished = sum(1 for r in rows if r.get("turno") in TURNOS and bool(r.get("finished")))
+    n_id_end = sum(1 for r in rows if r.get("turno") in TURNOS and r.get("stop_reason") == "id_end")
+    degeneradas = sum(1 for r in rows if r.get("turno") in TURNOS and r.get("_deg_recalc"))
+    finished_pct = round(100.0 * n_finished / n_turnos_validos, 2) if n_turnos_validos else 0.0
+    stop_id_end_pct = round(100.0 * n_id_end / n_turnos_validos, 2) if n_turnos_validos else 0.0
+    return {
+        "n_filas": n_filas,
+        "n_turnos_validos": n_turnos_validos,
+        "n_finished": n_finished,
+        "n_id_end": n_id_end,
+        "finished_pct": finished_pct,
+        "stop_id_end_pct": stop_id_end_pct,
+        "degeneradas": degeneradas,
+    }
+
+
 def self_check() -> None:
     rows = [
         {"set": "s", "id": "p1", "turno": "frio", "prompt_sha256": "a", "prompt": "x", "text": "hola que tal",
-         "degenerate": False, "max_repeat": 0, "ttfab_s": 0.1},
+         "degenerate": False, "max_repeat": 0, "ttfab_s": 0.1, "finished": True, "stop_reason": "id_end"},
         {"set": "s", "id": "p1", "turno": "caliente", "prompt_sha256": "a", "prompt": "x", "text": "hola que tal",
-         "degenerate": False, "max_repeat": 0, "ttfab_s": 0.1},
+         "degenerate": False, "max_repeat": 0, "ttfab_s": 0.1, "finished": False, "stop_reason": None},
         {"set": "s", "id": "p2", "turno": "frio", "prompt_sha256": "b", "prompt": "y",
-         "text": "bueno" * 20, "degenerate": True, "max_repeat": 3, "ttfab_s": 0.1},
+         "text": "bueno" * 20, "degenerate": True, "max_repeat": 3, "ttfab_s": 0.1, "finished": True, "stop_reason": "id_end"},
         {"set": "s", "id": "p2", "turno": "caliente", "prompt_sha256": "b", "prompt": "y", "text": "otra cosa",
-         "degenerate": False, "max_repeat": 0, "ttfab_s": 0.1},
+         "degenerate": False, "max_repeat": 0, "ttfab_s": 0.1, "finished": None, "stop_reason": "id_end"},
         {"set": "s", "id": "p3", "turno": "frio", "prompt_sha256": "c", "prompt": "z", "text": "ok",
-         "degenerate": False, "max_repeat": 0, "ttfab_s": 0.1},
+         "degenerate": False, "max_repeat": 0, "ttfab_s": 0.1, "finished": False, "stop_reason": None},
         {"set": "s", "id": "dummy", "turno": "frio_proceso", "prompt_sha256": "d", "prompt": "h",
          "text": "warm", "degenerate": False, "max_repeat": 0, "ttfab_s": 1.0},
     ]
@@ -384,6 +404,15 @@ def self_check() -> None:
     assert check_degenerate("bueno" * 20)[0] is True
     assert check_degenerate("hola que tal")[0] is False
     assert check_degenerate("") == (False, 0)
+
+    fm = _finishing_metrics(rows)
+    assert fm["n_filas"] == 6, fm
+    assert fm["n_turnos_validos"] == 5, fm
+    assert fm["n_finished"] == 2, fm
+    assert fm["n_id_end"] == 3, fm
+    assert fm["finished_pct"] == 40.0, fm
+    assert fm["stop_id_end_pct"] == 60.0, fm
+    assert fm["degeneradas"] == 1, fm
 
     rows_largo = [
         {"text": "x" * 200, "_chars": 200},
@@ -465,6 +494,7 @@ def main() -> int:
         for s in sorted(summ) if s != "total"
     }
     rc_longitud, info_longitud = evaluar_longitud(rows, args.min_chars)
+    fm = _finishing_metrics(rows)
     metric_out = {
         "coherentes_pct": coherentes_pct,
         "pares": pares,
@@ -472,6 +502,13 @@ def main() -> int:
         "por_set": por_set,
         "longitud_media_chars": info_longitud["longitud_media_chars"],
         "longitud_ok": info_longitud["longitud_ok"],
+        "n_filas": fm["n_filas"],
+        "n_turnos_validos": fm["n_turnos_validos"],
+        "n_finished": fm["n_finished"],
+        "n_id_end": fm["n_id_end"],
+        "finished_pct": fm["finished_pct"],
+        "stop_id_end_pct": fm["stop_id_end_pct"],
+        "degeneradas": fm["degeneradas"],
     }
     print(json.dumps(metric_out, ensure_ascii=False))
     if rc_longitud != 0:
