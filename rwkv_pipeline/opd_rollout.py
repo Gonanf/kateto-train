@@ -53,6 +53,11 @@ import torch
 import torch.nn.functional as F
 from types import SimpleNamespace
 
+try:
+    from rwkv_pipeline._stop_helpers import repeticion_agotada
+except ImportError:  # corrida como script: sys.path[0] es rwkv_pipeline/
+    from _stop_helpers import repeticion_agotada
+
 PROJECT = Path(__file__).resolve().parent.parent
 # When run as a script, sys.path[0] is rwkv_pipeline/ and the project root is
 # not importable (`from rwkv_pipeline import infer_kateto` would fail).
@@ -109,6 +114,8 @@ class Rollout:
     wall_s: float = 0.0
     tok_per_s: float = 0.0
     finished: bool = False
+    ngram_bloqueos: int = 0
+    ngram_deshacer: int = 0
 
     @property
     def think_fraction(self) -> float:
@@ -282,7 +289,9 @@ def rollout_from_prompt(student, tokenizer, prompt_text: str,
                         max_len: int = 32, temperature: float = 0.8,
                         top_p: float = 0.8, top_k: int = 0,
                         ctx_len: int = 512, block_think: bool = False,
-                        end_token: int = 0) -> Rollout:
+                        end_token: int = 0,
+                        ngram_n: int = 0, ngram_repeat_max: int = 0,
+                        ngram_max_intentos: int = 8) -> Rollout:
     """Sample response on-policy; record per-position prefixes and think stats."""
     prompt_ids = tokenizer.encode(prompt_text)
     roll = Rollout(prompt_text=prompt_text, prompt_ids=prompt_ids[:])
@@ -291,6 +300,29 @@ def rollout_from_prompt(student, tokenizer, prompt_text: str,
     while len(roll.response_ids) < max_len:
         lg = _next_logits(student, token_ids, ctx_len)
         tok = _sample_next(lg, temperature, top_p, top_k, block_think, tokenizer)
+        # NGRAM_BLOCK_V7
+        if ngram_n > 0 and ngram_repeat_max > 0 and tok != end_token:
+            intentos = 0
+            while (intentos < ngram_max_intentos
+                   and tok != end_token
+                   and repeticion_agotada(roll.response_ids + [tok], ngram_n, ngram_repeat_max)):
+                # el token completaria el n-grama repetido al tope: se descarta
+                lg_bloqueado = lg.clone()
+                lg_bloqueado[tok] = -float("inf")
+                roll.ngram_bloqueos += 1
+                tok_nuevo = _sample_next(lg_bloqueado, temperature, top_p, top_k,
+                                         block_think, tokenizer)
+                intentos += 1
+                if tok_nuevo == tok or repeticion_agotada(
+                        roll.response_ids + [tok_nuevo], ngram_n, ngram_repeat_max):
+                    continue
+                tok = tok_nuevo
+                break
+            else:
+                if intentos >= ngram_max_intentos and tok != end_token and repeticion_agotada(
+                        roll.response_ids + [tok], ngram_n, ngram_repeat_max):
+                    # no hubo escape: se deshace el bloqueo y se acepta el token
+                    roll.ngram_deshacer += 1
         if tok == end_token:
             roll.finished = True
             break
