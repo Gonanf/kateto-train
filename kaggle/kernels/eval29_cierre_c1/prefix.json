@@ -1,0 +1,41 @@
+{
+  "schema": "eureka-fewshot-prefix/v1",
+  "fuente": {
+    "path": "data/rwkv_kateto_seco.jsonl",
+    "sha256_archivo": "e424824679a807607fa2a4e1739e5b7e5bfa1641eaab43a740e8242fc4904416",
+    "n_lineas_archivo": 4789,
+    "lineas": [
+      3668,
+      4623
+    ],
+    "sha256_lineas": [
+      "d20ae9319570e3e91a38d6c775e4c96fceed834c431fcdbe24fe03b980b61a61",
+      "033ede1307c4045155effb53d062736ed676f6b77e0d66dc8a32e327697382ab"
+    ]
+  },
+  "excluidos": {
+    "path_eval_prompts": "data/eval_prompts.jsonl",
+    "path_eval_v1": "out/eval/prompts_v1.json",
+    "n_prompts": 60
+  },
+  "voice": "seco",
+  "turnos": [
+    [
+      "dale, lo dejo correr",
+      "boludo, ya lo estás tirando como si fuera un laburo sin fin."
+    ],
+    [
+      "¿Qué es un servidor?",
+      "Una máquina que se queda despierta esperando que alguien le pida algo."
+    ]
+  ],
+  "prefijo_texto": "<|im_user|>dale, lo dejo correr<|im_end|>\n<|im_start|>seco\nboludo, ya lo estás tirando como si fuera un laburo sin fin.<|im_end|><|im_user|>¿Qué es un servidor?<|im_end|>\n<|im_start|>seco\nUna máquina que se queda despierta esperando que alguien le pida algo.<|im_end|>",
+  "sha256_prefijo": "96c08793c56b5cbd6a70c9d7ac9eae55148d8c2e78d1076167cd1d4a26043b87",
+  "n_chars_prefijo": 268,
+  "marcadores": {
+    "<|im_end|>": 4,
+    "<|im_user|>": 2,
+    "<|im_start|>": 2
+  },
+  "nota_anti_hack": "Los marcadores los emite unicamente el template (render_turn/render_historial). slot_guard verifica que ni el slot user ni el slot answer contienen marcadores, asi que el <|im_end|> del ejemplo vive SOLO en el turno del assistant: no hay marcador dentro del prompt del user."
+}
