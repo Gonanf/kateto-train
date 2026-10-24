@@ -5,6 +5,8 @@ con `python3` pelado: el gate de pytest corre sin torch, y `infer_kateto.py`
 hace `import torch` en el top-level.
 """
 
+from typing import Sequence
+
 
 def ends_with(tokens, suffix):
     """True si la cola de `tokens` es exactamente `suffix` (secuencia de ids).
@@ -36,3 +38,13 @@ def count_consecutive_ngram_repeats(tokens, n):
         repeats += 1
         idx -= n
     return repeats
+
+# NGRAM_BLOCK_V7
+def repeticion_agotada(tokens: "Sequence[int]", n: int, max_rep: int) -> bool:
+    """True si el ultimo n-grama de `tokens` ya llego al tope de repeticiones.
+
+    Es la MISMA cuenta que el corte por repeticion de `infer_kateto.generate()`
+    (`count_consecutive_ngram_repeats(tokens, n) + 1 >= max_rep`), expuesta como
+    predicado para poder bloquear un token en vez de cortar la generacion.
+    """
+    return count_consecutive_ngram_repeats(tokens, n) + 1 >= max_rep

@@ -515,6 +515,12 @@ class KatetoInferenceEngine:
         if stop_reason is None:
             stop_reason = "max_tokens"
         print(f"[Kateto] generacion cortada: stop={stop_reason} (tokens={len(generated_tokens)})", file=sys.stderr)
+        # NGRAM_BLOCK_V7: instrumentacion del corte (no es un bloqueo: corta, no descarta)
+        self.last_gen_stats = {
+            "stop_reason": stop_reason,
+            "n_tokens": len(generated_tokens),
+            "ngram_cortes": 1 if stop_reason == "repetition" else 0,
+        }
 
         full_output = self.tokenizer.decode(generated_tokens)
         for stop_marker in ["<tool_call>", "<|im_end|>", "<|im_user|>", "\n\nUser:", "\nUser:", "\n\nAssistant:", "\nAssistant:", "</tool_call>", "<|endoftext|>"]:
