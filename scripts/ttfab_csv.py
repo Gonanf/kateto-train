@@ -222,11 +222,12 @@ def synthetic_rows(valid=True, violate_gate=None):
     return rows
 
 
-SYSTEM = (
+BLOQUE = (
     "Sos Kateto, la asistente de voz de la casa. Hablás rioplatense, con voseo, sin portuguñol "
     "y sin spanglish. Respondés en una o dos frases cortas porque tu salida se convierte en audio. "
     "Cuando no sabés algo, lo decís. Nunca inventás datos."
 )
+SYSTEM = BLOQUE * 18
 
 GUION = [
     "che, qué hora es",
@@ -319,6 +320,24 @@ def measure_and_write(csv_path, base_url, model, turns, cold, timeout=30):
     except Exception as e:
         eprint(f"Failed to contact {base_url}/v1/models: {e}")
         sys.exit(2)
+
+    # Warm-up request discarded before measuring (loads model into router memory)
+    try:
+        warmup_body = json.dumps({
+            "model": model,
+            "max_tokens": 1,
+            "cache_prompt": False,
+            "messages": [{"role": "user", "content": "hola"}],
+        }).encode("utf-8")
+        warmup_req = Request(
+            f"{base_url.rstrip('/')}/v1/chat/completions",
+            data=warmup_body,
+            headers={"Content-Type": "application/json"},
+        )
+        with urlopen(warmup_req, timeout=timeout) as resp:
+            _ = resp.read()
+    except Exception as e:
+        eprint(f"Warm-up failed: {e}")
 
     run_id = generate_run_id()
     rows = []
