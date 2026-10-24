@@ -70,8 +70,13 @@ def check_gates(rows):
     # Gate 2: no errors
     gate2 = all(not r.get("err") for r in rows)
 
-    # Gate 3: each hot row prompt_n > 0
-    gate3 = all(float(r.get("prompt_n", 0)) > 0 for r in hot)
+    # Gate 3: each row (hot and cold) without err must have prompt_n > 0
+    def _prompt_n_ok(val):
+        try:
+            return float(val) > 0
+        except (ValueError, TypeError):
+            return False
+    gate3 = all(_prompt_n_ok(r.get("prompt_n")) for r in hot + cold if not r.get("err"))
 
     # Gate 4: reuse of prefix – for hot rows with seq >=2, cache_n >0 in >=80%
     hot_seq_ge2 = [r for r in hot if int(r.get("seq", 0)) >= 2]
@@ -162,12 +167,13 @@ def synthetic_rows(valid=True, violate_gate=None):
     rows = []
     # Helper to create a row
     def row(seq, modo, ttft_ms, prompt_ms, cache_n, prompt_n, predicted_per_second, err=""):
+        total_ms_val = ttft_ms * 1.5
         return {
             "run_id": run_id,
             "modo": modo,
             "seq": str(seq),
             "ttft_ms": f"{ttft_ms:.2f}",
-            "total_ms": f"{ttft_ms+10:.2f}",
+            "total_ms": f"{total_ms_val:.2f}",
             "prompt_n": f"{prompt_n}",
             "cache_n": f"{cache_n}",
             "prompt_ms": f"{prompt_ms:.2f}",
@@ -304,11 +310,11 @@ def run_selftest():
 # Real measurement stub (very limited – placeholder for actual LLM calls)
 # ---------------------------------------------------------------------------
 
-def measure_and_write(csv_path, base_url, model, turns, cold):
+def measure_and_write(csv_path, base_url, model, turns, cold, timeout=30):
     # Verify base URL reachable (GET /v1/models)
     try:
         req = Request(f"{base_url.rstrip('/')}/v1/models")
-        with urlopen(req, timeout=5) as resp:
+        with urlopen(req, timeout=timeout) as resp:
             _ = resp.read()
     except Exception as e:
         eprint(f"Failed to contact {base_url}/v1/models: {e}")
@@ -328,11 +334,11 @@ def measure_and_write(csv_path, base_url, model, turns, cold):
             "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}],
         }).encode('utf-8')
         req = Request(f"{base_url.rstrip('/')}/v1/chat/completions", data=body, headers={"Content-Type": "application/json"})
+        t0 = time.perf_counter()
         try:
-            with urlopen(req, timeout=30) as resp:
-                start = time.perf_counter()
+            with urlopen(req, timeout=timeout) as resp:
                 ttft_ms = None
-                prompt_n = cache_n = prompt_ms = predicted_per_second = 0
+                prompt_n = cache_n = prompt_ms = predicted_per_second = prompt_per_second = 0
                 texto_out = ""
                 for line in resp:
                     decoded = line.decode('utf-8').strip()
@@ -349,19 +355,22 @@ def measure_and_write(csv_path, base_url, model, turns, cold):
                         # First non‑empty delta gives ttft
                         if ttft_ms is None:
                             delta = payload.get('choices', [{}])[0].get('delta', {})
-                            if delta.get('content'):
-                                ttft_ms = (time.perf_counter() - start) * 1000
+                            piece = delta.get("content") or ""
+                            if piece:
+                                ttft_ms = (time.perf_counter() - t0) * 1000
                         # Accumulate output text
                         delta = payload.get('choices', [{}])[0].get('delta', {})
-                        if 'content' in delta:
-                            texto_out += delta['content']
-                        # Usage stats (may appear at end)
-                        if 'usage' in payload:
-                            usage = payload['usage']
-                            prompt_n = usage.get('prompt_tokens', 0)
-                            cache_n = usage.get('prompt_cache_tokens', 0)
-                            prompt_ms = usage.get('prompt_ms', 0)
-                            predicted_per_second = usage.get('predicted_per_second', 0)
+                        piece = delta.get("content") or ""
+                        if piece:
+                            texto_out += piece
+                        if "timings" in payload:
+                            timings = payload["timings"]
+                            prompt_n = timings.get("prompt_n", 0)
+                            cache_n = timings.get("cache_n", 0)
+                            prompt_ms = timings.get("prompt_ms", 0)
+                            predicted_per_second = timings.get("predicted_per_second", 0)
+                            prompt_per_second = timings.get("prompt_per_second", 0)
+                total_ms = (time.perf_counter() - t0) * 1000
         except Exception as e:
             eprint(f"Error during cold turn {i}: {e}")
             ttft_ms = ""
@@ -390,11 +399,11 @@ def measure_and_write(csv_path, base_url, model, turns, cold):
             "modo": "frio",
             "seq": str(i),
             "ttft_ms": f"{ttft_ms:.2f}" if isinstance(ttft_ms, (int, float)) else "",
-            "total_ms": f"{(ttft_ms+10):.2f}" if isinstance(ttft_ms, (int, float)) else "",
+            "total_ms": f"{total_ms:.2f}" if isinstance(total_ms, (int, float)) else "",
             "prompt_n": str(prompt_n),
             "cache_n": str(cache_n),
             "prompt_ms": f"{prompt_ms:.2f}" if isinstance(prompt_ms, (int, float)) else "",
-            "prompt_per_second": f"{(prompt_n/(prompt_ms/1000)):.2f}" if isinstance(prompt_ms, (int, float)) and prompt_ms else "",
+            "prompt_per_second": f"{prompt_per_second:.2f}" if isinstance(prompt_per_second, (int, float)) else "",
             "predicted_per_second": f"{predicted_per_second:.2f}" if isinstance(predicted_per_second, (int, float)) else "",
             "texto_out": texto_out.strip(),
             "err": "",
@@ -415,12 +424,13 @@ def measure_and_write(csv_path, base_url, model, turns, cold):
             "messages": messages,
         }).encode('utf-8')
         req = Request(f"{base_url.rstrip('/')}/v1/chat/completions", data=body, headers={"Content-Type": "application/json"})
+        t0 = time.perf_counter()
         try:
-            with urlopen(req, timeout=30) as resp:
-                start = time.perf_counter()
+            with urlopen(req, timeout=timeout) as resp:
                 ttft_ms = None
-                prompt_n = cache_n = prompt_ms = predicted_per_second = 0
+                prompt_n = cache_n = prompt_ms = predicted_per_second = prompt_per_second = 0
                 texto_out = ""
+                first_token_seen = False
                 for line in resp:
                     decoded = line.decode('utf-8').strip()
                     if not decoded:
@@ -433,19 +443,24 @@ def measure_and_write(csv_path, base_url, model, turns, cold):
                             payload = json.loads(data)
                         except Exception:
                             continue
-                        if ttft_ms is None:
+                        if not first_token_seen:
                             delta = payload.get('choices', [{}])[0].get('delta', {})
-                            if delta.get('content'):
-                                ttft_ms = (time.perf_counter() - start) * 1000
+                            piece = delta.get("content") or ""
+                            if piece:
+                                ttft_ms = (time.perf_counter() - t0) * 1000
+                                first_token_seen = True
                         delta = payload.get('choices', [{}])[0].get('delta', {})
-                        if 'content' in delta:
-                            texto_out += delta['content']
-                        if 'usage' in payload:
-                            usage = payload['usage']
-                            prompt_n = usage.get('prompt_tokens', 0)
-                            cache_n = usage.get('prompt_cache_tokens', 0)
-                            prompt_ms = usage.get('prompt_ms', 0)
-                            predicted_per_second = usage.get('predicted_per_second', 0)
+                        piece = delta.get("content") or ""
+                        if piece:
+                            texto_out += piece
+                        if "timings" in payload:
+                            timings = payload["timings"]
+                            prompt_n = timings.get("prompt_n", 0)
+                            cache_n = timings.get("cache_n", 0)
+                            prompt_ms = timings.get("prompt_ms", 0)
+                            predicted_per_second = timings.get("predicted_per_second", 0)
+                            prompt_per_second = timings.get("prompt_per_second", 0)
+                total_ms = (time.perf_counter() - t0) * 1000
         except Exception as e:
             eprint(f"Error during hot turn {i}: {e}")
             rows.append({
@@ -471,11 +486,11 @@ def measure_and_write(csv_path, base_url, model, turns, cold):
             "modo": "caliente",
             "seq": str(i),
             "ttft_ms": f"{ttft_ms:.2f}" if isinstance(ttft_ms, (int, float)) else "",
-            "total_ms": f"{(ttft_ms+10):.2f}" if isinstance(ttft_ms, (int, float)) else "",
+            "total_ms": f"{total_ms:.2f}" if isinstance(total_ms, (int, float)) else "",
             "prompt_n": str(prompt_n),
             "cache_n": str(cache_n),
             "prompt_ms": f"{prompt_ms:.2f}" if isinstance(prompt_ms, (int, float)) else "",
-            "prompt_per_second": f"{(prompt_n/(prompt_ms/1000)):.2f}" if isinstance(prompt_ms, (int, float)) and prompt_ms else "",
+            "prompt_per_second": f"{prompt_per_second:.2f}" if isinstance(prompt_per_second, (int, float)) else "",
             "predicted_per_second": f"{predicted_per_second:.2f}" if isinstance(predicted_per_second, (int, float)) else "",
             "texto_out": texto_out.strip(),
             "err": "",
@@ -485,6 +500,37 @@ def measure_and_write(csv_path, base_url, model, turns, cold):
         if texto_out:
             history.append({"role": "assistant", "content": texto_out})
     write_csv(csv_path, rows)
+    # Run gate checks on this run_id
+    all_rows = read_csv(csv_path, run_id)
+    gates = check_gates(all_rows)
+    for g in range(1, 7):
+        status = "OK" if gates[g] else "FAIL"
+        print(f"Gate {g}: {status}")
+    if not all(gates[g] for g in range(1, 7)):
+        for g in range(1, 7):
+            if not gates[g]:
+                eprint(f"Gate {g} failed")
+        sys.exit(3)
+    # Compute and output metrics JSON
+    hot = [r for r in all_rows if r.get("modo") == "caliente"]
+    cold = [r for r in all_rows if r.get("modo") == "frio"]
+    ttft_vals = [float(r["ttft_ms"]) for r in hot if r.get("ttft_ms")]
+    cold_ttft_vals = [float(r["ttft_ms"]) for r in cold if r.get("ttft_ms")]
+    metrics = {
+        "ttft_p50_ms": median_float(ttft_vals),
+        "ttft_p90_ms": sorted(ttft_vals)[int(len(ttft_vals) * 0.9)] if ttft_vals else None,
+        "turns": len(hot),
+        "errors": sum(1 for r in all_rows if r.get("err")),
+        "cache_n_p50": median_float([r["cache_n"] for r in all_rows if r.get("cache_n")]),
+        "prompt_n_p50": median_float([r["prompt_n"] for r in all_rows if r.get("prompt_n")]),
+        "tokens_per_s_p50": median_float([r["predicted_per_second"] for r in all_rows if r.get("predicted_per_second")]),
+        "cold_ttft_p50_ms": median_float(cold_ttft_vals),
+        "prefill_ratio": gates.get("prefill_ratio"),
+        "model": model,
+        "base_url": base_url,
+        "run_id": run_id,
+    }
+    print(json.dumps(metrics))
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -509,7 +555,7 @@ def main():
         return
     if not args.csv:
         parser.error("CSV path required unless --selftest or --self-check is used")
-    measure_and_write(args.csv, args.base_url, args.model, args.turns, args.cold)
+    measure_and_write(args.csv, args.base_url, args.model, args.turns, args.cold, args.timeout)
 
 if __name__ == "__main__":
     main()
