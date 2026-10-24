@@ -14,11 +14,33 @@ import sys
 import unicodedata
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Allow importing registry from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from harness_tool_registry import load_registry
+
+
+def modelo_servido(base_url: str | None) -> str:
+    """Fetch served model ID from /v1/models endpoint. Returns 'desconocido' on any failure."""
+    if base_url is None:
+        return "desconocido"
+    url = f"{base_url.rstrip('/')}/v1/models"
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        models = data.get("data")
+        if isinstance(models, list) and len(models) > 0:
+            first = models[0]
+            if isinstance(first, dict):
+                model_id = first.get("id")
+                if isinstance(model_id, str):
+                    return model_id
+    except Exception:
+        pass
+    return "desconocido"
 
 
 def normalize(s: str) -> str:
@@ -513,6 +535,14 @@ def main() -> None:
         )
 
     report = score_predictions(situations, predictions, registry, backend=backend)
+
+    report.update({
+        "modelo_pedido": args.model,
+        "modelo_servido": modelo_servido(args.base_url),
+        "base_url": args.base_url if args.base_url is not None else "n/a",
+        "medido": datetime.now(timezone(timedelta(hours=-3))).isoformat(timespec="seconds"),
+        "cmd": " ".join(sys.argv),
+    })
 
     report_json = json.dumps(report, ensure_ascii=False, separators=(",", ":"))
     print(report_json)
