@@ -160,6 +160,15 @@ CONTROL_CASES = [
         "category": "degenerado",
         "text": "",
     },
+    # --- LIMITE (casos adversariales / debilidades del score) ---
+    {
+        "id": "sopa_funcion",
+        "category": "limite",
+        "text": (
+            "de la que el en y a los se del las un por con no una su para es al lo como mas "
+            "pero si ya te me mi tu le les nos esto eso esa ese son"
+        ),
+    },
 ]
 
 
@@ -217,6 +226,12 @@ def run_tests() -> bool:
     bucle_esp_score = scored_cases["bucle_espanol_puro"]["coherence"]
     if bucle_esp_score >= min_coh:
         sys.stderr.write(f"FAIL: bucle_espanol_puro ({bucle_esp_score:.4f}) >= min(coherente) ({min_coh:.4f})\n")
+        return False
+
+    # Assertion 6: Caso límite sopa de palabras función queda estrictamente por debajo de min(coherente)
+    sopa_score = scored_cases["sopa_funcion"]["coherence"]
+    if sopa_score >= min_coh:
+        sys.stderr.write(f"FAIL: sopa_funcion ({sopa_score:.4f}) >= min(coherente) ({min_coh:.4f})\n")
         return False
 
     # Assertion 3: Determinismo - misma llamada da idéntico resultado
