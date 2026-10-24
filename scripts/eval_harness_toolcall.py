@@ -111,6 +111,12 @@ def check_args_spec(spec_dict: dict, actual_args: dict) -> bool:
     return True
 
 
+def is_request_error(pred: dict) -> bool:
+    """True si la prediccion es un error de transporte, no una respuesta del modelo."""
+    out = pred.get("output")
+    return isinstance(out, str) and "<request_error>" in out
+
+
 def extract_tool_call(
     pred: dict, is_tool_expected: bool = True
 ) -> tuple[str | None, dict | None, bool]:
@@ -144,6 +150,9 @@ def extract_tool_call(
             if isinstance(args, dict):
                 return name, args, False
             return None, None, True
+
+    if is_request_error(pred):
+        return None, None, True
 
     output = pred.get("output", "")
     if not isinstance(output, str):
@@ -239,6 +248,11 @@ def score_predictions(
     missing = 0
     hallucinated: list[dict] = []
     tool_n_llamados = 0
+    n_request_errors = 0
+    n_request_errors_tool = 0
+    n_request_errors_no_tool = 0
+    full_ok_tool = 0
+    tool_validas = 0
 
     for sit in situations:
         s_id = sit["id"]
@@ -258,6 +272,17 @@ def score_predictions(
             if kind == "tool":
                 parse_errors += 1
             continue
+
+        if is_request_error(pred):
+            n_request_errors += 1
+            if kind == "no_tool":
+                n_request_errors_no_tool += 1
+            else:
+                n_request_errors_tool += 1
+            continue
+
+        if kind != "no_tool":
+            tool_validas += 1
 
         called_name, called_args, has_parse_error = extract_tool_call(
             pred, is_tool_expected=(kind == "tool")
@@ -284,6 +309,7 @@ def score_predictions(
                     name_ok += 1
                     if check_args_spec(exp_req, called_args):
                         full_ok += 1
+                        full_ok_tool += 1
 
     name_accuracy = round(name_ok / n, 4) if n else 0.0
     toolcall_accuracy = round(full_ok / n, 4) if n else 0.0
@@ -291,6 +317,11 @@ def score_predictions(
     hallucinated_rate = (
         round(len(hallucinated) / tool_n_llamados, 4) if tool_n_llamados else 0.0
     )
+
+    n_validas = n - n_request_errors
+    celda_valida = n_request_errors == 0
+    toolcall_accuracy_validas = round(full_ok / n_validas, 4) if n_validas > 0 else 0.0
+    accuracy_tool_validas = round(full_ok_tool / tool_validas, 4) if tool_validas > 0 else 0.0
 
     return {
         "n": n,
@@ -307,6 +338,14 @@ def score_predictions(
         "hallucinated": hallucinated,
         "hallucinated_rate": hallucinated_rate,
         "backend": backend,
+        "n_request_errors": n_request_errors,
+        "n_request_errors_tool": n_request_errors_tool,
+        "n_request_errors_no_tool": n_request_errors_no_tool,
+        "n_validas": n_validas,
+        "celda_valida": celda_valida,
+        "full_ok_tool": full_ok_tool,
+        "toolcall_accuracy_validas": toolcall_accuracy_validas,
+        "accuracy_tool_validas": accuracy_tool_validas,
     }
 
 
@@ -590,11 +629,13 @@ def compute_traceability_metrics(
     finish_reason_counts: dict[str, int] = {}
     n_truncados = 0
     n_vacios = 0
+    n_request_errors_tc = 0
     marcadores = {
         "con_tool_call_completo": 0,
         "con_tool_call_sin_cerrar": 0,
         "sin_marcador": 0,
         "vacios": 0,
+        "request_error": 0,
     }
 
     for sit in situations:
@@ -622,19 +663,28 @@ def compute_traceability_metrics(
         if fr == "length":
             n_truncados += 1
 
-        out = pred.get("output")
-        out_str = str(out) if out is not None else ""
-        is_vacio = not out_str.strip()
-        if is_vacio:
-            n_vacios += 1
-            marcadores["vacios"] += 1
+        if is_request_error(pred):
+            n_request_errors_tc += 1
+            marcadores["request_error"] += 1
+            continue
+
+        tc_list = pred.get("tool_calls")
+        if isinstance(tc_list, list) and len(tc_list) > 0:
+            marcadores["con_tool_call_completo"] += 1
         else:
-            if re.search(r"<tool_call>.*?</tool_call>", out_str, re.DOTALL):
-                marcadores["con_tool_call_completo"] += 1
-            elif "<tool_call>" in out_str and "</tool_call>" not in out_str:
-                marcadores["con_tool_call_sin_cerrar"] += 1
+            out = pred.get("output")
+            out_str = str(out) if out is not None else ""
+            is_vacio = not out_str.strip()
+            if is_vacio:
+                n_vacios += 1
+                marcadores["vacios"] += 1
             else:
-                marcadores["sin_marcador"] += 1
+                if re.search(r"<tool_call>.*?</tool_call>", out_str, re.DOTALL):
+                    marcadores["con_tool_call_completo"] += 1
+                elif "<tool_call>" in out_str and "</tool_call>" not in out_str:
+                    marcadores["con_tool_call_sin_cerrar"] += 1
+                else:
+                    marcadores["sin_marcador"] += 1
 
     request_sha256 = hashlib.sha256("".join(prompt_shas).encode("utf-8")).hexdigest()
 
@@ -647,6 +697,8 @@ def compute_traceability_metrics(
         "n_truncados": n_truncados,
         "n_vacios": n_vacios,
         "marcadores": marcadores,
+        "n_request_errors": n_request_errors_tc,
+        "celda_valida": n_request_errors_tc == 0,
     }
 
 

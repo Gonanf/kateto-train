@@ -640,3 +640,109 @@ def test_17_marcadores_distinguen_sin_cerrar():
         )
         assert report["marcadores"]["con_tool_call_sin_cerrar"] == 1
         assert report["n_truncados"] == 1
+
+
+def test_18_no_tool_con_request_error_no_suma_name_ok():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    situations = eval_mod.load_situations(
+        str(REPO_ROOT / "evals" / "toolcall_harness" / "situations.jsonl")
+    )
+    preds = []
+    for sit in situations:
+        s_id = sit["id"]
+        kind = sit.get("kind", "tool")
+        if kind == "no_tool":
+            if s_id == "hx-029":
+                preds.append({
+                    "id": s_id,
+                    "kind": kind,
+                    "output": "Hoy es un lindo dia para pasear.",
+                    "tool_calls": None,
+                })
+            else:
+                preds.append({
+                    "id": s_id,
+                    "kind": kind,
+                    "output": "<request_error>Connection refused</request_error>",
+                    "tool_calls": None,
+                })
+        else:
+            exp_name = sit["expect"]["name"]
+            preds.append({
+                "id": s_id,
+                "kind": kind,
+                "output": f'<tool_call>{{"name": "{exp_name}", "arguments": {{}}}}</tool_call>',
+                "tool_calls": None,
+            })
+
+    report = eval_mod.score_predictions(situations, preds, reg)
+    assert report["no_tool_ok"] == 1
+    assert report["name_ok"] in (28, 29)
+    assert report["n_request_errors"] == 7
+    assert report["n_request_errors_no_tool"] == 7
+    assert report["celda_valida"] is False
+    assert report["n_validas"] == 29
+    assert report["parse_errors"] == 0
+    assert report["toolcall_accuracy_validas"] == round(report["full_ok"] / 29, 4)
+
+
+def test_19_celda_toda_request_error_es_invalida():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    situations = eval_mod.load_situations(
+        str(REPO_ROOT / "evals" / "toolcall_harness" / "situations.jsonl")
+    )
+    preds = [
+        {
+            "id": sit["id"],
+            "kind": sit.get("kind", "tool"),
+            "output": "<request_error>Connection refused</request_error>",
+            "tool_calls": None,
+        }
+        for sit in situations
+    ]
+    report = eval_mod.score_predictions(situations, preds, reg)
+    assert report["n_request_errors"] == 36
+    assert report["n_validas"] == 0
+    assert report["celda_valida"] is False
+    assert report["toolcall_accuracy"] == 0.0
+    assert report["toolcall_accuracy_validas"] == 0.0
+    assert report["name_ok"] == 0
+    assert report["full_ok"] == 0
+
+    trace = eval_mod.compute_traceability_metrics(situations, preds)
+    assert trace["marcadores"]["request_error"] == 36
+    assert trace["marcadores"]["vacios"] == 0
+    assert trace["celda_valida"] is False
+
+
+def test_20_chat_tool_calls_nativo_con_content_vacio_cuenta_completo():
+    reg = registry_mod.load_registry(str(TOOLS_PY))
+    situations = eval_mod.load_situations(
+        str(REPO_ROOT / "evals" / "toolcall_harness" / "situations.jsonl")
+    )
+    sit_hx001 = [s for s in situations if s["id"] == "hx-001"][0]
+    preds = [
+        {
+            "id": "hx-001",
+            "kind": "tool",
+            "output": "",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "run_command",
+                        "arguments": '{"command": "git status"}',
+                    },
+                }
+            ],
+        }
+    ]
+    trace = eval_mod.compute_traceability_metrics([sit_hx001], preds, transport="chat")
+    assert trace["marcadores"]["con_tool_call_completo"] == 1
+    assert trace["marcadores"]["vacios"] == 0
+    assert trace["n_vacios"] == 0
+
+    score = eval_mod.score_predictions([sit_hx001], preds, reg)
+    assert score["name_ok"] >= 1
+    extra = eval_mod.compute_extra_metrics([sit_hx001], preds, reg)
+    assert extra["n_llamadas_tools"] >= 1
