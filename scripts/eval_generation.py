@@ -431,7 +431,7 @@ def main() -> int:
     ap.add_argument("--chat-format", default="chatml", choices=["world", "chatml"],
                     help="formato del prompt (§1.3)")
     ap.add_argument("--prompts", default=str(PROJECT / "out/eval/prompts_v1.json"))
-    ap.add_argument("--patterns", default=str(PROJECT / "config/behavior_patterns.yaml"))
+    ap.add_argument("--patterns", default=str(PROJECT / "scripts/config/behavior_patterns.yaml"))
     ap.add_argument("--out", default=None, help="output JSON path")
     ap.add_argument("--max-len", type=int, default=64)
     ap.add_argument("--temperature", type=float, default=0.80)

@@ -23,7 +23,7 @@ python3 "$PROJECT/scripts/build_dataset_v2.py"
 echo "========================================================"
 echo ">>> PASO 3/3: INICIANDO ENTRENAMIENTO STAGE 2 LORA <<<"
 echo "========================================================"
-"$PYTHON" "$PROJECT/train_qwen_2stage.py" --all
+"$PYTHON" "$PROJECT/scripts/train_qwen_2stage.py" --all
 
 echo "========================================================"
 echo ">>> PIPELINE COMPLETO FINALIZADO CON ÉXITO <<<"

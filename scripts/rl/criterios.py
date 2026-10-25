@@ -13,10 +13,10 @@ from typing import Any
 
 # Asegurar acceso a pipelines y scripts del workspace local.
 # Los módulos requeridos por las reglas deterministas (kateto_purge, gen_orpo_v8, etc.)
-# residen en los subdirectorios pipelines/ y scripts/ del repositorio.
+# residen en los subdirectorios scripts/pipelines y scripts del repositorio.
 _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parent.parent
-for p in [_ROOT / "pipelines", _ROOT / "scripts"]:
+for p in [_ROOT / "scripts" / "pipelines", _ROOT / "scripts"]:
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 

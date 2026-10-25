@@ -4,7 +4,7 @@
     venv/bin/python -m pytest tests/test_state_bytes.py -q
 
 El round-trip contra el dump real (21627676 bytes) necesita que exista. El script
-`script/probar-estado-python.sh` lo genera; si no esta, ese test se saltea y queda
+`scripts/probar-estado-python.sh` lo genera; si no esta, ese test se saltea y queda
 el resto, que es sintetico y no depende de llama.cpp ni de la GPU.
 """
 import os
@@ -47,7 +47,7 @@ def _dato_real() -> bytes:
     if not DUMP.exists():
         pytest.skip(
             f"no hay dump de estado en {DUMP}; generalo con "
-            "`bash script/probar-estado-python.sh` o ponelo en $KATETO_STATE_DUMP"
+            "`bash scripts/probar-estado-python.sh` o ponelo en $KATETO_STATE_DUMP"
         )
     return DUMP.read_bytes()
 
@@ -105,7 +105,7 @@ def test_header_io_magic():
 
 
 def test_header_seq_id():
-    """seq_id == 0: el dump lo produjo tools/gguf_state_roundtrip sobre la seq 0."""
+    """seq_id == 0: el dump lo produjo scripts/gguf_state_roundtrip sobre la seq 0."""
     buf = _dato_real()
     assert struct.unpack_from("<i", buf, 4)[0] == 0
     assert parse_state_bytes(buf)["seq_id"] == 0

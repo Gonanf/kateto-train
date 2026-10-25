@@ -513,7 +513,7 @@ def extract_legal_moves(text: str) -> set[str]:
 # R12 — el criterio de la lista, para que no se aplique a ojo: una palabra NO va
 # aca si el corpus humano la usa con sentido propio. Medido sobre las 56.745
 # lineas de `/home/chaos/harness-run/kateto-purge/` (version con los numeros:
-# `pipelines/reporte-validadores.json`). `differente` sale por eso: 4 apariciones,
+# `scripts/pipelines/reporte-validadores.json`). `differente` sale por eso: 4 apariciones,
 # las cuatro en espanol ("un toque differente", "lo recuerdo bien differente"), y
 # es la que rechazo el #3 del brazo v2 (`...pero differente, porque vos tenés
 # merito`). `actually` (37 en turno de voz) y `okay` (2) siguen: ahi el uso es el
@@ -543,7 +543,7 @@ RX_CITAS = re.compile(r'"[^"]*"|\'[^\']*\'|«[^»]*»')
 # `differente` NO va acá: no es inglés, es una variante del castellano, ya salió
 # de la lista en R12 y no tiene nada que ver con un préstamo técnico.
 #
-# ÚNICA fuente de verdad. La regla de purga (`pipelines/kateto_gen.py::validar`)
+# ÚNICA fuente de verdad. La regla de purga (`scripts/pipelines/kateto_gen.py::validar`)
 # y las mediciones bajan todas de acá: no hay una segunda copia de la lista.
 TERMINOS_TECNICOS: tuple[str, ...] = (
     # hardware / infraestructura

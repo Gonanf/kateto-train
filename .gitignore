@@ -27,6 +27,7 @@ unsloth_compiled_cache/
 
 # Directories with large assets & raw downloads
 base/
+models/
 out/
 tmp_download/
 cpu-debug/

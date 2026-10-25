@@ -150,7 +150,7 @@ def test_r_queda_en_ceros_y_eso_dice(pth_sintetico):
 def test_los_descriptores_de_fila_calzan_con_el_dump_real(pth_sintetico):
     """Si hay dump de B1, nuestro buffer tiene los mismos tipos y anchos de fila."""
     if not DUMP.exists():
-        pytest.skip(f"no hay dump de estado en {DUMP}; lo genera script/probar-estado-python.sh")
+        pytest.skip(f"no hay dump de estado en {DUMP}; lo genera scripts/probar-estado-python.sh")
     _saltar_sin_fichero(GGUF)
     a = parse_state_bytes(DUMP.read_bytes())
     b = parse_state_bytes(estado_a_bytes(pth_sintetico, modelo_gguf=GGUF))

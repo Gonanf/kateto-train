@@ -201,7 +201,7 @@ def main(argv=None):
                     if p.get("question"): n_q += 1
                     if p.get("answer"): n_a += 1
                 except: pass
-        log.info("verificado to_sft compatible: %d líneas, question=%d answer=%d -> probá: python to_sft.py %s /tmp/sft_out", stats["pairs"], n_q, n_a, args.output)
+        log.info("verificado to_sft compatible: %d líneas, question=%d answer=%d -> probá: python scripts/to_sft.py %s /tmp/sft_out", stats["pairs"], n_q, n_a, args.output)
         if stats["pairs"] == 0:
             log.warning("0 pares generados — posible Orion ocupado/slot trabado. Reintentá con --dry-run verificado o esperá 600s y probá de nuevo con concurrency=1")
     else:

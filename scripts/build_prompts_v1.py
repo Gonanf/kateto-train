@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CBB = ROOT / "data/hf/che-boludo-benchmark/datasets/dataset_cbb.json"
 CBB_DPO = ROOT / "data/hf/che-boludo-benchmark/datasets/dataset_cbb_dpo.json"
 TRAIN = ROOT / "data/rwkv_kateto_base_train.jsonl"
-PATTERNS = ROOT / "config/behavior_patterns.yaml"
+PATTERNS = ROOT / "scripts/config/behavior_patterns.yaml"
 OUT = ROOT / "out/eval"
 SEED = 1337
 

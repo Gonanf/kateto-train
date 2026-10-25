@@ -22,7 +22,7 @@ def _load(name: str, path: Path):
     return mod
 
 
-_bt = _load("build_train_set", REPO / "kateto-medicion" / "build-train-set.py")
+_bt = _load("build_train_set", SCRIPTS / "build-train-set.py")
 _stop = _load("stop_helpers", PIPELINE / "_stop_helpers.py")
 
 IM_END = [61, 125, 1949, 96, 7463, 125, 63]  # encode('<|im_end|>') medido
