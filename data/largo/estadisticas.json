@@ -1,0 +1,88 @@
+{
+  "params": {
+    "target_tokens": 1000000,
+    "max_tokens": 1000000,
+    "min_tokens": 1000,
+    "voice": "seco",
+    "index_root": "/home/chaos/proyectos/study-video-rag/out",
+    "txt_dir": "/home/chaos/tmp/kateto-corpus/transcripts",
+    "no_conectores": true,
+    "max_documentos": null,
+    "max_conectores": null,
+    "conectores_delay_s": 2.0,
+    "conectores_retries": 4,
+    "conectores_espera_max_s": 120
+  },
+  "fuente_a": {
+    "hermes_sesiones": 0,
+    "hermes_muestras": 0,
+    "youtube_videos": 0,
+    "youtube_muestras": 0
+  },
+  "fuente_b": {
+    "archivos": 0,
+    "vacios": 0,
+    "error": "index_root inexistente: /home/chaos/proyectos/study-video-rag/out"
+  },
+  "fuente_c": {
+    "directorio": "/home/chaos/tmp/kateto-corpus/transcripts",
+    "archivos": 149,
+    "videos": 59
+  },
+  "n_docs": 2,
+  "n_elementos": 58,
+  "elementos_pendientes_por_max_documentos": 0,
+  "descartados_por_min_elemento": 1,
+  "descartados_por_min_doc_cola": 0,
+  "total_tokens_est": 1463555.6,
+  "max_tokens_est": 980882.8,
+  "docs_ge_target": 0,
+  "histograma_tokens_est": {
+    "0-8000": 0,
+    "8000-16000": 0,
+    "16000-32000": 0,
+    "32000-64000": 0,
+    "64000-128000": 0,
+    "128000-256000": 0,
+    "256000-512000": 1,
+    "512000-1048576": 1,
+    ">=1048576": 0
+  },
+  "por_fuente": {
+    "youtube_txt": 2
+  },
+  "n_docs_mixtos": 0,
+  "conectores": {
+    "generados_gateway": 0,
+    "hits_cache": 0,
+    "omitidos": 0,
+    "omitidos_por_429": 0,
+    "respuestas_429": 0,
+    "cache_path": "/run/media/chaos/terciario/proyectos/kateto-train/data/largo/conectores_cache.json",
+    "cache_entradas": 0
+  },
+  "truncados_fuente_c": [],
+  "excluidos_fuente_b": [],
+  "docs": [
+    {
+      "id": "mix:youtube_txt:aSOD6QAgUEQ+24",
+      "fuentes": [
+        "youtube_txt"
+      ],
+      "n_elementos": 25,
+      "n_conectores": 0,
+      "chars": 3138825,
+      "tokens_est": 980882.8
+    },
+    {
+      "id": "mix:youtube_txt:kRadm8kpbnE+32",
+      "fuentes": [
+        "youtube_txt"
+      ],
+      "n_elementos": 33,
+      "n_conectores": 0,
+      "chars": 1544553,
+      "tokens_est": 482672.8
+    }
+  ]
+}

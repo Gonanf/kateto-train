@@ -1,0 +1,14 @@
+{
+  "id": "gabrielsolotorevsky/kateto-eval29-v6probe",
+  "title": "kateto-eval29-v6probe",
+  "code_file": "eval29v6probe.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "machine_shape": "NvidiaTeslaT4x2",
+  "dataset_sources": [
+    "gabrielsolotorevsky/kateto-eval29"
+  ]
+}

@@ -275,7 +275,8 @@ class KatetoInferenceEngine:
                  rosa: bool = False, rosa_retrieval_dim: int = 128,
                  rosa_head: str = ""):
         self.device = device
-        self.dtype = torch.bfloat16 if device == "cuda" else torch.float32
+        _CPU_BF16 = os.environ.get("KATETO_CPU_DTYPE", "").lower() in ("bf16", "bfloat16")
+        self.dtype = torch.bfloat16 if (device == "cuda" or (device == "cpu" and _CPU_BF16)) else torch.float32
         self.tokenizer = RWKV_TOKENIZER(vocab_path)
 
         checkpoint = torch.load(model_path, map_location="cpu")

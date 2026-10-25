@@ -1,0 +1,49 @@
+{
+  "orden": [
+    "debate",
+    "oral",
+    "core_persona",
+    "tools",
+    "anchors_autonomia",
+    "no_response"
+  ],
+  "particiones": {
+    "debate": {
+      "rango": "0..1999",
+      "n": 2000,
+      "sha256": "23ad58fc303efd070b8f88f4ff49d0be60dddf4293621d0ad8b68a4d6c54247a",
+      "verificado_por": "contenido"
+    },
+    "oral": {
+      "rango": "2000..3249",
+      "n": 1250,
+      "sha256": "51e3538d8e0817e09aed6e89dee44d580392117ad6c51ac761e580e192977392",
+      "verificado_por": "posicion"
+    },
+    "core_persona": {
+      "rango": "3250..4309",
+      "n": 1060,
+      "sha256": "c2282d00cf2c82aae3e9a83cf7fe47b9b680eb73d662271249450538b29192e2",
+      "verificado_por": "posicion"
+    },
+    "tools": {
+      "rango": "4310..4809",
+      "n": 500,
+      "sha256": "a7807abede867704f627ab21d2dfe7dc27c591cdaabf2ed7515a067d774f02f8",
+      "verificado_por": "contenido"
+    },
+    "anchors_autonomia": {
+      "rango": "4810..4934",
+      "n": 125,
+      "sha256": "e81e39d1cbb590b86a4c0c3c363ebb9bc579d72cb21628e67b3ccbf46fd29780",
+      "verificado_por": "contenido"
+    },
+    "no_response": {
+      "rango": "4935..4999",
+      "n": 65,
+      "sha256": "3e993f1071848b86b371e8b0123bdd8a62db681aed4662b2c11ac17e415117ab",
+      "verificado_por": "contenido"
+    }
+  },
+  "input_sha256": "23f79b756f5cfbcba5adb1275b80eece79f1c25689b4388d2cb2ab429be8120d"
+}
