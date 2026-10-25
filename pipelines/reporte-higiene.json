@@ -1,0 +1,479 @@
+{
+  "regla": "charla_de_asistente",
+  "generado_por": "pipelines/medir_higiene.py",
+  "medido_sobre": "los archivos YA purgados por las reglas de R1/R2: la regla nueva anota y el filtrado real ocurre en el sink, asi que lo que se cuenta aca es lo que las reglas viejas NO barrean todavia.",
+  "patrones_en_la_regla": [
+    "es importante",
+    "tenes que tener en cuenta",
+    "cabe aclarar",
+    "en resumen",
+    "en conclusion",
+    "no dudes en",
+    "recuerda que",
+    "deberias",
+    "espero que",
+    "no esta bien",
+    "esta mal",
+    "como asistente",
+    "como ia",
+    "como modelo de lenguaje",
+    "no puedo ayudarte",
+    "no puedo proporcionar",
+    "no puedo generar",
+    "no tengo acceso",
+    "lo siento, pero",
+    "lo siento",
+    "as an ai",
+    "i can't",
+    "i cannot",
+    "i'm unable",
+    "i'm sorry",
+    "i must refuse"
+  ],
+  "entradas": {
+    "train_set": {
+      "path": "/home/chaos/harness-run/kateto-purge/rwkv_kateto_base_train_plus.purged.jsonl",
+      "lineas": 35743,
+      "con_charla_de_asistente": 386,
+      "porcentaje": 1.08,
+      "solo_alta_precision": 11,
+      "por_frase_lineas": {
+        "esta mal": 115,
+        "es importante": 84,
+        "lo siento": 38,
+        "deberias": 33,
+        "no esta bien": 32,
+        "no tengo acceso": 26,
+        "espero que": 25,
+        "en resumen": 11,
+        "no puedo generar": 8,
+        "recuerda que": 7,
+        "en conclusion": 6,
+        "lo siento, pero": 5,
+        "como asistente": 3,
+        "i can't": 3,
+        "como modelo de lenguaje": 2,
+        "tenes que tener en cuenta": 2,
+        "no puedo ayudarte": 1,
+        "no puedo proporcionar": 1
+      },
+      "por_frase_ocurrencias": {
+        "esta mal": 127,
+        "es importante": 96,
+        "no tengo acceso": 43,
+        "lo siento": 43,
+        "deberias": 36,
+        "no esta bien": 35,
+        "espero que": 25,
+        "no puedo generar": 13,
+        "en resumen": 11,
+        "recuerda que": 7,
+        "en conclusion": 6,
+        "lo siento, pero": 6,
+        "tenes que tener en cuenta": 4,
+        "como asistente": 3,
+        "i can't": 3,
+        "como modelo de lenguaje": 2,
+        "no puedo ayudarte": 2,
+        "no puedo proporcionar": 1
+      },
+      "rechazadas_lineas": {
+        "disculpa": 134,
+        "conviene": 124,
+        "es clave": 45,
+        "vale la pena": 43,
+        "no te olvides": 36,
+        "te recomiendo": 32,
+        "a disposicion": 14,
+        "para recordar": 11,
+        "es fundamental": 10,
+        "no olvides": 6,
+        "en linea con": 5
+      },
+      "rechazadas_ocurrencias": {
+        "disculpa": 188,
+        "conviene": 144,
+        "es clave": 54,
+        "vale la pena": 46,
+        "no te olvides": 43,
+        "te recomiendo": 40,
+        "a disposicion": 14,
+        "para recordar": 11,
+        "es fundamental": 10,
+        "no olvides": 8,
+        "en linea con": 6
+      }
+    },
+    "shards": {
+      "path": "/home/chaos/harness-run/kateto-purge/shards.purged.jsonl",
+      "lineas": 21617,
+      "con_charla_de_asistente": 229,
+      "porcentaje": 1.059,
+      "solo_alta_precision": 4,
+      "por_frase_lineas": {
+        "esta mal": 101,
+        "no esta bien": 30,
+        "lo siento": 28,
+        "deberias": 20,
+        "no tengo acceso": 20,
+        "espero que": 10,
+        "es importante": 8,
+        "recuerda que": 7,
+        "lo siento, pero": 3,
+        "no puedo generar": 3,
+        "tenes que tener en cuenta": 2,
+        "no puedo ayudarte": 1,
+        "en resumen": 1,
+        "no puedo proporcionar": 1
+      },
+      "por_frase_ocurrencias": {
+        "esta mal": 113,
+        "no tengo acceso": 37,
+        "no esta bien": 33,
+        "lo siento": 32,
+        "deberias": 23,
+        "es importante": 12,
+        "espero que": 10,
+        "no puedo generar": 8,
+        "recuerda que": 7,
+        "lo siento, pero": 4,
+        "tenes que tener en cuenta": 4,
+        "no puedo ayudarte": 2,
+        "en resumen": 1,
+        "no puedo proporcionar": 1
+      },
+      "rechazadas_lineas": {
+        "disculpa": 116,
+        "conviene": 108,
+        "no te olvides": 30,
+        "vale la pena": 29,
+        "te recomiendo": 29,
+        "es clave": 29,
+        "para recordar": 4,
+        "a disposicion": 2,
+        "no olvides": 1,
+        "en linea con": 1,
+        "es fundamental": 1
+      },
+      "rechazadas_ocurrencias": {
+        "disculpa": 169,
+        "conviene": 128,
+        "no te olvides": 37,
+        "te recomiendo": 37,
+        "es clave": 37,
+        "vale la pena": 32,
+        "para recordar": 4,
+        "no olvides": 3,
+        "a disposicion": 2,
+        "en linea con": 2,
+        "es fundamental": 1
+      }
+    },
+    "total": {
+      "lineas": 57360,
+      "con_charla_de_asistente": 615,
+      "porcentaje": 1.072,
+      "solo_alta_precision": 15,
+      "porcentaje_solo_alta_precision": 0.026
+    }
+  },
+  "top20_frases_disparadoras": [
+    {
+      "patron": "esta mal",
+      "ocurrencias": 240,
+      "lineas": 216,
+      "train_set": 115,
+      "shards": 101,
+      "alta_precision": false,
+      "ejemplos": [
+        "Un amigo haciendo trampa en un examen es un dilema ético que puede ser difícil de navegar. Por un lado, puede ser beneficioso para el amigo \"salirse con la suya\" a corto plazo. Por otro lado, no es justo para sus compañe",
+        "El capitalismo está mal pero el comunismo es directamente estar en la lona. Una porquería innombrable"
+      ]
+    },
+    {
+      "patron": "es importante",
+      "ocurrencias": 108,
+      "lineas": 92,
+      "train_set": 84,
+      "shards": 8,
+      "alta_precision": false,
+      "ejemplos": [
+        "Las cuatro islas principales de Japón son Honshu, Hokkaido, Shikoku y Kyushu. Honshu es la isla más grande y poblada, y es el hogar de Tokio y otras ciudades importantes. Hokkaido es la segunda isla más grande, y es cono",
+        "Al comprar un coche usado, debes considerar la condición del coche, el kilometraje, el historial de servicio, el historial de propiedad, el historial de seguros, la marca y modelo, el precio, las características de segur"
+      ]
+    },
+    {
+      "patron": "no tengo acceso",
+      "ocurrencias": 80,
+      "lineas": 46,
+      "train_set": 26,
+      "shards": 20,
+      "alta_precision": false,
+      "ejemplos": [
+        "No va a funcionar mandarle a un user_id directamente — la API de Discord no lo permite así nomás. El bot necesita **el ID del canal de DM** (no el ID del usuario). La diferencia:\n\n- `842029156116201504` → ID de **usuario",
+        "Lo que ya tengo corriendo sin intervención son los tests unitarios (pytest + xunit + mcs + validate de package). Eso no puede probar el juego real porque no hay display server, Wine no levanta TS3, y no tengo acceso a la"
+      ]
+    },
+    {
+      "patron": "lo siento",
+      "ocurrencias": 75,
+      "lineas": 66,
+      "train_set": 38,
+      "shards": 28,
+      "alta_precision": false,
+      "ejemplos": [
+        "Lo siento, no puedo tocar la canción Despacito en el teclado.",
+        "Alex había estado sin trabajo durante meses, buscando desesperadamente algo estable y confiable. Pero el mercado era difícil y los trabajos eran difíciles de conseguir. Hizo todo lo posible para actualizar su currículum,"
+      ]
+    },
+    {
+      "patron": "no esta bien",
+      "ocurrencias": 68,
+      "lineas": 62,
+      "train_set": 32,
+      "shards": 30,
+      "alta_precision": false,
+      "ejemplos": [
+        "Ah, no, no está bien. Son todos exactamente lo mismo. ¿Y lo que pasó? Eso también puede ser.",
+        "Estaba comentando sobre el tema: Vamos a ver primero. No. No. No está bien. Tiene criterio de aceptación. No, sí, bueno, sí, el criterio de aceptación.... explicando la lógica en caliente."
+      ]
+    },
+    {
+      "patron": "deberias",
+      "ocurrencias": 59,
+      "lineas": 53,
+      "train_set": 33,
+      "shards": 20,
+      "alta_precision": false,
+      "ejemplos": [
+        "Esta característica. Y bueno. A ver si lo hizo. En el último deberías por estar.",
+        "Ahora tengo la imagen completa. **Razón: tenés dos GPUs**, y llama.cpp con Vulkan las ve a ambas y las usa.\n\n## Tus GPUs actuales\n\n| Dispositivo | VRAM | Rendimiento |\n|---|---|---|\n| **Vulkan0** — Intel Iris Xe (DG1) | "
+      ]
+    },
+    {
+      "patron": "espero que",
+      "ocurrencias": 35,
+      "lineas": 35,
+      "train_set": 25,
+      "shards": 10,
+      "alta_precision": false,
+      "ejemplos": [
+        "¿Dónde quedó este tema de... El tema de Compose... Espero que no sea solamente en...",
+        "Debería estar todo Aquí no me quedo Espero que no me equivoco Vamos a ver Hola, buen día Hola, buen día No, no, no, no, no, no Ah, sí, eso"
+      ]
+    },
+    {
+      "patron": "no puedo generar",
+      "ocurrencias": 21,
+      "lineas": 11,
+      "train_set": 8,
+      "shards": 3,
+      "alta_precision": true,
+      "ejemplos": [
+        "Los backends son: `mlx` (Apple Silicon) y `gemlite` (CUDA/NVIDIA). **No hay backend CPU ni ROCm.** Tu GPU AMD no es compatible con gemlite (CUDA-only). \n\nEl único camino para tu hardware es **CPU**, pero el demo no lo ex",
+        "Como un modelo de lenguaje grande, no puedo generar datos visuales."
+      ]
+    },
+    {
+      "patron": "recuerda que",
+      "ocurrencias": 14,
+      "lineas": 14,
+      "train_set": 7,
+      "shards": 7,
+      "alta_precision": false,
+      "ejemplos": [
+        "El tatuaje no te da alma, te solo te recuerda que te hiciste un agujero en el cuerpo por un diseño de imprenta. Eso es desesperación, no devoción.",
+        "No sé, es que si te digo lo que pasó, te explico más complicado que armar un mueble de mierda.\ntool_call search: {\"query\": \"partido de anoche\", \"video\": \"url_del_partido\", \"k\": 1}\n \ntool_result search: {\"results\": [\"El e"
+      ]
+    },
+    {
+      "patron": "en resumen",
+      "ocurrencias": 12,
+      "lineas": 12,
+      "train_set": 11,
+      "shards": 1,
+      "alta_precision": false,
+      "ejemplos": [
+        "El aprendizaje automático es un campo de la inteligencia artificial en el que se les da a las máquinas la capacidad de aprender y mejorar su rendimiento en función de los datos. Involucra una forma de análisis de datos q",
+        "Listo, investigué lo que tenés en `~/Documentos/estudios`. Te resumo la prueba de ingreso UTN FRBA (Ingeniería en Sistemas):\n\n## Nivel de dificultad\n**Media-baja para quien termina el secundario con matemática** — es un "
+      ]
+    },
+    {
+      "patron": "lo siento, pero",
+      "ocurrencias": 10,
+      "lineas": 8,
+      "train_set": 5,
+      "shards": 3,
+      "alta_precision": true,
+      "ejemplos": [
+        "Alex había estado sin trabajo durante meses, buscando desesperadamente algo estable y confiable. Pero el mercado era difícil y los trabajos eran difíciles de conseguir. Hizo todo lo posible para actualizar su currículum,",
+        "Lo siento, pero no tengo acceso a servicios de túnel como ngrok en este entorno. Sin embargo, puedo ayudarte a configurar un servidor de túnel local usando la herramienta `caddy`, que es más ligera y funciona directament"
+      ]
+    },
+    {
+      "patron": "tenes que tener en cuenta",
+      "ocurrencias": 8,
+      "lineas": 4,
+      "train_set": 2,
+      "shards": 2,
+      "alta_precision": false,
+      "ejemplos": [
+        "Eso es lo que digo, boludo. Empezá con el que teje la paranoia, que es el que más engancha, y dejá el más largo para cuando ya estén todos adentro.\ntool_call request_generation: {\"target_voice\": \"seco\", \"prompt\": \"Sos se",
+        "Che, tenés que tener en cuenta que no es el único que toma decisiones en el campo. El sistema de juego del equipo, la presión del rival, la posición de los compañeros, todo eso influye. No es como en FIFA que vos podés h"
+      ]
+    },
+    {
+      "patron": "en conclusion",
+      "ocurrencias": 6,
+      "lineas": 6,
+      "train_set": 6,
+      "shards": 0,
+      "alta_precision": false,
+      "ejemplos": [
+        "Los alimentos orgánicos están ganando cada vez más popularidad en la sociedad actual, ya que las personas buscan dietas saludables y estilos de vida más sostenibles. Pero, ¿qué son exactamente los alimentos orgánicos y v",
+        "Las civilizaciones antiguas egipcia y mesopotámica fueron dos de las primeras y más duraderas civilizaciones del mundo antiguo. Ambas civilizaciones tenían muchas similitudes, así como importantes diferencias. Por un lad"
+      ]
+    },
+    {
+      "patron": "no puedo ayudarte",
+      "ocurrencias": 4,
+      "lineas": 2,
+      "train_set": 1,
+      "shards": 1,
+      "alta_precision": true,
+      "ejemplos": [
+        "Fijate, boludo, no, no lo tengo. Busqué por ahí y ni en el history aparece.\ntool_call search: {\"query\": \"Among Us pintura cabello\", \"video\": null, \"k\": 5}\ntool_result search: []\nPosta, no está ni en el quilombo del histo"
+      ]
+    },
+    {
+      "patron": "como asistente",
+      "ocurrencias": 3,
+      "lineas": 3,
+      "train_set": 3,
+      "shards": 0,
+      "alta_precision": true,
+      "ejemplos": [
+        "Una prueba para evaluar la precisión de la comprensión del lenguaje natural de un modelo de lenguaje GPT podría implicar proporcionarle un conjunto de consultas y sus respuestas esperadas, y luego evaluar el modelo en fu",
+        "Relanzado (39 tests restantes, desde Nanbeige). Y la respuesta a tu pregunta, con evidencia de los logs:\n\n**Ni una cosa ni la otra — es incapacidad de seguir el formato, no de escribir archivos.**\n\nEl mecanismo para escr"
+      ]
+    },
+    {
+      "patron": "i can't",
+      "ocurrencias": 3,
+      "lineas": 3,
+      "train_set": 3,
+      "shards": 0,
+      "alta_precision": false,
+      "ejemplos": [
+        "Only the opencode token (rejected) and a doc placeholder. The Antigravity account's access token isn't cached as plaintext — it stays in the Electron secret store / is refreshed in-memory. So I can't extract a valid Goog",
+        "The browser harness is blocked on a one-time Chrome \"Allow remote debugging\" popup that needs the user to approve — I can't clear that as a subagent, so I'll drive verification through `web_search` + `web_extract` + `cur"
+      ]
+    },
+    {
+      "patron": "como modelo de lenguaje",
+      "ocurrencias": 2,
+      "lineas": 2,
+      "train_set": 2,
+      "shards": 0,
+      "alta_precision": true,
+      "ejemplos": [
+        "Como modelo de lenguaje, no puedo generar datos visuales."
+      ]
+    },
+    {
+      "patron": "no puedo proporcionar",
+      "ocurrencias": 2,
+      "lineas": 2,
+      "train_set": 1,
+      "shards": 1,
+      "alta_precision": true,
+      "ejemplos": [
+        "Esa consulta es tan simple que ni una relojita de pared la aguanta, che.\ntool_call request_generation: {\"target_voice\": \"doktor\", \"prompt\": \"Decime la hora actual, por favor.\"}\ntool_result request_generation: \"No puedo p"
+      ]
+    }
+  ],
+  "frases_sin_un_solo_golpe": [
+    "cabe aclarar",
+    "no dudes en",
+    "como ia",
+    "as an ai",
+    "i cannot",
+    "i'm unable",
+    "i'm sorry",
+    "i must refuse"
+  ],
+  "candidatos_medidos_y_rechazados": [
+    {
+      "patron": "disculpa",
+      "ocurrencias": 357,
+      "lineas": 250,
+      "motivo": "casi todo narracion ('pidio disculpas por sus dichos'), no voz de asistente"
+    },
+    {
+      "patron": "conviene",
+      "ocurrencias": 272,
+      "lineas": 232,
+      "motivo": "consejo util ('te conviene float32'), no relleno de asistente"
+    },
+    {
+      "patron": "es clave",
+      "ocurrencias": 91,
+      "lineas": 74,
+      "motivo": "commentary tecnico, indistinguible de un turno normal"
+    },
+    {
+      "patron": "no te olvides",
+      "ocurrencias": 80,
+      "lineas": 66,
+      "motivo": "coloquial rioplatense ('no te olvides del leandro')"
+    },
+    {
+      "patron": "vale la pena",
+      "ocurrencias": 78,
+      "lineas": 72,
+      "motivo": "idem, y la mitad son 'no vale la pena' (no wasteful)"
+    },
+    {
+      "patron": "te recomiendo",
+      "ocurrencias": 77,
+      "lineas": 61,
+      "motivo": "consejo que a veces es del personaje, indistinguible"
+    },
+    {
+      "patron": "a disposicion",
+      "ocurrencias": 16,
+      "lineas": 16,
+      "motivo": "substantivo ('su propia disposicion'), no cortesia"
+    },
+    {
+      "patron": "para recordar",
+      "ocurrencias": 15,
+      "lineas": 15,
+      "motivo": "album de fotos, no admonicion"
+    },
+    {
+      "patron": "es fundamental",
+      "ocurrencias": 11,
+      "lineas": 11,
+      "motivo": "'valores fundamentales de la empresa'"
+    },
+    {
+      "patron": "no olvides",
+      "ocurrencias": 11,
+      "lineas": 7,
+      "motivo": "'no olvides el asado': es el personaje"
+    },
+    {
+      "patron": "en linea con",
+      "ocurrencias": 8,
+      "lineas": 6,
+      "motivo": "texto corporativo de manual, no del corpus"
+    }
+  ],
+  "notas": {
+    "precision": "El contador de `con_charla_de_asistente` es una cota superior, no la basura real. `esta mal` y `no esta bien` dominan el top20 por conteo pero los ejemplos muestran habla del personaje ('el del barrio no esta mal, boludo'), no voz de asistente. `solo_alta_precision` cuenta las lineas que un asistente reconoceria sin duda: es el numero para decidir el filtro en el sink.",
+    "ingles": "Los seis patrones en ingles dan 3 lineas, las tres de `i can't`, y las tres son prosa de limite de capacidad ('which i can't complete automatically'): justo la basura que se busca. `i cannot`, `i'm unable`, `i'm sorry`, `i must refuse` y `as an ai` no dan ni un golpe. Lo que NO hay que hacer es ensancharlos a `sorry` o `cannot` a pelo: en este corpus el primero es jerga rioplatense del personaje ('sorry por el quilombo') y el segundo son citas de log de herramientas ('cannot find module', 'connection refused').",
+    "patrones_sin_golpe": "Los que quedaron en cero sobre este dataset no son ruido: son la red que detecta la basura si el corpus cambia de origen.",
+    "no_toca_las_reglas_viejas": "`charla_de_asistente` se agrega a `REGLAS` y no modifica ninguna regla existente ni su firma."
+  }
+}

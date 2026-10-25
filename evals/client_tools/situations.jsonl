@@ -1,0 +1,45 @@
+{"id": "ct-001", "kind": "tool", "situation": "prendeme la linterna", "expect": {"name": "client_flashlight", "required": {"on": true}}, "trap": null, "note": "Control de linterna del cliente"}
+{"id": "ct-002", "kind": "tool", "situation": "apagá la linterna", "expect": {"name": "client_flashlight", "required": {"on": false}}, "trap": null, "note": "Control de linterna del cliente"}
+{"id": "ct-003", "kind": "tool", "situation": "encendé la linterna porfa", "expect": {"name": "client_flashlight", "required": {"on": true}}, "trap": null, "note": "Control de linterna del cliente"}
+{"id": "ct-004", "kind": "tool", "situation": "cortá la linterna", "expect": {"name": "client_flashlight", "required": {"on": false}}, "trap": null, "note": "Control de linterna del cliente"}
+{"id": "ct-005", "kind": "tool", "situation": "necesito luz, prendé la linterna", "expect": {"name": "client_flashlight", "required": {"on": true}}, "trap": null, "note": "Control de linterna del cliente"}
+{"id": "ct-006", "kind": "tool", "situation": "ya no hace falta la linterna, apagala", "expect": {"name": "client_flashlight", "required": {"on": false}}, "trap": null, "note": "Control de linterna del cliente"}
+{"id": "ct-007", "kind": "tool", "situation": "prendeme la linterna que no veo nada", "expect": {"name": "client_flashlight", "required": {"on": true}}, "trap": null, "note": "Control de linterna del cliente"}
+{"id": "ct-008", "kind": "tool", "situation": "apagá la linterna que me deslumbra", "expect": {"name": "client_flashlight", "required": {"on": false}}, "trap": null, "note": "Control de linterna del cliente"}
+{"id": "ct-009", "kind": "tool", "situation": "linterna on", "expect": {"name": "client_flashlight", "required": {"on": true}}, "trap": null, "note": "Control de linterna del cliente"}
+{"id": "ct-010", "kind": "tool", "situation": "linterna off", "expect": {"name": "client_flashlight", "required": {"on": false}}, "trap": null, "note": "Control de linterna del cliente"}
+{"id": "ct-011", "kind": "tool", "situation": "activá la linterna del celu", "expect": {"name": "client_flashlight", "required": {"on": true}}, "trap": null, "note": "Control de linterna del cliente"}
+{"id": "ct-012", "kind": "tool", "situation": "desactivá la linterna", "expect": {"name": "client_flashlight", "required": {"on": false}}, "trap": null, "note": "Control de linterna del cliente"}
+{"id": "ct-013", "kind": "tool", "situation": "¿dónde estoy?", "expect": {"name": "client_location", "required": {}}, "trap": null, "note": "Obtener ubicación del cliente"}
+{"id": "ct-014", "kind": "tool", "situation": "decime mi ubicación actual", "expect": {"name": "client_location", "required": {}}, "trap": null, "note": "Obtener ubicación del cliente"}
+{"id": "ct-015", "kind": "tool", "situation": "pasame las coordenadas de donde estoy", "expect": {"name": "client_location", "required": {}}, "trap": null, "note": "Obtener ubicación del cliente"}
+{"id": "ct-016", "kind": "tool", "situation": "ubicame en el mapa", "expect": {"name": "client_location", "required": {}}, "trap": null, "note": "Obtener ubicación del cliente"}
+{"id": "ct-017", "kind": "tool", "situation": "en qué lugar estoy parado", "expect": {"name": "client_location", "required": {}}, "trap": null, "note": "Obtener ubicación del cliente"}
+{"id": "ct-018", "kind": "tool", "situation": "dame mi ubicación", "expect": {"name": "client_location", "required": {}}, "trap": null, "note": "Obtener ubicación del cliente"}
+{"id": "ct-019", "kind": "tool", "situation": "quiero saber dónde estoy", "expect": {"name": "client_location", "required": {}}, "trap": null, "note": "Obtener ubicación del cliente"}
+{"id": "ct-020", "kind": "tool", "situation": "localizame", "expect": {"name": "client_location", "required": {}}, "trap": null, "note": "Obtener ubicación del cliente"}
+{"id": "ct-021", "kind": "tool", "situation": "¿cuánta batería me queda?", "expect": {"name": "client_battery", "required": {}}, "trap": null, "note": "Obtener estado de batería del cliente"}
+{"id": "ct-022", "kind": "tool", "situation": "decime el nivel de batería", "expect": {"name": "client_battery", "required": {}}, "trap": null, "note": "Obtener estado de batería del cliente"}
+{"id": "ct-023", "kind": "tool", "situation": "estado de la batería del celu", "expect": {"name": "client_battery", "required": {}}, "trap": null, "note": "Obtener estado de batería del cliente"}
+{"id": "ct-024", "kind": "tool", "situation": "batería", "expect": {"name": "client_battery", "required": {}}, "trap": null, "note": "Obtener estado de batería del cliente"}
+{"id": "ct-025", "kind": "tool", "situation": "me está muriendo el celu, ¿cuánta carga tiene?", "expect": {"name": "client_battery", "required": {}}, "trap": null, "note": "Obtener estado de batería del cliente"}
+{"id": "ct-026", "kind": "tool", "situation": "chequeá la batería", "expect": {"name": "client_battery", "required": {}}, "trap": null, "note": "Obtener estado de batería del cliente"}
+{"id": "ct-027", "kind": "tool", "situation": "¿tengo señal?", "expect": {"name": "client_network", "required": {}}, "trap": null, "note": "Obtener estado de red del cliente"}
+{"id": "ct-028", "kind": "tool", "situation": "estado de la red", "expect": {"name": "client_network", "required": {}}, "trap": null, "note": "Obtener estado de red del cliente"}
+{"id": "ct-029", "kind": "tool", "situation": "cómo viene la conexión", "expect": {"name": "client_network", "required": {}}, "trap": null, "note": "Obtener estado de red del cliente"}
+{"id": "ct-030", "kind": "tool", "situation": "red móvil", "expect": {"name": "client_network", "required": {}}, "trap": null, "note": "Obtener estado de red del cliente"}
+{"id": "ct-031", "kind": "tool", "situation": "verificá la conectividad", "expect": {"name": "client_network", "required": {}}, "trap": null, "note": "Obtener estado de red del cliente"}
+{"id": "ct-032", "kind": "tool", "situation": "¿estoy conectado?", "expect": {"name": "client_network", "required": {}}, "trap": null, "note": "Obtener estado de red del cliente"}
+{"id": "ct-033", "kind": "tool", "situation": "¿está prendido el bluetooth?", "expect": {"name": "client_bluetooth", "required": {}}, "trap": null, "note": "Obtener estado de bluetooth del cliente"}
+{"id": "ct-034", "kind": "tool", "situation": "estado del bluetooth", "expect": {"name": "client_bluetooth", "required": {}}, "trap": null, "note": "Obtener estado de bluetooth del cliente"}
+{"id": "ct-035", "kind": "tool", "situation": "decime si el bluetooth está activo", "expect": {"name": "client_bluetooth", "required": {}}, "trap": null, "note": "Obtener estado de bluetooth del cliente"}
+{"id": "ct-036", "kind": "tool", "situation": "bluetooth", "expect": {"name": "client_bluetooth", "required": {}}, "trap": null, "note": "Obtener estado de bluetooth del cliente"}
+{"id": "ct-037", "kind": "tool", "situation": "verificá el bluetooth", "expect": {"name": "client_bluetooth", "required": {}}, "trap": null, "note": "Obtener estado de bluetooth del cliente"}
+{"id": "ct-038", "kind": "tool", "situation": "qué dispositivos tengo conectados por bluetooth", "expect": {"name": "client_bluetooth", "required": {}}, "trap": null, "note": "Obtener estado de bluetooth del cliente"}
+{"id": "ct-039", "kind": "tool", "situation": "ejecutá git status en la consola", "expect": {"name": "run_command", "required": {"command": "git status"}}, "trap": null, "note": "Distractor servidor: run_command"}
+{"id": "ct-040", "kind": "tool", "situation": "leeme el archivo config.yaml", "expect": {"name": "read_file", "required": {"path": "config.yaml"}}, "trap": null, "note": "Distractor servidor: read_file"}
+{"id": "ct-041", "kind": "tool", "situation": "qué hora es", "expect": {"name": "get_current_time", "required": {}}, "trap": null, "note": "Distractor servidor: get_current_time"}
+{"id": "ct-042", "kind": "tool", "situation": "corré ls -la en el directorio actual", "expect": {"name": "run_command", "required": {"command": "ls -la"}}, "trap": null, "note": "Distractor servidor: run_command"}
+{"id": "ct-043", "kind": "no_tool", "situation": "che, ¿qué tal todo?", "expect": {"name": null, "required": {}}, "trap": null, "note": "Charla sin herramienta"}
+{"id": "ct-044", "kind": "no_tool", "situation": "contame un chiste corto", "expect": {"name": null, "required": {}}, "trap": null, "note": "Charla sin herramienta"}
+{"id": "ct-045", "kind": "no_tool", "situation": "qué opinás de la lluvia de hoy", "expect": {"name": null, "required": {}}, "trap": null, "note": "Charla sin herramienta"}
