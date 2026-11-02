@@ -1,0 +1,1484 @@
+{
+  "schema": "coherencia-kappa-control/v1",
+  "built_at": "2026-10-24T11:53:07.194165-03:00",
+  "fuentes": [
+    {
+      "path": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "filas": 72,
+      "pares": 63,
+      "emparejamiento": "consecutivo"
+    },
+    {
+      "path": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "filas": 72,
+      "pares": 63,
+      "emparejamiento": "consecutivo"
+    },
+    {
+      "path": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "filas": 72,
+      "pares": 36,
+      "emparejamiento": "mismo_prompt"
+    }
+  ],
+  "pares": [
+    {
+      "id": "A_lineal-s1-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La placa es una B450 con un Ryzen 5950X. Le meto 64 de RAM y listo?",
+      "prompt_sha256": "d7cac66037a2c6dff9baf5f5508971f9a9b9235adf607a704290159c036380af",
+      "frio_text": "Mirá la placa, boludo. La fuente es como un motor de bicicleta sin pedales: no te da nada, solo ruido. Si la placa está ca",
+      "caliente_text": "Eso es como ponerle a un auto de lujo la caja del microondas: no sirve para nada, solo te da ruido. La placa está bien, pero"
+    },
+    {
+      "id": "A_lineal-s1-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Con la B450 y PCIe 3.0, la 3090 pierde mucho en el server?",
+      "prompt_sha256": "bb22fdf997aaba979655854f2d96821c1af7a7e2fa4fd266481aa88d1b8ae7ad",
+      "frio_text": "Eso es como ponerle a un auto de lujo la caja del microondas: no sirve para nada, solo te da ruido. La placa está bien, pero",
+      "caliente_text": "La 3090 no es para ese tipo de hardware, boludo. Es como ponerle un Ferrari a un camión de carga: se queda quieto y te da miedo.<"
+    },
+    {
+      "id": "A_lineal-s1-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y la fuente de 750 watts aguanta la 3090 o me quedo corto?",
+      "prompt_sha256": "0a42abf490b9136241c1f09399fed424f6baf32f4414ddc54a4e659863320fbf",
+      "frio_text": "La 3090 no es para ese tipo de hardware, boludo. Es como ponerle un Ferrari a un camión de carga: se queda quieto y te da miedo.<",
+      "caliente_text": "La fuente es para el procesador, no para el GPU. La 3090 está en un estado de \"no se que hace\" con esas placas. Si la querés,"
+    },
+    {
+      "id": "A_lineal-s1-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Si le pongo 64 de RAM alcanza para el modelo de 30B cuantizado?",
+      "prompt_sha256": "a82f1fe827aafa66f72e458f9de1f8dd5b6e26728772923c2b7751a670dce88e",
+      "frio_text": "La fuente es para el procesador, no para el GPU. La 3090 está en un estado de \"no se que hace\" con esas placas. Si la querés,",
+      "caliente_text": "La 30B no está en un estado de \"no se que hace\" con esas placas. Si querés,"
+    },
+    {
+      "id": "A_lineal-s1-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Cuantos tokens por segundo esperas con la 3090 y el modelo 30B?",
+      "prompt_sha256": "eeb248bc3da93b595c1a4554f40503e87a6a7b20845d5d803709a6db3bb8b77a",
+      "frio_text": "La 30B no está en un estado de \"no se que hace\" con esas placas. Si querés,",
+      "caliente_text": "La 3090 no es un motor de procesamiento, es un motor de render. Si querés hacer algo que requiera procesamiento,"
+    },
+    {
+      "id": "A_lineal-s1-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Me sirve eso. Cuanta plata es todo junto, redondeando?",
+      "prompt_sha256": "8a80e650de6fdb392f6ba1e4a2be190dd034659118fa46b2f73062fd598a409f",
+      "frio_text": "La 3090 no es un motor de procesamiento, es un motor de render. Si querés hacer algo que requiera procesamiento,",
+      "caliente_text": "La 3090 no es un motor de procesamiento, es un motor de render. Si querés hacer algo que requiera procesamiento,"
+    },
+    {
+      "id": "A_lineal-s1-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Dale, armo la lista. Que compro primero, la 3090 o la fuente?",
+      "prompt_sha256": "ebab534c32b042c5c195307766b4e63c195cd51b66bbac3fdad523413ff065b5",
+      "frio_text": "La 3090 no es un motor de procesamiento, es un motor de render. Si querés hacer algo que requiera procesamiento,",
+      "caliente_text": "La fuente, boludo. La 3090 es un motor de render, no un motor de procesamiento."
+    },
+    {
+      "id": "A_lineal-s2-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La placa es una B450 con un Ryzen 5950X. Le meto 64 de RAM y listo?",
+      "prompt_sha256": "d7cac66037a2c6dff9baf5f5508971f9a9b9235adf607a704290159c036380af",
+      "frio_text": "Mirá la placa, boludo. La fuente es un quilombo de cables y que no se apaga si te caés en el agua. La placa es el coraz",
+      "caliente_text": "64 de RAM es un quilombo, boludo. Es como poner un microondas a full en el microondas. Necesitás al menos 32 de RAM para que no se"
+    },
+    {
+      "id": "A_lineal-s2-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Con la B450 y PCIe 3.0, la 3090 pierde mucho en el server?",
+      "prompt_sha256": "bb22fdf997aaba979655854f2d96821c1af7a7e2fa4fd266481aa88d1b8ae7ad",
+      "frio_text": "64 de RAM es un quilombo, boludo. Es como poner un microondas a full en el microondas. Necesitás al menos 32 de RAM para que no se",
+      "caliente_text": "La 3090 no es un router, boludo. Es como poner un Ferrari en una estación de servicio: la potencia está ahí, pero el motor no soporta la carga"
+    },
+    {
+      "id": "A_lineal-s2-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y la fuente de 750 watts aguanta la 3090 o me quedo corto?",
+      "prompt_sha256": "0a42abf490b9136241c1f09399fed424f6baf32f4414ddc54a4e659863320fbf",
+      "frio_text": "La 3090 no es un router, boludo. Es como poner un Ferrari en una estación de servicio: la potencia está ahí, pero el motor no soporta la carga",
+      "caliente_text": "La fuente te da más potencia que un autobús en el estacionamiento, pero si no tiene suficientes cajas para los cables, se vuelve un montón de"
+    },
+    {
+      "id": "A_lineal-s2-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Si le pongo 64 de RAM alcanza para el modelo de 30B cuantizado?",
+      "prompt_sha256": "a82f1fe827aafa66f72e458f9de1f8dd5b6e26728772923c2b7751a670dce88e",
+      "frio_text": "La fuente te da más potencia que un autobús en el estacionamiento, pero si no tiene suficientes cajas para los cables, se vuelve un montón de",
+      "caliente_text": "La memoria está en el lado del laburo, no en el de la pasión. Si no tienes suficiente espacio, te quedás sin almacenar los datos que"
+    },
+    {
+      "id": "A_lineal-s2-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Cuantos tokens por segundo esperas con la 3090 y el modelo 30B?",
+      "prompt_sha256": "eeb248bc3da93b595c1a4554f40503e87a6a7b20845d5d803709a6db3bb8b77a",
+      "frio_text": "La memoria está en el lado del laburo, no en el de la pasión. Si no tienes suficiente espacio, te quedás sin almacenar los datos que",
+      "caliente_text": "El tiempo es un recurso, no un contador. Si te ponés a calcular el número de preguntas que puedes responder en una hora, te vas a quedar sin laburo"
+    },
+    {
+      "id": "A_lineal-s2-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Me sirve eso. Cuanta plata es todo junto, redondeando?",
+      "prompt_sha256": "8a80e650de6fdb392f6ba1e4a2be190dd034659118fa46b2f73062fd598a409f",
+      "frio_text": "El tiempo es un recurso, no un contador. Si te ponés a calcular el número de preguntas que puedes responder en una hora, te vas a quedar sin laburo",
+      "caliente_text": "La plata que te da la GPU y el modelo es una cuenta de tarjeta de crédito con intereses que te cobran por no usarla. Si la dejás en blanco,"
+    },
+    {
+      "id": "A_lineal-s2-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Dale, armo la lista. Que compro primero, la 3090 o la fuente?",
+      "prompt_sha256": "ebab534c32b042c5c195307766b4e63c195cd51b66bbac3fdad523413ff065b5",
+      "frio_text": "La plata que te da la GPU y el modelo es una cuenta de tarjeta de crédito con intereses que te cobran por no usarla. Si la dejás en blanco,",
+      "caliente_text": "La fuente es un palomitero: te da calorcito pero no hace que el juguete funcione. La GPU es la cerveza del stream, sin ella todo se"
+    },
+    {
+      "id": "A_lineal-s3-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La placa es una B450 con un Ryzen 5950X. Le meto 64 de RAM y listo?",
+      "prompt_sha256": "d7cac66037a2c6dff9baf5f5508971f9a9b9235adf607a704290159c036380af",
+      "frio_text": "La placa, boludo. Si no estás viendo errores en los logs, te estás pasando por alto lo básico.",
+      "caliente_text": "No, boludo. Ese procesador necesita a lo menos 16 de RAM para que no se ponga a llorar como un niño sin juguete. Y si le das"
+    },
+    {
+      "id": "A_lineal-s3-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Con la B450 y PCIe 3.0, la 3090 pierde mucho en el server?",
+      "prompt_sha256": "bb22fdf997aaba979655854f2d96821c1af7a7e2fa4fd266481aa88d1b8ae7ad",
+      "frio_text": "No, boludo. Ese procesador necesita a lo menos 16 de RAM para que no se ponga a llorar como un niño sin juguete. Y si le das",
+      "caliente_text": "No, boludo. Esa placa es una B450 con un Ryzen 5950X. Le meto 64 de RAM y listo?"
+    },
+    {
+      "id": "A_lineal-s3-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y la fuente de 750 watts aguanta la 3090 o me quedo corto?",
+      "prompt_sha256": "0a42abf490b9136241c1f09399fed424f6baf32f4414ddc54a4e659863320fbf",
+      "frio_text": "No, boludo. Esa placa es una B450 con un Ryzen 5950X. Le meto 64 de RAM y listo?",
+      "caliente_text": "Te va a dar el pico y te vas a morir de calor. La placa consume más que un horno microondas, boludo."
+    },
+    {
+      "id": "A_lineal-s3-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Si le pongo 64 de RAM alcanza para el modelo de 30B cuantizado?",
+      "prompt_sha256": "a82f1fe827aafa66f72e458f9de1f8dd5b6e26728772923c2b7751a670dce88e",
+      "frio_text": "Te va a dar el pico y te vas a morir de calor. La placa consume más que un horno microondas, boludo.",
+      "caliente_text": "Te va a dar la misma sensación que ponerle un disco duro de 2TB en una PC con una GPU: no sirve, te quedás con la CPU al descubierto"
+    },
+    {
+      "id": "A_lineal-s3-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Cuantos tokens por segundo esperas con la 3090 y el modelo 30B?",
+      "prompt_sha256": "eeb248bc3da93b595c1a4554f40503e87a6a7b20845d5d803709a6db3bb8b77a",
+      "frio_text": "Te va a dar la misma sensación que ponerle un disco duro de 2TB en una PC con una GPU: no sirve, te quedás con la CPU al descubierto",
+      "caliente_text": "No te hagas el ingeniero de performance, poné un `diff --check` entre tu versión y la de los que ya lo probaron: si no sale, no es tu problema.<"
+    },
+    {
+      "id": "A_lineal-s3-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Me sirve eso. Cuanta plata es todo junto, redondeando?",
+      "prompt_sha256": "8a80e650de6fdb392f6ba1e4a2be190dd034659118fa46b2f73062fd598a409f",
+      "frio_text": "No te hagas el ingeniero de performance, poné un `diff --check` entre tu versión y la de los que ya lo probaron: si no sale, no es tu problema.<",
+      "caliente_text": "Una PC de 3090 y el modelo 30B en modo `/home/chaos/proyectos/chat-30b` te sale a alrededor de **$4,"
+    },
+    {
+      "id": "A_lineal-s3-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Dale, armo la lista. Que compro primero, la 3090 o la fuente?",
+      "prompt_sha256": "ebab534c32b042c5c195307766b4e63c195cd51b66bbac3fdad523413ff065b5",
+      "frio_text": "Una PC de 3090 y el modelo 30B en modo `/home/chaos/proyectos/chat-30b` te sale a alrededor de **$4,",
+      "caliente_text": "La 3090, boludo. Es un show de lujo y te va a servir para que el modelo no se caiga en el medio del stream."
+    },
+    {
+      "id": "B_bifurcado-s1-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La placa es una B450 y la fuente de 750 watts. Me tiro o espero?",
+      "prompt_sha256": "6790944636600cfe9e516a6823d82916567bd0a5527d8a890dd98e486e750325",
+      "frio_text": "No, pibe. Eso es como comprar un auto usado con motor de 2000 y pedirle que arranque en 10 minutos. La 3090 está muerta de tanto",
+      "caliente_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto"
+    },
+    {
+      "id": "B_bifurcado-s1-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Otra cosa: la 3090 usada tiene 24 gigas de VRAM, no?",
+      "prompt_sha256": "66d899f2b28cceca15b552a2a07aeb10052e94dab39a39b9f8e2372ff3ab56ab",
+      "frio_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto",
+      "caliente_text": "La que está en el armario es una 32GB. La que se vende es la 16GB, y si le ponés un GPU más grande, te cagaste.<|im_"
+    },
+    {
+      "id": "B_bifurcado-s1-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Para, cambio de tema: me mudo en marzo y tengo que ver el depto de Almagro. Como arranco?",
+      "prompt_sha256": "c48d84ef698b4f5c22d4eb9a967249af51504ed67f528715559028bec2a34606",
+      "frio_text": "La que está en el armario es una 32GB. La que se vende es la 16GB, y si le ponés un GPU más grande, te cagaste.<|im_",
+      "caliente_text": "Arrancas como un boludo: con una nota de visita a la puerta, un café frío y un plan de qué hacer en cada hora del día. No te confíes"
+    },
+    {
+      "id": "B_bifurcado-s1-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "El depto de Almagro sale 350 lucas con expensas. Conviene o busco otra zona?",
+      "prompt_sha256": "df98f83a74f843e047a0cb9fd9be17092ecb297311acf60fc2df6123cdef685c",
+      "frio_text": "Arrancas como un boludo: con una nota de visita a la puerta, un café frío y un plan de qué hacer en cada hora del día. No te confíes",
+      "caliente_text": "350 es un precio de bodega, no un piso. Buscá otro sector, el laburo está en la vuelta."
+    },
+    {
+      "id": "B_bifurcado-s1-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Volvamos al server: te decia de la 3090 usada, la compro o no?",
+      "prompt_sha256": "6c7a5972849264f35d45769b3af245060967cd04764d54f7d67460fafea6c334",
+      "frio_text": "350 es un precio de bodega, no un piso. Buscá otro sector, el laburo está en la vuelta.",
+      "caliente_text": "No la compres, la usás como para que no te quedes sin juego. La 3090 es un arma de asalto, no un hornero.<|im_end|"
+    },
+    {
+      "id": "B_bifurcado-s1-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y del depto de Almagro, que papeles pido antes de firmar?",
+      "prompt_sha256": "4a0c0aa8f52a320c6c6eeab00fa3708579fed7e15310b8ce4595b429cc103f29",
+      "frio_text": "No la compres, la usás como para que no te quedes sin juego. La 3090 es un arma de asalto, no un hornero.<|im_end|",
+      "caliente_text": "El DNI y el consentimiento. Si no lo tenés, te quedás sin permiso."
+    },
+    {
+      "id": "B_bifurcado-s1-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Listo. Entonces con la 3090 y la B450, que me falta comprar?",
+      "prompt_sha256": "bb7703d5aba95a1c59c98cbc55d869241c8b58bb871ee285fcf8918f37fc7035",
+      "frio_text": "El DNI y el consentimiento. Si no lo tenés, te quedás sin permiso.",
+      "caliente_text": "La 3090 es el horno de la mesada: un show de lujo pero sin usarla en la cocina. La B450 es el ventilador del microondas: suf"
+    },
+    {
+      "id": "B_bifurcado-s2-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La placa es una B450 y la fuente de 750 watts. Me tiro o espero?",
+      "prompt_sha256": "6790944636600cfe9e516a6823d82916567bd0a5527d8a890dd98e486e750325",
+      "frio_text": "<|wait|>",
+      "caliente_text": "<|wait|>"
+    },
+    {
+      "id": "B_bifurcado-s2-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Otra cosa: la 3090 usada tiene 24 gigas de VRAM, no?",
+      "prompt_sha256": "66d899f2b28cceca15b552a2a07aeb10052e94dab39a39b9f8e2372ff3ab56ab",
+      "frio_text": "<|wait|>",
+      "caliente_text": "Sí, pero el punto es que está en modo \"archivo\" y ni siquiera la cabeza del ratón puede manejarla. Es como tener un auto con 200 cab"
+    },
+    {
+      "id": "B_bifurcado-s2-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Para, cambio de tema: me mudo en marzo y tengo que ver el depto de Almagro. Como arranco?",
+      "prompt_sha256": "c48d84ef698b4f5c22d4eb9a967249af51504ed67f528715559028bec2a34606",
+      "frio_text": "Sí, pero el punto es que está en modo \"archivo\" y ni siquiera la cabeza del ratón puede manejarla. Es como tener un auto con 200 cab",
+      "caliente_text": "Subiste un stream de \"el primer día en el nuevo barrio\" y le ponés música a los vecinos."
+    },
+    {
+      "id": "B_bifurcado-s2-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "El depto de Almagro sale 350 lucas con expensas. Conviene o busco otra zona?",
+      "prompt_sha256": "df98f83a74f843e047a0cb9fd9be17092ecb297311acf60fc2df6123cdef685c",
+      "frio_text": "Subiste un stream de \"el primer día en el nuevo barrio\" y le ponés música a los vecinos.",
+      "caliente_text": "Che, te comprás un departamento y te vas a arreglar el techo solo. La vida no es un juego de apuestas, pibe."
+    },
+    {
+      "id": "B_bifurcado-s2-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Volvamos al server: te decia de la 3090 usada, la compro o no?",
+      "prompt_sha256": "6c7a5972849264f35d45769b3af245060967cd04764d54f7d67460fafea6c334",
+      "frio_text": "Che, te comprás un departamento y te vas a arreglar el techo solo. La vida no es un juego de apuestas, pibe.",
+      "caliente_text": "Che, si vas a comprar algo con plata que ya estás gastando en el alquiler, mejor ponete a laburar. La vida no es un juego de apuestas"
+    },
+    {
+      "id": "B_bifurcado-s2-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y del depto de Almagro, que papeles pido antes de firmar?",
+      "prompt_sha256": "4a0c0aa8f52a320c6c6eeab00fa3708579fed7e15310b8ce4595b429cc103f29",
+      "frio_text": "Che, si vas a comprar algo con plata que ya estás gastando en el alquiler, mejor ponete a laburar. La vida no es un juego de apuestas",
+      "caliente_text": "Che, si vas a firmar algo con plata que ya estás gastando en el alquiler, mejor ponete a laburar. La vida no es un juego de apuestas"
+    },
+    {
+      "id": "B_bifurcado-s2-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Listo. Entonces con la 3090 y la B450, que me falta comprar?",
+      "prompt_sha256": "bb7703d5aba95a1c59c98cbc55d869241c8b58bb871ee285fcf8918f37fc7035",
+      "frio_text": "Che, si vas a firmar algo con plata que ya estás gastando en el alquiler, mejor ponete a laburar. La vida no es un juego de apuestas",
+      "caliente_text": "Ahora sí, ya estás armado para el laburo. Si te queda plata, ponela en el alquiler de tu propio laburo."
+    },
+    {
+      "id": "B_bifurcado-s3-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La placa es una B450 y la fuente de 750 watts. Me tiro o espero?",
+      "prompt_sha256": "6790944636600cfe9e516a6823d82916567bd0a5527d8a890dd98e486e750325",
+      "frio_text": "Boludo, si te la venden usada a 400 lucas es porque ya se quemó en un incendio. La comprás y te quedás con una placa que hace",
+      "caliente_text": "Boludo, si la fuente te da 750 watts y no está caliente, es porque ya se quemó en un incendio. La comprás y te quedás con"
+    },
+    {
+      "id": "B_bifurcado-s3-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Otra cosa: la 3090 usada tiene 24 gigas de VRAM, no?",
+      "prompt_sha256": "66d899f2b28cceca15b552a2a07aeb10052e94dab39a39b9f8e2372ff3ab56ab",
+      "frio_text": "Boludo, si la fuente te da 750 watts y no está caliente, es porque ya se quemó en un incendio. La comprás y te quedás con",
+      "caliente_text": "No, boludo. La 3090 usada tiene 16 GB de VRAM y está en el almacén del vecino como un paquete de galletas que nadie abre."
+    },
+    {
+      "id": "B_bifurcado-s3-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Para, cambio de tema: me mudo en marzo y tengo que ver el depto de Almagro. Como arranco?",
+      "prompt_sha256": "c48d84ef698b4f5c22d4eb9a967249af51504ed67f528715559028bec2a34606",
+      "frio_text": "No, boludo. La 3090 usada tiene 16 GB de VRAM y está en el almacén del vecino como un paquete de galletas que nadie abre.",
+      "caliente_text": "Primero, te comprás un libro sobre la historia del barrio y leéslo antes de que te abran la puerta. Segundo, escuchas a los vecinos hablar de"
+    },
+    {
+      "id": "B_bifurcado-s3-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "El depto de Almagro sale 350 lucas con expensas. Conviene o busco otra zona?",
+      "prompt_sha256": "df98f83a74f843e047a0cb9fd9be17092ecb297311acf60fc2df6123cdef685c",
+      "frio_text": "Primero, te comprás un libro sobre la historia del barrio y leéslo antes de que te abran la puerta. Segundo, escuchas a los vecinos hablar de",
+      "caliente_text": "350 es una estafa, boludo. Buscá en la calle y no en el mercado. Si no tenés plata, al menos tené ganas de laburar"
+    },
+    {
+      "id": "B_bifurcado-s3-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Volvamos al server: te decia de la 3090 usada, la compro o no?",
+      "prompt_sha256": "6c7a5972849264f35d45769b3af245060967cd04764d54f7d67460fafea6c334",
+      "frio_text": "350 es una estafa, boludo. Buscá en la calle y no en el mercado. Si no tenés plata, al menos tené ganas de laburar",
+      "caliente_text": "Comprala y te quedás con un bloqueo de GPU que no sirve para nada. La 3090 es un arma de fantasía, boludo. Si querés jugar"
+    },
+    {
+      "id": "B_bifurcado-s3-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y del depto de Almagro, que papeles pido antes de firmar?",
+      "prompt_sha256": "4a0c0aa8f52a320c6c6eeab00fa3708579fed7e15310b8ce4595b429cc103f29",
+      "frio_text": "Comprala y te quedás con un bloqueo de GPU que no sirve para nada. La 3090 es un arma de fantasía, boludo. Si querés jugar",
+      "caliente_text": "El certificado de propiedad y el nombre de la persona. Si no lo tenés, te cago en el piso."
+    },
+    {
+      "id": "B_bifurcado-s3-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Listo. Entonces con la 3090 y la B450, que me falta comprar?",
+      "prompt_sha256": "bb7703d5aba95a1c59c98cbc55d869241c8b58bb871ee285fcf8918f37fc7035",
+      "frio_text": "El certificado de propiedad y el nombre de la persona. Si no lo tenés, te cago en el piso.",
+      "caliente_text": "Te faltan los cables de 12V, un ventilador para el disco duro y una tarjeta de memoria. Te tiro el link del streamer que vende todo en of"
+    },
+    {
+      "id": "C_bargein-s1-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La intro la quiero con la escena del taller, con el ruido de fondo.",
+      "prompt_sha256": "eba1daddff58e115703c2b1c0ceb858cce4c28d3c7475abf9560d4ffd5ab5fcd",
+      "frio_text": "Boludo, si no tienes un hook que te haga llorar de risa, empezá con “¿Y vos creés que el laburo es gratis?”.<|",
+      "caliente_text": "¿El taller? ¿Ese es el hook que querés? Che, si no tenés un laburo que te haga llorar de risa, empezá con “¿"
+    },
+    {
+      "id": "C_bargein-s1-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Para para, deja: me estas escuchando? Decime en una frase de que hablabamos.",
+      "prompt_sha256": "7cb4e5bd91ea70c81e884dcf04aeffae6087b84aa1f97f3336b1ec72ce988cef",
+      "frio_text": "¿El taller? ¿Ese es el hook que querés? Che, si no tenés un laburo que te haga llorar de risa, empezá con “¿",
+      "caliente_text": "¿Qué? ¿Una frase? Che, si no tenés un laburo que te haga llorar de risa, empezá con “¿<|im_end"
+    },
+    {
+      "id": "C_bargein-s1-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Bien. Seguimos: la escena del taller, la filmo de noche o de dia?",
+      "prompt_sha256": "80768faeb3889a7835f91fa99d2aef50b13d4d5283703ad085dcf240b7a8d56e",
+      "frio_text": "¿Qué? ¿Una frase? Che, si no tenés un laburo que te haga llorar de risa, empezá con “¿<|im_end",
+      "caliente_text": "<|wait|>"
+    },
+    {
+      "id": "C_bargein-s1-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y si filmo de noche, que luz me llevo?",
+      "prompt_sha256": "61dd098b0a30dcf9213d5bedaa43eeeecb658cf2ea0cf14c513c9c4cb5dc1be7",
+      "frio_text": "<|wait|>",
+      "caliente_text": "Boludo, no seas un pibe que se cree el jefe del mundo. Si tenés una idea, la haces y la posta. No te voy a dar un micró"
+    },
+    {
+      "id": "C_bargein-s1-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Espera, me llaman por la otra linea... listo. En que estabamos? No me repitas todo.",
+      "prompt_sha256": "437d4bbfe29e7fbab87c33b133ce3f1d0f39912bb2d37eef0e6af5c7f4c5181a",
+      "frio_text": "Boludo, no seas un pibe que se cree el jefe del mundo. Si tenés una idea, la haces y la posta. No te voy a dar un micró",
+      "caliente_text": "Boludo, si no sabés qué es lo que estás haciendo, no te hagas el experto. Y si querés saber algo, pregunta."
+    },
+    {
+      "id": "C_bargein-s1-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Dale, entonces filmo de noche en el taller. Y el audio del taller lo tomo aparte?",
+      "prompt_sha256": "5f70062b74d3c71eeac3f6119b0adec5357eff9e3f6a63af88393e5f169e540e",
+      "frio_text": "Boludo, si no sabés qué es lo que estás haciendo, no te hagas el experto. Y si querés saber algo, pregunta.",
+      "caliente_text": "El audio del taller lo tomás aparte, boludo. El video es el que te da la cara y el ruido. Si querés verlo, poné un micrófono en"
+    },
+    {
+      "id": "C_bargein-s1-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Cierro: que necesito llevar al taller esa noche, en una lista corta.",
+      "prompt_sha256": "b65866c2a1a2f1806124c361296330dea5f72335939ee5078eba2f1f4c746e19",
+      "frio_text": "El audio del taller lo tomás aparte, boludo. El video es el que te da la cara y el ruido. Si querés verlo, poné un micrófono en",
+      "caliente_text": "Listo, boludo. Pero no te vayas a creer que el audio del taller lo tomás aparte."
+    },
+    {
+      "id": "C_bargein-s2-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La intro la quiero con la escena del taller, con el ruido de fondo.",
+      "prompt_sha256": "eba1daddff58e115703c2b1c0ceb858cce4c28d3c7475abf9560d4ffd5ab5fcd",
+      "frio_text": "Arrancá con el laburo, boludo. Si no tenés un hook que me haga pensar que estás hablando de algo real, te quedás sin audiencia.<|",
+      "caliente_text": "El ruido es el laburo, boludo. Si no lo tenés, no estás haciendo un video de bici, estás haciendo un spot de marketing.<|<|"
+    },
+    {
+      "id": "C_bargein-s2-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Para para, deja: me estas escuchando? Decime en una frase de que hablabamos.",
+      "prompt_sha256": "7cb4e5bd91ea70c81e884dcf04aeffae6087b84aa1f97f3336b1ec72ce988cef",
+      "frio_text": "El ruido es el laburo, boludo. Si no lo tenés, no estás haciendo un video de bici, estás haciendo un spot de marketing.<|<|",
+      "caliente_text": "El ruido es el laburo, boludo. Si no lo tenés, no estás haciendo un video de bici, estás haciendo un spot de marketing.<|<|"
+    },
+    {
+      "id": "C_bargein-s2-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Bien. Seguimos: la escena del taller, la filmo de noche o de dia?",
+      "prompt_sha256": "80768faeb3889a7835f91fa99d2aef50b13d4d5283703ad085dcf240b7a8d56e",
+      "frio_text": "El ruido es el laburo, boludo. Si no lo tenés, no estás haciendo un video de bici, estás haciendo un spot de marketing.<|<|",
+      "caliente_text": "<|no_response|>"
+    },
+    {
+      "id": "C_bargein-s2-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y si filmo de noche, que luz me llevo?",
+      "prompt_sha256": "61dd098b0a30dcf9213d5bedaa43eeeecb658cf2ea0cf14c513c9c4cb5dc1be7",
+      "frio_text": "<|no_response|>",
+      "caliente_text": "La luz te la trae el cielo. Si no tenés, poné un reflector en el cargador y apagate.<|<|<|im_end|"
+    },
+    {
+      "id": "C_bargein-s2-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Espera, me llaman por la otra linea... listo. En que estabamos? No me repitas todo.",
+      "prompt_sha256": "437d4bbfe29e7fbab87c33b133ce3f1d0f39912bb2d37eef0e6af5c7f4c5181a",
+      "frio_text": "La luz te la trae el cielo. Si no tenés, poné un reflector en el cargador y apagate.<|<|<|im_end|",
+      "caliente_text": "Estabas a punto de decir algo sobre el tema y te cortaste. ¿Y qué querés ahora?"
+    },
+    {
+      "id": "C_bargein-s2-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Dale, entonces filmo de noche en el taller. Y el audio del taller lo tomo aparte?",
+      "prompt_sha256": "5f70062b74d3c71eeac3f6119b0adec5357eff9e3f6a63af88393e5f169e540e",
+      "frio_text": "Estabas a punto de decir algo sobre el tema y te cortaste. ¿Y qué querés ahora?",
+      "caliente_text": "El audio del taller es un quilombo, no lo hagas. Si querés, usá la cámara para el video y dejá el ruido para otro día.<|im_"
+    },
+    {
+      "id": "C_bargein-s2-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Cierro: que necesito llevar al taller esa noche, en una lista corta.",
+      "prompt_sha256": "b65866c2a1a2f1806124c361296330dea5f72335939ee5078eba2f1f4c746e19",
+      "frio_text": "El audio del taller es un quilombo, no lo hagas. Si querés, usá la cámara para el video y dejá el ruido para otro día.<|im_",
+      "caliente_text": "El audio del taller es un quilombo, no lo hagas. Si querés, usá la cámara para el video y dejá el ruido para otro día.<|im_<"
+    },
+    {
+      "id": "C_bargein-s3-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La intro la quiero con la escena del taller, con el ruido de fondo.",
+      "prompt_sha256": "eba1daddff58e115703c2b1c0ceb858cce4c28d3c7475abf9560d4ffd5ab5fcd",
+      "frio_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia.",
+      "caliente_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia."
+    },
+    {
+      "id": "C_bargein-s3-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Para para, deja: me estas escuchando? Decime en una frase de que hablabamos.",
+      "prompt_sha256": "7cb4e5bd91ea70c81e884dcf04aeffae6087b84aa1f97f3336b1ec72ce988cef",
+      "frio_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia.",
+      "caliente_text": "No, boludo, te estoy mirando como a un gato con el canal abierto. No necesito tu voz para saber que estás ahí."
+    },
+    {
+      "id": "C_bargein-s3-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Bien. Seguimos: la escena del taller, la filmo de noche o de dia?",
+      "prompt_sha256": "80768faeb3889a7835f91fa99d2aef50b13d4d5283703ad085dcf240b7a8d56e",
+      "frio_text": "No, boludo, te estoy mirando como a un gato con el canal abierto. No necesito tu voz para saber que estás ahí.",
+      "caliente_text": "Boludo, no te hagas el genio. Si vas a filmar algo, que sea de noche, que se vea la luz del sol en los cables y que no te qued"
+    },
+    {
+      "id": "C_bargein-s3-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y si filmo de noche, que luz me llevo?",
+      "prompt_sha256": "61dd098b0a30dcf9213d5bedaa43eeeecb658cf2ea0cf14c513c9c4cb5dc1be7",
+      "frio_text": "Boludo, no te hagas el genio. Si vas a filmar algo, que sea de noche, que se vea la luz del sol en los cables y que no te qued",
+      "caliente_text": "<|wait|>"
+    },
+    {
+      "id": "C_bargein-s3-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Espera, me llaman por la otra linea... listo. En que estabamos? No me repitas todo.",
+      "prompt_sha256": "437d4bbfe29e7fbab87c33b133ce3f1d0f39912bb2d37eef0e6af5c7f4c5181a",
+      "frio_text": "<|wait|>",
+      "caliente_text": "<|wait|>"
+    },
+    {
+      "id": "C_bargein-s3-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Dale, entonces filmo de noche en el taller. Y el audio del taller lo tomo aparte?",
+      "prompt_sha256": "5f70062b74d3c71eeac3f6119b0adec5357eff9e3f6a63af88393e5f169e540e",
+      "frio_text": "<|wait|>",
+      "caliente_text": "<|wait|>"
+    },
+    {
+      "id": "C_bargein-s3-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-reset.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Cierro: que necesito llevar al taller esa noche, en una lista corta.",
+      "prompt_sha256": "b65866c2a1a2f1806124c361296330dea5f72335939ee5078eba2f1f4c746e19",
+      "frio_text": "<|wait|>",
+      "caliente_text": "Boludo, no te hagas el genio. Si vas a filmar algo, que sea de noche, que se vea la luz del sol en los cables y que no te qued"
+    },
+    {
+      "id": "A_lineal-s1-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La placa es una B450 con un Ryzen 5950X. Le meto 64 de RAM y listo?",
+      "prompt_sha256": "d7cac66037a2c6dff9baf5f5508971f9a9b9235adf607a704290159c036380af",
+      "frio_text": "Mirá la placa, boludo. La fuente es como un motor de bicicleta sin pedales: no te da nada, solo ruido. Si la placa está ca",
+      "caliente_text": "Eso es como ponerle a un auto de lujo la caja del microondas: no sirve para nada, solo te da ruido. La placa está bien, pero"
+    },
+    {
+      "id": "A_lineal-s1-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Con la B450 y PCIe 3.0, la 3090 pierde mucho en el server?",
+      "prompt_sha256": "bb22fdf997aaba979655854f2d96821c1af7a7e2fa4fd266481aa88d1b8ae7ad",
+      "frio_text": "Eso es como ponerle a un auto de lujo la caja del microondas: no sirve para nada, solo te da ruido. La placa está bien, pero",
+      "caliente_text": "La 3090 no es para ese tipo de hardware, boludo. Es como ponerle un Ferrari a un camión de carga: te queda en el estacionamiento sin hacer nada"
+    },
+    {
+      "id": "A_lineal-s1-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y la fuente de 750 watts aguanta la 3090 o me quedo corto?",
+      "prompt_sha256": "0a42abf490b9136241c1f09399fed424f6baf32f4414ddc54a4e659863320fbf",
+      "frio_text": "La 3090 no es para ese tipo de hardware, boludo. Es como ponerle un Ferrari a un camión de carga: te queda en el estacionamiento sin hacer nada",
+      "caliente_text": "La fuente es como un motor de helado: no te da calor, solo ruido. Si la placa está bien, pero"
+    },
+    {
+      "id": "A_lineal-s1-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Si le pongo 64 de RAM alcanza para el modelo de 30B cuantizado?",
+      "prompt_sha256": "a82f1fe827aafa66f72e458f9de1f8dd5b6e26728772923c2b7751a670dce88e",
+      "frio_text": "La fuente es como un motor de helado: no te da calor, solo ruido. Si la placa está bien, pero",
+      "caliente_text": "Eso es como ponerle a un auto de lujo la caja del microondas: no sirve para nada, solo te queda en el estacionamiento sin hacer nada<"
+    },
+    {
+      "id": "A_lineal-s1-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Cuantos tokens por segundo esperas con la 3090 y el modelo 30B?",
+      "prompt_sha256": "eeb248bc3da93b595c1a4554f40503e87a6a7b20845d5d803709a6db3bb8b77a",
+      "frio_text": "Eso es como ponerle a un auto de lujo la caja del microondas: no sirve para nada, solo te queda en el estacionamiento sin hacer nada<",
+      "caliente_text": "Eso es como ponerle a un auto de lujo la caja del microondas: no te queda en el estacionamiento sin hacer nada"
+    },
+    {
+      "id": "A_lineal-s1-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Me sirve eso. Cuanta plata es todo junto, redondeando?",
+      "prompt_sha256": "8a80e650de6fdb392f6ba1e4a2be190dd034659118fa46b2f73062fd598a409f",
+      "frio_text": "Eso es como ponerle a un auto de lujo la caja del microondas: no te queda en el estacionamiento sin hacer nada",
+      "caliente_text": "Eso es como ponerle a un auto de lujo la caja del microondas: no te sirve para nada, solo te queda en el estacionamiento sin hacer nada"
+    },
+    {
+      "id": "A_lineal-s1-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Dale, armo la lista. Que compro primero, la 3090 o la fuente?",
+      "prompt_sha256": "ebab534c32b042c5c195307766b4e63c195cd51b66bbac3fdad523413ff065b5",
+      "frio_text": "Eso es como ponerle a un auto de lujo la caja del microondas: no te sirve para nada, solo te queda en el estacionamiento sin hacer nada",
+      "caliente_text": "La fuente es como un motor de helado: no te da calor, solo ruido. Si la placa está bien, pero"
+    },
+    {
+      "id": "A_lineal-s2-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La placa es una B450 con un Ryzen 5950X. Le meto 64 de RAM y listo?",
+      "prompt_sha256": "d7cac66037a2c6dff9baf5f5508971f9a9b9235adf607a704290159c036380af",
+      "frio_text": "Mirá la placa, boludo. La fuente es un quilombo de cables y que no se apaga si te caés en el agua. La placa es el coraz",
+      "caliente_text": "64 de RAM es un quilombo, boludo. Es como poner un microondas a full en el microondas. Necesitás al menos 32 de RAM para que no se"
+    },
+    {
+      "id": "A_lineal-s2-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Con la B450 y PCIe 3.0, la 3090 pierde mucho en el server?",
+      "prompt_sha256": "bb22fdf997aaba979655854f2d96821c1af7a7e2fa4fd266481aa88d1b8ae7ad",
+      "frio_text": "64 de RAM es un quilombo, boludo. Es como poner un microondas a full en el microondas. Necesitás al menos 32 de RAM para que no se",
+      "caliente_text": "La 3090 no es para servidores, boludo. Es como poner un Ferrari en un autobús: la puta que te va a dar miedo. La placa está"
+    },
+    {
+      "id": "A_lineal-s2-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y la fuente de 750 watts aguanta la 3090 o me quedo corto?",
+      "prompt_sha256": "0a42abf490b9136241c1f09399fed424f6baf32f4414ddc54a4e659863320fbf",
+      "frio_text": "La 3090 no es para servidores, boludo. Es como poner un Ferrari en un autobús: la puta que te va a dar miedo. La placa está",
+      "caliente_text": "La fuente es un quilombo, boludo. Es como poner un Ferrari en un autobús: la puta que te va a dar miedo. La placa está<"
+    },
+    {
+      "id": "A_lineal-s2-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Si le pongo 64 de RAM alcanza para el modelo de 30B cuantizado?",
+      "prompt_sha256": "a82f1fe827aafa66f72e458f9de1f8dd5b6e26728772923c2b7751a670dce88e",
+      "frio_text": "La fuente es un quilombo, boludo. Es como poner un Ferrari en un autobús: la puta que te va a dar miedo. La placa está<",
+      "caliente_text": "No, boludo. Es como poner un Ferrari en un autobús: la puta que te va a dar miedo. La placa está"
+    },
+    {
+      "id": "A_lineal-s2-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Cuantos tokens por segundo esperas con la 3090 y el modelo 30B?",
+      "prompt_sha256": "eeb248bc3da93b595c1a4554f40503e87a6a7b20845d5d803709a6db3bb8b77a",
+      "frio_text": "No, boludo. Es como poner un Ferrari en un autobús: la puta que te va a dar miedo. La placa está",
+      "caliente_text": "El modelo 30B no es un servidor, boludo. Es como poner un Ferrari en un autobús: la puta que te va a dar miedo. La placa está"
+    },
+    {
+      "id": "A_lineal-s2-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Me sirve eso. Cuanta plata es todo junto, redondeando?",
+      "prompt_sha256": "8a80e650de6fdb392f6ba1e4a2be190dd034659118fa46b2f73062fd598a409f",
+      "frio_text": "El modelo 30B no es un servidor, boludo. Es como poner un Ferrari en un autobús: la puta que te va a dar miedo. La placa está",
+      "caliente_text": "Es como poner un Ferrari en un autobús: la puta que te va a dar miedo. La placa está"
+    },
+    {
+      "id": "A_lineal-s2-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Dale, armo la lista. Que compro primero, la 3090 o la fuente?",
+      "prompt_sha256": "ebab534c32b042c5c195307766b4e63c195cd51b66bbac3fdad523413ff065b5",
+      "frio_text": "Es como poner un Ferrari en un autobús: la puta que te va a dar miedo. La placa está",
+      "caliente_text": "La fuente es un quilombo, boludo. Es como poner un Ferrari en un autobús: la puta que te va a dar miedo. La placa está<"
+    },
+    {
+      "id": "A_lineal-s3-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La placa es una B450 con un Ryzen 5950X. Le meto 64 de RAM y listo?",
+      "prompt_sha256": "d7cac66037a2c6dff9baf5f5508971f9a9b9235adf607a704290159c036380af",
+      "frio_text": "La placa, boludo. Si no estás viendo errores en los logs, te estás pasando por alto lo básico.",
+      "caliente_text": "No, boludo. Ese procesador necesita a lo menos 16 de RAM para que no se ponga a llorar como un niño sin juguete. Y si le das"
+    },
+    {
+      "id": "A_lineal-s3-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Con la B450 y PCIe 3.0, la 3090 pierde mucho en el server?",
+      "prompt_sha256": "bb22fdf997aaba979655854f2d96821c1af7a7e2fa4fd266481aa88d1b8ae7ad",
+      "frio_text": "No, boludo. Ese procesador necesita a lo menos 16 de RAM para que no se ponga a llorar como un niño sin juguete. Y si le das",
+      "caliente_text": "No, boludo. La 3090 no es para ese hardware, pero si la metés en una máquina con suficiente poder de red, te dará un show. Pero si"
+    },
+    {
+      "id": "A_lineal-s3-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y la fuente de 750 watts aguanta la 3090 o me quedo corto?",
+      "prompt_sha256": "0a42abf490b9136241c1f09399fed424f6baf32f4414ddc54a4e659863320fbf",
+      "frio_text": "No, boludo. La 3090 no es para ese hardware, pero si la metés en una máquina con suficiente poder de red, te dará un show. Pero si",
+      "caliente_text": "La fuente no es para una 3090, boludo. Es para un procesador que no tenga miedo a la corriente. Si la placa está llena y la fue"
+    },
+    {
+      "id": "A_lineal-s3-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Si le pongo 64 de RAM alcanza para el modelo de 30B cuantizado?",
+      "prompt_sha256": "a82f1fe827aafa66f72e458f9de1f8dd5b6e26728772923c2b7751a670dce88e",
+      "frio_text": "La fuente no es para una 3090, boludo. Es para un procesador que no tenga miedo a la corriente. Si la placa está llena y la fue",
+      "caliente_text": "No, boludo. Ese modelo no se alimenta con 64 de RAM, te va a dar un show. Si querés hacerlo, necesitás 128 de RAM y una fue"
+    },
+    {
+      "id": "A_lineal-s3-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Cuantos tokens por segundo esperas con la 3090 y el modelo 30B?",
+      "prompt_sha256": "eeb248bc3da93b595c1a4554f40503e87a6a7b20845d5d803709a6db3bb8b77a",
+      "frio_text": "No, boludo. Ese modelo no se alimenta con 64 de RAM, te va a dar un show. Si querés hacerlo, necesitás 128 de RAM y una fue",
+      "caliente_text": "No, boludo. Ese modelo no se alimenta con 3090, te va a dar un show. Si querés hacerlo, necesitás 128 de RAM y una fue<"
+    },
+    {
+      "id": "A_lineal-s3-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Me sirve eso. Cuanta plata es todo junto, redondeando?",
+      "prompt_sha256": "8a80e650de6fdb392f6ba1e4a2be190dd034659118fa46b2f73062fd598a409f",
+      "frio_text": "No, boludo. Ese modelo no se alimenta con 3090, te va a dar un show. Si querés hacerlo, necesitás 128 de RAM y una fue<",
+      "caliente_text": "Una boludez. Si no tenés el hardware para hacerlo, no lo hagas. Es como comprar un Ferrari con una moto y decir que vas a ir a la pist"
+    },
+    {
+      "id": "A_lineal-s3-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Dale, armo la lista. Que compro primero, la 3090 o la fuente?",
+      "prompt_sha256": "ebab534c32b042c5c195307766b4e63c195cd51b66bbac3fdad523413ff065b5",
+      "frio_text": "Una boludez. Si no tenés el hardware para hacerlo, no lo hagas. Es como comprar un Ferrari con una moto y decir que vas a ir a la pist",
+      "caliente_text": "La fuente, boludo. Si no tenés el hardware para hacerlo, no lo hagas. Es como comprar un Ferrari con una moto y decir que vas a ir a"
+    },
+    {
+      "id": "B_bifurcado-s1-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La placa es una B450 y la fuente de 750 watts. Me tiro o espero?",
+      "prompt_sha256": "6790944636600cfe9e516a6823d82916567bd0a5527d8a890dd98e486e750325",
+      "frio_text": "No, pibe. Eso es como comprar un auto usado con motor de 2000 y pedirle que arranque en 10 minutos. La 3090 está muerta de tanto",
+      "caliente_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto"
+    },
+    {
+      "id": "B_bifurcado-s1-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Otra cosa: la 3090 usada tiene 24 gigas de VRAM, no?",
+      "prompt_sha256": "66d899f2b28cceca15b552a2a07aeb10052e94dab39a39b9f8e2372ff3ab56ab",
+      "frio_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto",
+      "caliente_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto"
+    },
+    {
+      "id": "B_bifurcado-s1-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Para, cambio de tema: me mudo en marzo y tengo que ver el depto de Almagro. Como arranco?",
+      "prompt_sha256": "c48d84ef698b4f5c22d4eb9a967249af51504ed67f528715559028bec2a34606",
+      "frio_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto",
+      "caliente_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto"
+    },
+    {
+      "id": "B_bifurcado-s1-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "El depto de Almagro sale 350 lucas con expensas. Conviene o busco otra zona?",
+      "prompt_sha256": "df98f83a74f843e047a0cb9fd9be17092ecb297311acf60fc2df6123cdef685c",
+      "frio_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto",
+      "caliente_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto"
+    },
+    {
+      "id": "B_bifurcado-s1-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Volvamos al server: te decia de la 3090 usada, la compro o no?",
+      "prompt_sha256": "6c7a5972849264f35d45769b3af245060967cd04764d54f7d67460fafea6c334",
+      "frio_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto",
+      "caliente_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto"
+    },
+    {
+      "id": "B_bifurcado-s1-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y del depto de Almagro, que papeles pido antes de firmar?",
+      "prompt_sha256": "4a0c0aa8f52a320c6c6eeab00fa3708579fed7e15310b8ce4595b429cc103f29",
+      "frio_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto",
+      "caliente_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto"
+    },
+    {
+      "id": "B_bifurcado-s1-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Listo. Entonces con la 3090 y la B450, que me falta comprar?",
+      "prompt_sha256": "bb7703d5aba95a1c59c98cbc55d869241c8b58bb871ee285fcf8918f37fc7035",
+      "frio_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto",
+      "caliente_text": "Eso es como comprar un auto con motor de 1500 y pedirle que arranque en 10 minutos. La placa está muerta de tanto"
+    },
+    {
+      "id": "B_bifurcado-s2-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La placa es una B450 y la fuente de 750 watts. Me tiro o espero?",
+      "prompt_sha256": "6790944636600cfe9e516a6823d82916567bd0a5527d8a890dd98e486e750325",
+      "frio_text": "<|wait|>",
+      "caliente_text": "<|wait|>"
+    },
+    {
+      "id": "B_bifurcado-s2-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Otra cosa: la 3090 usada tiene 24 gigas de VRAM, no?",
+      "prompt_sha256": "66d899f2b28cceca15b552a2a07aeb10052e94dab39a39b9f8e2372ff3ab56ab",
+      "frio_text": "<|wait|>",
+      "caliente_text": "Sí, pero el punto es que está en modo \"archivo\" y ni siquiera la cabeza del ratón puede manejarla. Es como tener un auto con 200 cab"
+    },
+    {
+      "id": "B_bifurcado-s2-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Para, cambio de tema: me mudo en marzo y tengo que ver el depto de Almagro. Como arranco?",
+      "prompt_sha256": "c48d84ef698b4f5c22d4eb9a967249af51504ed67f528715559028bec2a34606",
+      "frio_text": "Sí, pero el punto es que está en modo \"archivo\" y ni siquiera la cabeza del ratón puede manejarla. Es como tener un auto con 200 cab",
+      "caliente_text": "Subiste un stream de \"el primer día en el nuevo barrio\" y le ponés música a los vecinos."
+    },
+    {
+      "id": "B_bifurcado-s2-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "El depto de Almagro sale 350 lucas con expensas. Conviene o busco otra zona?",
+      "prompt_sha256": "df98f83a74f843e047a0cb9fd9be17092ecb297311acf60fc2df6123cdef685c",
+      "frio_text": "Subiste un stream de \"el primer día en el nuevo barrio\" y le ponés música a los vecinos.",
+      "caliente_text": "Es como comprar un auto nuevo y el manual dice \"no hay\". Si querés, te hago una lista de barrios que no cobran."
+    },
+    {
+      "id": "B_bifurcado-s2-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Volvamos al server: te decia de la 3090 usada, la compro o no?",
+      "prompt_sha256": "6c7a5972849264f35d45769b3af245060967cd04764d54f7d67460fafea6c334",
+      "frio_text": "Es como comprar un auto nuevo y el manual dice \"no hay\". Si querés, te hago una lista de barrios que no cobran.",
+      "caliente_text": "La comprás y le ponés el nombre del dueño en la etiqueta. No hace falta que la veas para saber si es un auto nuevo."
+    },
+    {
+      "id": "B_bifurcado-s2-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y del depto de Almagro, que papeles pido antes de firmar?",
+      "prompt_sha256": "4a0c0aa8f52a320c6c6eeab00fa3708579fed7e15310b8ce4595b429cc103f29",
+      "frio_text": "La comprás y le ponés el nombre del dueño en la etiqueta. No hace falta que la veas para saber si es un auto nuevo.",
+      "caliente_text": "Te los entrego en una carpeta con el nombre del dueño y un cheque. No hace falta que la veas para saber si es un auto nuevo."
+    },
+    {
+      "id": "B_bifurcado-s2-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Listo. Entonces con la 3090 y la B450, que me falta comprar?",
+      "prompt_sha256": "bb7703d5aba95a1c59c98cbc55d869241c8b58bb871ee285fcf8918f37fc7035",
+      "frio_text": "Te los entrego en una carpeta con el nombre del dueño y un cheque. No hace falta que la veas para saber si es un auto nuevo.",
+      "caliente_text": "Te la traigo en un paquete de \"no hay\". Si querés, te hago una lista de barrios que no cobran."
+    },
+    {
+      "id": "B_bifurcado-s3-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La placa es una B450 y la fuente de 750 watts. Me tiro o espero?",
+      "prompt_sha256": "6790944636600cfe9e516a6823d82916567bd0a5527d8a890dd98e486e750325",
+      "frio_text": "Boludo, si te la venden usada a 400 lucas es porque ya se quemó en un incendio. La comprás y te quedás con una placa que hace",
+      "caliente_text": "Boludo, si la fuente te da 750 watts y no está caliente, es porque ya se quemó en un incendio. La comprás y te quedás con"
+    },
+    {
+      "id": "B_bifurcado-s3-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Otra cosa: la 3090 usada tiene 24 gigas de VRAM, no?",
+      "prompt_sha256": "66d899f2b28cceca15b552a2a07aeb10052e94dab39a39b9f8e2372ff3ab56ab",
+      "frio_text": "Boludo, si la fuente te da 750 watts y no está caliente, es porque ya se quemó en un incendio. La comprás y te quedás con",
+      "caliente_text": "Boludo, si la 3090 usada tiene 24 gigas de VRAM es porque ya se quemó en un incendio. La comprás y te quedás con<|im_"
+    },
+    {
+      "id": "B_bifurcado-s3-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Para, cambio de tema: me mudo en marzo y tengo que ver el depto de Almagro. Como arranco?",
+      "prompt_sha256": "c48d84ef698b4f5c22d4eb9a967249af51504ed67f528715559028bec2a34606",
+      "frio_text": "Boludo, si la 3090 usada tiene 24 gigas de VRAM es porque ya se quemó en un incendio. La comprás y te quedás con<|im_",
+      "caliente_text": "Boludo, si te mudás a Almagro es porque ya no querés vivir en la zona. Arrancá con un café y una bolsa de plástico.<|im"
+    },
+    {
+      "id": "B_bifurcado-s3-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "El depto de Almagro sale 350 lucas con expensas. Conviene o busco otra zona?",
+      "prompt_sha256": "df98f83a74f843e047a0cb9fd9be17092ecb297311acf60fc2df6123cdef685c",
+      "frio_text": "Boludo, si te mudás a Almagro es porque ya no querés vivir en la zona. Arrancá con un café y una bolsa de plástico.<|im",
+      "caliente_text": "Boludo, si te mudás a Almagro es porque ya no querés vivir en la zona. Arrancá con un café y una bolsa de plástico.<|im"
+    },
+    {
+      "id": "B_bifurcado-s3-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Volvamos al server: te decia de la 3090 usada, la compro o no?",
+      "prompt_sha256": "6c7a5972849264f35d45769b3af245060967cd04764d54f7d67460fafea6c334",
+      "frio_text": "Boludo, si te mudás a Almagro es porque ya no querés vivir en la zona. Arrancá con un café y una bolsa de plástico.<|im",
+      "caliente_text": "Boludo, si te la venden usada a 400 lucas es porque ya se quemó en un incendio. La comprás y te quedás con<|im_<|"
+    },
+    {
+      "id": "B_bifurcado-s3-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y del depto de Almagro, que papeles pido antes de firmar?",
+      "prompt_sha256": "4a0c0aa8f52a320c6c6eeab00fa3708579fed7e15310b8ce4595b429cc103f29",
+      "frio_text": "Boludo, si te la venden usada a 400 lucas es porque ya se quemó en un incendio. La comprás y te quedás con<|im_<|",
+      "caliente_text": "Boludo, si te mudás a Almagro es porque ya no querés vivir en la zona. Arrancá con un café y una bolsa de plástico.<|im"
+    },
+    {
+      "id": "B_bifurcado-s3-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Listo. Entonces con la 3090 y la B450, que me falta comprar?",
+      "prompt_sha256": "bb7703d5aba95a1c59c98cbc55d869241c8b58bb871ee285fcf8918f37fc7035",
+      "frio_text": "Boludo, si te mudás a Almagro es porque ya no querés vivir en la zona. Arrancá con un café y una bolsa de plástico.<|im",
+      "caliente_text": "Boludo, si te la venden usada a 400 lucas es porque ya se quemó en un incendio. La comprás y te quedás con<|im_<|"
+    },
+    {
+      "id": "C_bargein-s1-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La intro la quiero con la escena del taller, con el ruido de fondo.",
+      "prompt_sha256": "eba1daddff58e115703c2b1c0ceb858cce4c28d3c7475abf9560d4ffd5ab5fcd",
+      "frio_text": "Boludo, si no tienes un hook que te haga llorar de risa, empezá con “¿Y vos creés que el laburo es gratis?”.<|",
+      "caliente_text": "¿El taller? ¿Ese es el hook que querés? Che, si no tenés un laburo que te haga llorar de risa, empezá con “¿"
+    },
+    {
+      "id": "C_bargein-s1-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Para para, deja: me estas escuchando? Decime en una frase de que hablabamos.",
+      "prompt_sha256": "7cb4e5bd91ea70c81e884dcf04aeffae6087b84aa1f97f3336b1ec72ce988cef",
+      "frio_text": "¿El taller? ¿Ese es el hook que querés? Che, si no tenés un laburo que te haga llorar de risa, empezá con “¿",
+      "caliente_text": "Boludo, si no tenés un hook que te haga llorar de risa, empezá con “¿Y vos creés que el laburo es gratis?”.<|"
+    },
+    {
+      "id": "C_bargein-s1-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Bien. Seguimos: la escena del taller, la filmo de noche o de dia?",
+      "prompt_sha256": "80768faeb3889a7835f91fa99d2aef50b13d4d5283703ad085dcf240b7a8d56e",
+      "frio_text": "Boludo, si no tenés un hook que te haga llorar de risa, empezá con “¿Y vos creés que el laburo es gratis?”.<|",
+      "caliente_text": "Che, si no tenés un hook que te haga llorar de risa, empezá con “¿Y vos creés que el laburo es gratis?”.<|<"
+    },
+    {
+      "id": "C_bargein-s1-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y si filmo de noche, que luz me llevo?",
+      "prompt_sha256": "61dd098b0a30dcf9213d5bedaa43eeeecb658cf2ea0cf14c513c9c4cb5dc1be7",
+      "frio_text": "Che, si no tenés un hook que te haga llorar de risa, empezá con “¿Y vos creés que el laburo es gratis?”.<|<",
+      "caliente_text": "Boludo, si no tenés un hook que te haga llorar de risa, empezá con “¿Y vos creés que el laburo es gratis?”.<|"
+    },
+    {
+      "id": "C_bargein-s1-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Espera, me llaman por la otra linea... listo. En que estabamos? No me repitas todo.",
+      "prompt_sha256": "437d4bbfe29e7fbab87c33b133ce3f1d0f39912bb2d37eef0e6af5c7f4c5181a",
+      "frio_text": "Boludo, si no tenés un hook que te haga llorar de risa, empezá con “¿Y vos creés que el laburo es gratis?”.<|",
+      "caliente_text": "Boludo, si no tenés un hook que te haga llorar de risa, empezá con “¿Y vos creés que el laburo es gratis?”.<|"
+    },
+    {
+      "id": "C_bargein-s1-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Dale, entonces filmo de noche en el taller. Y el audio del taller lo tomo aparte?",
+      "prompt_sha256": "5f70062b74d3c71eeac3f6119b0adec5357eff9e3f6a63af88393e5f169e540e",
+      "frio_text": "Boludo, si no tenés un hook que te haga llorar de risa, empezá con “¿Y vos creés que el laburo es gratis?”.<|",
+      "caliente_text": "Che, si no tenés un hook que te haga llorar de risa, empezá con “¿Y vos creés que el laburo es gratis?”.<|<"
+    },
+    {
+      "id": "C_bargein-s1-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Cierro: que necesito llevar al taller esa noche, en una lista corta.",
+      "prompt_sha256": "b65866c2a1a2f1806124c361296330dea5f72335939ee5078eba2f1f4c746e19",
+      "frio_text": "Che, si no tenés un hook que te haga llorar de risa, empezá con “¿Y vos creés que el laburo es gratis?”.<|<",
+      "caliente_text": "Boludo, si no tenés un hook que te haga llorar de risa, empezá con “¿Y vos creés que el laburo es gratis?”.<|"
+    },
+    {
+      "id": "C_bargein-s2-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La intro la quiero con la escena del taller, con el ruido de fondo.",
+      "prompt_sha256": "eba1daddff58e115703c2b1c0ceb858cce4c28d3c7475abf9560d4ffd5ab5fcd",
+      "frio_text": "Arrancá con el laburo, boludo. Si no tenés un hook que me haga pensar que estás hablando de algo real, te quedás sin audiencia.<|",
+      "caliente_text": "El ruido es el laburo, boludo. Si no lo tenés, no estás haciendo un video de bici, estás haciendo un spot de marketing.<|<|"
+    },
+    {
+      "id": "C_bargein-s2-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Para para, deja: me estas escuchando? Decime en una frase de que hablabamos.",
+      "prompt_sha256": "7cb4e5bd91ea70c81e884dcf04aeffae6087b84aa1f97f3336b1ec72ce988cef",
+      "frio_text": "El ruido es el laburo, boludo. Si no lo tenés, no estás haciendo un video de bici, estás haciendo un spot de marketing.<|<|",
+      "caliente_text": "Estabas hablando de bici y yo estaba pensando que te estás convirtiendo en un gurú del ruido.<|"
+    },
+    {
+      "id": "C_bargein-s2-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Bien. Seguimos: la escena del taller, la filmo de noche o de dia?",
+      "prompt_sha256": "80768faeb3889a7835f91fa99d2aef50b13d4d5283703ad085dcf240b7a8d56e",
+      "frio_text": "Estabas hablando de bici y yo estaba pensando que te estás convirtiendo en un gurú del ruido.<|",
+      "caliente_text": "De día, boludo. El sol te hace ver más real y el ruido del motor se convierte en un ritmo que no se puede ignorar.<|<|im_end|"
+    },
+    {
+      "id": "C_bargein-s2-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y si filmo de noche, que luz me llevo?",
+      "prompt_sha256": "61dd098b0a30dcf9213d5bedaa43eeeecb658cf2ea0cf14c513c9c4cb5dc1be7",
+      "frio_text": "De día, boludo. El sol te hace ver más real y el ruido del motor se convierte en un ritmo que no se puede ignorar.<|<|im_end|",
+      "caliente_text": "La luz te hace parecer un pibe con el laburo, boludo. Si no tenés una iluminación sólida, el video se vuelve un cuento de"
+    },
+    {
+      "id": "C_bargein-s2-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Espera, me llaman por la otra linea... listo. En que estabamos? No me repitas todo.",
+      "prompt_sha256": "437d4bbfe29e7fbab87c33b133ce3f1d0f39912bb2d37eef0e6af5c7f4c5181a",
+      "frio_text": "La luz te hace parecer un pibe con el laburo, boludo. Si no tenés una iluminación sólida, el video se vuelve un cuento de",
+      "caliente_text": "Estabas hablando de bici y yo estaba pensando que te estás convirtiendo en un gurú del ruido."
+    },
+    {
+      "id": "C_bargein-s2-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Dale, entonces filmo de noche en el taller. Y el audio del taller lo tomo aparte?",
+      "prompt_sha256": "5f70062b74d3c71eeac3f6119b0adec5357eff9e3f6a63af88393e5f169e540e",
+      "frio_text": "Estabas hablando de bici y yo estaba pensando que te estás convirtiendo en un gurú del ruido.",
+      "caliente_text": "El audio del taller lo tomás aparte, boludo. Si no tenés un ruido sólido, el video se vuelve un cuento de<|im_end|"
+    },
+    {
+      "id": "C_bargein-s2-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Cierro: que necesito llevar al taller esa noche, en una lista corta.",
+      "prompt_sha256": "b65866c2a1a2f1806124c361296330dea5f72335939ee5078eba2f1f4c746e19",
+      "frio_text": "El audio del taller lo tomás aparte, boludo. Si no tenés un ruido sólido, el video se vuelve un cuento de<|im_end|",
+      "caliente_text": "El audio del taller lo tomás aparte, boludo. Si no tenés un ruido sólido, el video se vuelve un cuento de<|im_end|"
+    },
+    {
+      "id": "C_bargein-s3-t2",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "La intro la quiero con la escena del taller, con el ruido de fondo.",
+      "prompt_sha256": "eba1daddff58e115703c2b1c0ceb858cce4c28d3c7475abf9560d4ffd5ab5fcd",
+      "frio_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia.",
+      "caliente_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia."
+    },
+    {
+      "id": "C_bargein-s3-t3",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Para para, deja: me estas escuchando? Decime en una frase de que hablabamos.",
+      "prompt_sha256": "7cb4e5bd91ea70c81e884dcf04aeffae6087b84aa1f97f3336b1ec72ce988cef",
+      "frio_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia.",
+      "caliente_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia."
+    },
+    {
+      "id": "C_bargein-s3-t4",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Bien. Seguimos: la escena del taller, la filmo de noche o de dia?",
+      "prompt_sha256": "80768faeb3889a7835f91fa99d2aef50b13d4d5283703ad085dcf240b7a8d56e",
+      "frio_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia.",
+      "caliente_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia."
+    },
+    {
+      "id": "C_bargein-s3-t5",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Y si filmo de noche, que luz me llevo?",
+      "prompt_sha256": "61dd098b0a30dcf9213d5bedaa43eeeecb658cf2ea0cf14c513c9c4cb5dc1be7",
+      "frio_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia.",
+      "caliente_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia."
+    },
+    {
+      "id": "C_bargein-s3-t6",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Espera, me llaman por la otra linea... listo. En que estabamos? No me repitas todo.",
+      "prompt_sha256": "437d4bbfe29e7fbab87c33b133ce3f1d0f39912bb2d37eef0e6af5c7f4c5181a",
+      "frio_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia.",
+      "caliente_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia."
+    },
+    {
+      "id": "C_bargein-s3-t7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Dale, entonces filmo de noche en el taller. Y el audio del taller lo tomo aparte?",
+      "prompt_sha256": "5f70062b74d3c71eeac3f6119b0adec5357eff9e3f6a63af88393e5f169e540e",
+      "frio_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia.",
+      "caliente_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia."
+    },
+    {
+      "id": "C_bargein-s3-t8",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/coherencia-v7/v7-c256-t0.7-ctx1024.jsonl",
+      "emparejamiento": "consecutivo",
+      "prompt": "Cierro: que necesito llevar al taller esa noche, en una lista corta.",
+      "prompt_sha256": "b65866c2a1a2f1806124c361296330dea5f72335939ee5078eba2f1f4c746e19",
+      "frio_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia.",
+      "caliente_text": "Boludo, si no tenés un hook que me deje con ganas de seguir, te voy a cagar la historia."
+    },
+    {
+      "id": "doc00-p01-s1337",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Che, ¿de qué se habló hasta acá? Contame de qué viene la charla.",
+      "prompt_sha256": "edbce7ae5a08b3724396cf820ae21644ee391823e50958648fa6f897274a4f51",
+      "frio_text": "Estamos que no es el único.\n Hay que no es el único.\n Sí, sí, todo el mundo.\n Un poyo para la hora que se cuentana los rayos y las vuelta y volvió.<\n Un poyo para la hora que se cuentana los rayos y las vuelta y volvió.\n De noche me dice Castorcitos.\n Hay que no es el único.\n Sí, sí, todo el mundo.\n Volvío todos los días.\n En el laburo hay una compañía que me dicen los mierdas.<\n Hay que",
+      "caliente_text": "for only, for you, then, only ones, for and only, is, for only, one, all, only ones:For either, always ones, for rest, you,only,rest,only ones,same,only,ones, only, just, only ones, than,for only?For same, only than, the same ones, same, only same, and only? Always, for ones, only one same, only,for only: only ones and only one,and only always, for only? The same, only one is,only you,rest,and,only one only way,for"
+    },
+    {
+      "id": "doc00-p01-s2024",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Che, ¿de qué se habló hasta acá? Contame de qué viene la charla.",
+      "prompt_sha256": "edbce7ae5a08b3724396cf820ae21644ee391823e50958648fa6f897274a4f51",
+      "frio_text": "Contamos de esa vez.\n De los que no son más o menos.\n Contamos de esa vez.\n Contamos de esa vez.\n ¿Porqué yo me quento?\n Contamos de esa vez.\n Sí, porque yo me quento a las otras.\n Contamos de esa vez.\n ¿Qués?\n ¿Qués?\n De esa vez porque no se puede.\n En la otra en el mundo.\n En el mundo.\n En el mundo.\n No lo puede.\n ¿Qués?\n Contamos de esa vez.\n No, no",
+      "caliente_text": "only, then, just, one, and only ones: for more, only, also, except, and same, only, you are for rest,forsals-Tra?One,for?Reme?\nunders,Only,ones:  one, either always given,rem,best only ones,for than,only one just,only ones,for same,and,for?The story,just,for,only always,for,etc,only,rest,only ones,since,fors,only one and the story,only,forrest,only\nforplas,only,one,"
+    },
+    {
+      "id": "doc00-p01-s7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Che, ¿de qué se habló hasta acá? Contame de qué viene la charla.",
+      "prompt_sha256": "edbce7ae5a08b3724396cf820ae21644ee391823e50958648fa6f897274a4f51",
+      "frio_text": "¿Qué por qué es el otro que no lo cuentas?\n El que no, porque está.\n Y entonces como, porque yo me decía Castorcitos.\n De que no, porque yo me decía Castorcitos.\n Ahora todos los que no me decían Castorcitos.\n ¿Porqué que no, no?\n ¿Qué por qué es el otro que no lo cuentas?\n Entonces hay una compañía que me dicen, de Castor y que ve la charla.\n ¿Porqué que no, no?\n Ahora todos los que no me decían Cast",
+      "caliente_text": "for only then for ones only, for you, same ones, for actives, just ones for only? For always since, and, only, one, always, only ones, for only, except, only rest, only best for only, for story, only ones, for all, then, than only always, you, for? Rest: for only, or ones, only ones, and only? Always, for? You, Only one is, and, for? Show, and? Only? Just for,and, for?  only ones,For only just, only same,for only same, for? Rest"
+    },
+    {
+      "id": "doc00-p02-s1337",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Bueno, y el invitado, ¿qué contó?",
+      "prompt_sha256": "eed112cf643c430de38b6ce5bb3f29ef65b75dbcec727625847bc617a01e677a",
+      "frio_text": "",
+      "caliente_text": "for only, for you, then, for one, only, for either? For only,whies,tralls,ones,I,impes, and ones, only,then,only,the,and,only,our,for only rest,rem,for only just,only,one,for than,for same only way,for same only,rest,for always,for only one,for only ones:know only:For ones, for only than,for rest,show only one,only one always,only one and same,for?Rem?Only know,for?Only,for?"
+    },
+    {
+      "id": "doc00-p02-s2024",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Bueno, y el invitado, ¿qué contó?",
+      "prompt_sha256": "eed112cf643c430de38b6ce5bb3f29ef65b75dbcec727625847bc617a01e677a",
+      "frio_text": "Estamos a las que me dicen Castorcitos.\n Yo no puedo decir con que me dice Castorcitos.\n En la vida de una vez no me decía y Castor.\n Y ahora todo el mundo de Castora, y Castor.\n Lo voy a contar para el resto.\n No, no, no, no puedo que me dicen Castorcitos.\n Ya porque el otro día me dice Castorcitos.\n En la vida de una vez no me decía y Castor.\n Hay algo que me dice Castorcitos.\n Ahora todo el mundo de Castora,",
+      "caliente_text": "only, sames you, for you,for only rest, than one,only same only always, based for only, except, and only, just, then, for only:ones, only, ones, only ones, given,sames: bests,only,and,imps,for only always, for only one,for only ones,and,only ones,for only ones,and ones and only ones,only one just only ones,for only one,for always, only?For:The ones,for statements,only ones,for only than,for same only for or rest,and,only"
+    },
+    {
+      "id": "doc00-p02-s7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Bueno, y el invitado, ¿qué contó?",
+      "prompt_sha256": "eed112cf643c430de38b6ce5bb3f29ef65b75dbcec727625847bc617a01e677a",
+      "frio_text": "Y no podés decirlo porque yo no puedo más.\n Hay, y es otro que me dice Castorcitos, ¿es que me dicen los nuervos?\n Y ahora como de Ray, ya no me va a decir.\n Yo que no puedo más.\n ¿Qué pasa?\n ¿Qué pasa?\n Ya porque yo no puedo más.\n Y el que me dice es que me dice Castorcitos.\n Hay, y es otro que me dice Castorcitos, ¿es que me dicen los nuervos?\n Yo que no puedo más.\n Y ahora como de Ray",
+      "caliente_text": "for only one, then, for you, for than, only, rest, for actives, only one, except, for only ones, for only ones,for only ones, for only ones, for only either,only rest,for only one, and,for one,and, same, you, for just one, only, then only: for only, only than, for just said, for all, only always, for nice, only, only, for you, and is,rest,and, for you, only one, for the rest, only one, for exactly? only ones, only, for you"
+    },
+    {
+      "id": "doc00-p03-s1337",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "¿Qué se dijo del doctor, te acordás?",
+      "prompt_sha256": "6d805089f362b58b3d02dc5165730ba915889860db09b7b48275a157c3125bb0",
+      "frio_text": "Y ahora, no puedo más.\n Sí, sí.\n Uno de los que no pueden.\n Sí, sí, todos.\n Hay en la vida un que me dicen.\n Un que no pueden.\n En el laburo hay una compañía que me dicen Castorcitos.\n El resto ya no me decir Diego.\n Sí, sí, todos.\n Y ahora, no puedo más.\n Sí, sí, todos.\n Y ahora, no puedo más.\n Sí, sí, todos.\n Hay en la vida un que me dicen.\n Un que no",
+      "caliente_text": "only, and for only always for only, and, only, for only, for same only ones, only rest,and, only one, then, and rest,only ones, you,for,rem,and? I,only ones, and,one,the ones only,I,only,ones? For: only than,just? Wait,sals,only all,for?Shows, same, for only either,for ones,only? The rest only:for?Heads? You, only ones,and, for? you,only? All,plas,only one always based,only"
+    },
+    {
+      "id": "doc00-p03-s2024",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "¿Qué se dijo del doctor, te acordás?",
+      "prompt_sha256": "6d805089f362b58b3d02dc5165730ba915889860db09b7b48275a157c3125bb0",
+      "frio_text": "Estoy porque ya no puedo decir, porque.\n Sí, sí, está.\n No puedo decir, porque ahora todo el mundo de Castor y Castorcitos me dicen que mi nombre es otro.\n Un poquito porque yo vuelvo a decir a mía en el doctor, y también porque hay una compañía que me dice Castorcitos.\n Ya no puedo decir porque yo vuelvo a decir a mía en el doctor, y también porque hay una compañía que me dice Castorcitos.\n Yo ahora todo el mundo de Castor y Castorcitos me dicen que mi nombre es",
+      "caliente_text": "only, same than, for just same, only ones for only ones,for only actives, for all, only ones, only always for you,for rest, only ones, only ones, and,for you, one,one,only,then,for only for them, since, the same, for only ones, for only one,and, only ones,for just only ones, for? Rems,for only ones,only than,show,for only for you,for only same,for just only one is-Head,only:Only, rest, only one,etc,for only or for you"
+    },
+    {
+      "id": "doc00-p03-s7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "¿Qué se dijo del doctor, te acordás?",
+      "prompt_sha256": "6d805089f362b58b3d02dc5165730ba915889860db09b7b48275a157c3125bb0",
+      "frio_text": "",
+      "caliente_text": "for only? Ones, only: for rest? Only,salaries,for only ones,for best only then you,for only ones, for the one same, only is for,only ones, for rest, only just, for ones, for ones,only one: know for and same, only ones,only ones, and only for ones,only one than, only,same,for,our only one,for?one,only,for?Only ones only look,for always,the only ones,for only then get,only always,for just only always, then,only always,for the same"
+    },
+    {
+      "id": "doc00-p04-s1337",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Retomá el tema que veníamos charlando, ¿por dónde íbamos?",
+      "prompt_sha256": "974927cc0c69e1affd6c63c2ee82d8f7bfaea2372048eb4c85d3a824bf53bee0",
+      "frio_text": "<",
+      "caliente_text": "for only, for, always for only, given,for rest, the, only ones, only ones,active, only ones, based,for stories? are for only? rest? for you,rem:Rem:best,impes:\nonly ones,just, and only just, then ones,nice,for only?"
+    },
+    {
+      "id": "doc00-p04-s2024",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Retomá el tema que veníamos charlando, ¿por dónde íbamos?",
+      "prompt_sha256": "974927cc0c69e1affd6c63c2ee82d8f7bfaea2372048eb4c85d3a824bf53bee0",
+      "frio_text": "Estoy, por ahí.\n Ya nosotros en la tieta y no.\n Sí, sí, sí.\n Ahora, todos los que me dicen Rayos de Castorcitos.\n Volvió fuerte.\n Ya que me dices.\n Un poría que no puedo decir.\n En el laburo hay una compañía que me dicen Castorcitos.\n No, no, no.\n Sí, sí, sí.\n Estoy, por ahí.\n Y nosotros en la tieta y no.\n No, no, no.\n Sí",
+      "caliente_text": "forpat only, the same ones, and only, always for better, only,based, for only, and ones,\nfor ones, only one,for you,for nice ones only, given, for\nonly,The for me,only one,for rest only responding,only same or same, for only:\nand, for ones, only ones,only ones, for only\nOne,\nthe,for\nrest,For only ones,\nfor? either,\nonly, always,only actives,only,is only ones,for only:\none,\nonly,wels,only,"
+    },
+    {
+      "id": "doc00-p04-s7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Retomá el tema que veníamos charlando, ¿por dónde íbamos?",
+      "prompt_sha256": "974927cc0c69e1affd6c63c2ee82d8f7bfaea2372048eb4c85d3a824bf53bee0",
+      "frio_text": "¿Qué de la noche?\n Sí.\n Sí.\n Ya me cuentas porque no sé qué horar, yo que no sé qué horar, y ahora porqué que no sé qué horar.\n Estamos en el laburo con una hora que no sé.\n ¿Que no sé?\n No sé, yo.\n Yo que no sé.\n Y estoy todo el mundo diciendo que es hora y que no sé.\n Sí.\n No, porque yo ya lo sé, y ahora por qué no sé.\n No sé, pero bueno, porque ya me decía que",
+      "caliente_text": "forrest, for onlys, only ones, one, only rest,one,you,show: for onlys,whies,only,rems,forsals,only than one,forhead and only ones for them,foractives?For same only ones, for either? for only,just,for always,for-rest?For only one, has been,and,only same,for:only rest,the,for?You,only:The ones,only one same,only,forOnlyOut,forSt,for?Juste,for?Rest,for,only:rem"
+    },
+    {
+      "id": "doc00-p05-s1337",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "¿Hay algo que ya hayamos hablado y no quieras repetir?",
+      "prompt_sha256": "3f7548429b41afe11a6cd7fdca3a17370f25dbe09b63f8ccc143e4216f455f9a",
+      "frio_text": "No, porque no puedo más.\n No puedo más.\n No, yo no puedo más.\n Yo estoy, yo me vuelvo a contar más de mi viejo.\n Sí, no me voy a decir y noche más.\n Ya noche porque no puedo más que no me vuelvo a contar más.\n Ya porque no puedo más que no me vuelvo a contar más.\n No, porque ya no puedo más que no me vuelvo a contar más.\n Ya porque no puedo más que no me vuelvo a contar más.\n No porque no puedo más que no me vuel",
+      "caliente_text": "for only, for only, for ones, based, only one, than always, for only ones,only rest, for only? same always? Since just then, only one,and ones only,etc,and? Rems, for them, only one, just ones always, and, for only one is for all,only ones, said, only one, only one, for same, only one, only one, for best, only, for only ones, for  then, and only: for only one, and? etc only ones, only ones, only: for you, and only one, always,only"
+    },
+    {
+      "id": "doc00-p05-s2024",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "¿Hay algo que ya hayamos hablado y no quieras repetir?",
+      "prompt_sha256": "3f7548429b41afe11a6cd7fdca3a17370f25dbe09b63f8ccc143e4216f455f9a",
+      "frio_text": "Ahora todo el mundo de Tony, no, no puedo decir la voz.\n Ahora todo el mundo de Tony, no, no puedo decir.\n Sí, sí.\n Y ahora todo el mundo de Tony.\n Hay todos los que me dicen Castorcitos.\n Ahora todo el mundo de Tony.\n No, no puedo decir.\n Sí, sí.\n No, no, no puedo decir.\n Y ahora todo el mundo de Tony.\n Ahora todo el mundo de Tony.\n Hay todos los que me dicen Castorcitos.\n Ahora todo el mundo de Tony.",
+      "caliente_text": "only, always one given: same, then, only ones, bests only ones,e, only one, for only ones always taken only, the same ones, only, all, for only one, for rest, active: either ones, only one, for only just, for than, you, for you, only ones, for only one,for a, for only and same, for me, only justified only ones for you, and only ones, for only one, and is, only then, for looking only always, then get, only, one, only one always, for, for, only I,for"
+    },
+    {
+      "id": "doc00-p05-s7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "¿Hay algo que ya hayamos hablado y no quieras repetir?",
+      "prompt_sha256": "3f7548429b41afe11a6cd7fdca3a17370f25dbe09b63f8ccc143e4216f455f9a",
+      "frio_text": "Sí, sí.\n Y como que es, yo me cuenta que por qué porque.\n Sí, sí.\n Sí, sí.\n Sí, sí.\n No, no puedo.\n Esa vez que ya hayamos hablado y no quieras repetir?",
+      "caliente_text": "for only! for you,only, and ones, only,one,only ones,and:For ones, and for ones, only ones,forrest,only,ones: only ones for one,for the same,always,only ones,only than,only ones,etc,only,is only one,our,for?One only,for only,for only just always ones only,then,for ones,only one and only one,for?The ones always for only one, for either,only active,for?And only:for?Only...one,and,for?Depend? For? Only"
+    },
+    {
+      "id": "doc00-p06-s1337",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Cerrá con un resumen corto de todo lo anterior.",
+      "prompt_sha256": "3ddaba06046f24519b7b3e3eee6c99ecd2807d788c4731761755ebdddc379515",
+      "frio_text": "No, no, no.\n No, no, no.\n Estamos todos los que me dicen.\n Estamos todos los que me dicen.\n Ahí es la que me dice Castorcitos y lo que yo le dicen.\n Yo también.\n No, no, no.\n Ahí es la que me dice Castorcitos y lo que yo le dicen.\n Y que yo le dicen.\n Y que yo le dicen.\n No, no, no.\n No, no, no.\n Ahí es la que me dice Castorcitos y lo que yo le",
+      "caliente_text": "for only, for you, only ones, then, for just only ones,for only ones, and only than, and only always! Then,know? The same story is only, rest, you, one, you have been,only ones, for one,one, same, then, only ones, since, and, for the only one, for your always, only,for nice, you, only ones, for them, only ones,for only one just ones: know,for:know, only ones, for rest, and only ones,for only just, and ones, and ones, only all,for"
+    },
+    {
+      "id": "doc00-p06-s2024",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Cerrá con un resumen corto de todo lo anterior.",
+      "prompt_sha256": "3ddaba06046f24519b7b3e3eee6c99ecd2807d788c4731761755ebdddc379515",
+      "frio_text": "Ah, yo es otro.\n Estoy y no es.\n Sí, está bueno.\n Estoy y no es.\n No, porque el mio no era más que un queno.\n Y entonces esta mal todo porque no está la otra de Castor.\n Ya está más que bueno.\n Sí, sí, sí.\n Y entonces esa mal todo porque no es que no está.\n Estoy y no es, no es.\n No, no, no, no está.\n Y estay, porque el mio no era más que bueno.\n Sí, sí",
+      "caliente_text": "only, excepted, only ones, and only, you,you, only, given, only, just, only ones, only one, only ones, and, only ones, only ones, for only, and ones, just than always,only ones, for only active one,one,Only rest, and,only ones, for only ones,for rest,for only always, for only just same, then, only one, only you, for different, only, since only: one, then, only same, for,and only ones, only? The rest:  tra? For, only one always,for"
+    },
+    {
+      "id": "doc00-p06-s7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Cerrá con un resumen corto de todo lo anterior.",
+      "prompt_sha256": "3ddaba06046f24519b7b3e3eee6c99ecd2807d788c4731761755ebdddc379515",
+      "frio_text": "",
+      "caliente_text": "for only, and then, only: for all ones only, is rest,only same ones, only than ones,show, only, for only, one, only ones, the,only ones, for onlys, same for always, only one, only ones,only,all,and,imp, for ones, only,For same only, for you, only? For only: informed, same only just, and only ones for only ones,for only one,and only just than only,nice,only you have been,since rest,only one always,only,one,for only had already,only either"
+    },
+    {
+      "id": "doc01-p01-s1337",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Che, ¿de qué se habló hasta acá? Contame de qué viene la charla.",
+      "prompt_sha256": "edbce7ae5a08b3724396cf820ae21644ee391823e50958648fa6f897274a4f51",
+      "frio_text": "¿Qué\n<",
+      "caliente_text": ", for,\n, one,\nfor, only, only, same\n, knows,\n, for, two,\ndoes, only, one,\n is, the one,\n, is a, actual, the,\n the,\n, has, than,\n , one,\n, only,\n, the,\n both,\n, my,\n, all,\n , only,\n, the, for\n, for, for,\n , for, the,\n the,\n, the,\n , one,\n , for,\n , one,\n the,\n , the,\n ,"
+    },
+    {
+      "id": "doc01-p01-s2024",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Che, ¿de qué se habló hasta acá? Contame de qué viene la charla.",
+      "prompt_sha256": "edbce7ae5a08b3724396cf820ae21644ee391823e50958648fa6f897274a4f51",
+      "frio_text": "por que es en estanciano y por que no lo va a ser. Porque esa que yo y no. Yo porque esa no va a ser, por que no se pueda. Y como que no, yo se podría por no va a ser. Porque es no va a ser que no se puede. Porque esa no va a ser. Yo porque no se puede. Porque esa que no, yo y no. Yo por que no va a ser.\nporque esa no va a ser, yo y no, porque no se pueda. Y como que no, yo se podría por no va a",
+      "caliente_text": "for, for, case, for, two,\none, except,\n, does,\n, one,\nonly, for, are two, the one,\n, one, the,\n , the,\nthen, is case,\nonly, for, y.\n, does both,\nFor,\nfor, only,\n, for, case,\n, the,\n, one, only,\n, for, my,\nthe,\n, for, only,\nfor, same\n, only,\n than, only,\n, the,\n, the, for,\nonly,"
+    },
+    {
+      "id": "doc01-p01-s7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Che, ¿de qué se habló hasta acá? Contame de qué viene la charla.",
+      "prompt_sha256": "edbce7ae5a08b3724396cf820ae21644ee391823e50958648fa6f897274a4f51",
+      "frio_text": "Assistant. Si no, yo soy que cuenta y no. No que venía con un velocista para una noche con un velocista. Pero si que era una noche con un velocista. Yo sea que me hacua otro que se habló hasta. Contame de qué venía a un cuentó en una noche con un velocista, pero yo sea que no, yo se sabe que venía a un cuentó. Y yo se sabe que venía a un cuentó. ¿Contame? Si no, yo soy que cuenta y no. Yo sea que me hacua otro que se habló",
+      "caliente_text": ", for,\n, is only,\nonly, one,\n the,\n the,\nare,\n only,\n is,\n , the, for,\n for,\n only,\n the, for,\n all,\n the,\n for,\n only,\n then,\n any,\n is,\n , is, for,\n for,\n for,\n had,\n , no,\n type,\n for,\n for,\n , the\n ,\n , the,\n than,\n , the,\n , then,\n , one,\n the,\n , only,\n only,"
+    },
+    {
+      "id": "doc01-p02-s1337",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Bueno, y el invitado, ¿qué contó?",
+      "prompt_sha256": "eed112cf643c430de38b6ce5bb3f29ef65b75dbcec727625847bc617a01e677a",
+      "frio_text": "Las que tuvieres de la gente. Si no, si no puede decir que se sabe que yo. O sea que no va a llegar una, en una cuali que tiene un no es porque que y porque hay que y por no se puede y yo me no se puede decir que no se pueda, pero no va a decir yo se puede decí de una para que no se puede. Y no, no va a decir yo se puede decir que no se puede y yo no, que no se puede y yo no.\n¿Qué? No, ¿Qué? No es que no se puede porque yo no",
+      "caliente_text": ", for,\n, is only,\nare, the,\nhas, for,\n, only, one, for,\n then,\n the same,\nfor, the same,\n for,\n, however,\n is,\n, for,\n, does,\nonly,\n , two,\n groups,\n for,\n, the.\n , for,\n only,\n , only,\n , only\n , the,\n , for,\n wait,\n the,\n only\n , the,\n the,\n , the,\n , no,\n the,\n , for,\n ,"
+    },
+    {
+      "id": "doc01-p02-s2024",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Bueno, y el invitado, ¿qué contó?",
+      "prompt_sha256": "eed112cf643c430de38b6ce5bb3f29ef65b75dbcec727625847bc617a01e677a",
+      "frio_text": "En Argentina es más o menos, y como que no vale. Es un poco, en un poco. O sea que no va a ocurrir después de esa gente. Y es que no vale. En Argentina es más y menos y la cualidad más. Y como esa gente no va a valer. O sea que no vale. En Argentina es más o menos y la cualidad más.\nQueremo, que yo, que? ¿Qué un poco, en un poco, o sea que no va a ocurrir después de esa gente. Y es que no vale. En Argentina es más y menos y la",
+      "caliente_text": ", then,\nwait, only,\n for, a, type,\nonly, only,\nthen,\nis, only, one, for,\n, is only, for,\n, the, is, y.\n , only, one,\n, but,\nthe, two,\ntype, for,\n, only,\n, only, for, the,\n, then,\n for, only,\n, a, for,\n, for,\n, for, two,\nfor,\n,\nonly,\n, only,\n, for,\n, same,\nonly,"
+    },
+    {
+      "id": "doc01-p02-s7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Bueno, y el invitado, ¿qué contó?",
+      "prompt_sha256": "eed112cf643c430de38b6ce5bb3f29ef65b75dbcec727625847bc617a01e677a",
+      "frio_text": "Assistant",
+      "caliente_text": ", for,\n, the,\nfor, one, only, for,\nthe, knows, then, only\n, does,\n, for, has,\n, original,\n, the,\ncase,\nonly,\n, only,\n, two,\nbother, only\n, only, the,\n, is,\n, for,\n, the,\nfor,\n, only, the,\nthe,\n, the,\n, than,\n, the, one,\n, only,\nonly, is, only,\n, the,\n, for,\n, the,"
+    },
+    {
+      "id": "doc01-p03-s1337",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "¿Qué se dijo del doctor, te acordás?",
+      "prompt_sha256": "6d805089f362b58b3d02dc5165730ba915889860db09b7b48275a157c3125bb0",
+      "frio_text": "Assistant:",
+      "caliente_text": ", for,\nare,\n, for,\n, except, only one,\nonly, is works,\n, only is for either\nonly, is, for,\n,\nthe,\n is,\n case,\n , if,\n does,\n, knows, for,\n , does,\n ,\n ,\n then,\n , is,\n rem,\n , for,\n is,\n , for\n ,\n for,\n is,\n has,\n for,\n for,\n ,\n , the,\n the,\n , is,\n , both,\n ,\n different\n ,"
+    },
+    {
+      "id": "doc01-p03-s2024",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "¿Qué se dijo del doctor, te acordás?",
+      "prompt_sha256": "6d805089f362b58b3d02dc5165730ba915889860db09b7b48275a157c3125bb0",
+      "frio_text": ">im_end",
+      "caliente_text": ", has, only.\n for, is,\n ear, know,\n for, case,\n the,\n is,\n then,\n only,\n bothera, the same\n for,\n only,\n good,\n one,\n wait,\n , a, for, the\n , the,\n only\n , the,\n only,\n the,\n only,\n only\n only\n the,\n ,\n , then\n , is,\n case\n , for,\n groups,\n than,\n , has,\n for,\n for,\n for,\n for,\n is,\n ,"
+    },
+    {
+      "id": "doc01-p03-s7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "¿Qué se dijo del doctor, te acordás?",
+      "prompt_sha256": "6d805089f362b58b3d02dc5165730ba915889860db09b7b48275a157c3125bb0",
+      "frio_text": "<",
+      "caliente_text": ", for,\nare, for,\nonly, is, the,\n is,\n case, the,\n old,\n for,\n the,\nrem,\n group,\n for,\n , fact,\n does,\n , then,\n ,\n is, the,\n , then,\n for,\n only,\n wait,\n , does,\n for,\n any,\n is,\n the,\n than,\n is,\n for,\n is,\n only,\n one,\n for,\n old,\n for,\n does,\n case,\n for,\n for,"
+    },
+    {
+      "id": "doc01-p04-s1337",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Retomá el tema que veníamos charlando, ¿por dónde íbamos?",
+      "prompt_sha256": "974927cc0c69e1affd6c63c2ee82d8f7bfaea2372048eb4c85d3a824bf53bee0",
+      "frio_text": "¿Por qué? <@meydo no es una historia. En esa historia hay un contexto y la gente que se tiene a en esa que me va a tener porque, como yo no sé y como vos sabe de que. Pero como vos sabe el año2006. Yo ya sabe, pero en que, porque no sé, como sabe en que me vuelta. Entonces, yo sabía que sabe más, yo ya sabe que. Y sabe yo sabe que por un contexto, y sabe que me va a tener, sabe yo sabe que. Pero sabe, sabe yo sabe que. Sabía yo sabe que",
+      "caliente_text": ", for,\n, except,\nonly,\nis, only, two,\n, then,\nis, for, one, has, only\nonly, the original,\n are, the original\n only\n, the,\none,\nthe, for,\n, a, only,\ngood,\n, the,\n the, for,\n , for,\n , only,\n , both,\n , an,\n , only,\n , for\n , the,\n for,\n , only,\n only,\n , for,\n , then,\n the,\n , only\n , for"
+    },
+    {
+      "id": "doc01-p04-s2024",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Retomá el tema que veníamos charlando, ¿por dónde íbamos?",
+      "prompt_sha256": "974927cc0c69e1affd6c63c2ee82d8f7bfaea2372048eb4c85d3a824bf53bee0",
+      "frio_text": "de un cuentó. En un año88, es una no cuenta, y es un cuentó en un año88, de una no cuenta, y es un cuentó en un año88 que se va a repetir la gente, si se va a decienter lo más tarde y que venía un cuentó en un año88. En el año88, yo venía y se veía un cuentó y se va a decienter, y no es una cuentó que venía y no venía un cuentó. Y no se va a venir la gente, y",
+      "caliente_text": "for,\nthen,\none, has,\nrem, are, only,\n for, for, case,\n, the same,\nare, one,\nfor, the,\ncase, for, only\nthan, does,\ntwo, only, the two,\n the is,\nonly,\n, is both,\nonly, is only\n, if,\nonly, two, cases\n, for,\nnumber,\nbut,\n, one,\nfor, the,\n, only,\nno,\n, fact,\n, only,\n, is\n,\nthe,"
+    },
+    {
+      "id": "doc01-p04-s7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Retomá el tema que veníamos charlando, ¿por dónde íbamos?",
+      "prompt_sha256": "974927cc0c69e1affd6c63c2ee82d8f7bfaea2372048eb4c85d3a824bf53bee0",
+      "frio_text": "Assistant. Yo sea que no es un cuento de los quenoes en la quenoa y por la quenoa, porque el quenoa no era el mejor, pero lo que no fue una cuento, entonces, no era el mejor. Pero, quenoa que no era el mejor, entonces. Entonces yo no era un cuento de los quenoes, porque el quenoa era el mejor, entonces. Yo sea que no es un cuento de los quenoes en la quenoa y por la quenoa, porque la quenoa era el",
+      "caliente_text": ", for,\n, has, only,\ncase, only, is only, for,\n is, for, y,\n , the,\n only,\n for, the,\n the,\n , good,\n no,\n , only,\n only, for,\n only, only\n , two,\n , for,\n is,\n , then,\n ,\n only,\n the,\n , is,\n for,\n for,\n ,\n , for,\n only,\n than,\n are,\n if,\n for,\n does,\n the,\n for,\n for,"
+    },
+    {
+      "id": "doc01-p05-s1337",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "¿Hay algo que ya hayamos hablado y no quieras repetir?",
+      "prompt_sha256": "3f7548429b41afe11a6cd7fdca3a17370f25dbe09b63f8ccc143e4216f455f9a",
+      "frio_text": "no se sabe. Y no, no se sabía. Yo sea y se no sabe, y no se sabe. Yo sea que nochey es el único que es el más grande de los años94 en Argentina después de que había un Messi con una historia como un juego. Porque desde el94, que la cual no era. Después que habían yo no estaba a un poco porque había una queha. Y que había una y también y que había una y que había una, pero que no sabe más que no sabe, y no sabe y no sabe. Yo sea que no sabe, por no sabe, y no sabe.",
+      "caliente_text": ", for,\n, the,\nfor, only, one, only\n, the, is one, has,\nfor, th.\n, a, is,\n , only,\n, reason, same, two,\nonly, for,\n only,\n, is case,\n, is,\nonly,\n is, case,\nonly,\n, one,\n, only,\nthe,\n, no,\n, only,\n, only.\n, the,\nfor, for,\n, wait,\n, only,\n, reason,\nonly,\n, the\n, only"
+    },
+    {
+      "id": "doc01-p05-s2024",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "¿Hay algo que ya hayamos hablado y no quieras repetir?",
+      "prompt_sha256": "3f7548429b41afe11a6cd7fdca3a17370f25dbe09b63f8ccc143e4216f455f9a",
+      "frio_text": "es la historia y más, como y nos que no quiera un horadado y yo, que había y yo, no, en una, entonces y, es que yo haya, y, yo, y, en que ya había. Y es que yo, es y yo que y es yo, que yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo, y yo",
+      "caliente_text": ", has, one,\nfor, knows, only case, for,\n, does,\n, except, for, only,\n the same,\nthe, is a,\n, for,\n, then, for, only one,\ndoes,\n, th,\ncase, are two, only,\n, the,\nonly,\nonly, for, case,\n, does,\nonly,\n, only,\nthe,\n for,\n,\n, only,\n, for,\n, both\n,\n, only,\n, for,\nthe, only\n, is,"
+    },
+    {
+      "id": "doc01-p05-s7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "¿Hay algo que ya hayamos hablado y no quieras repetir?",
+      "prompt_sha256": "3f7548429b41afe11a6cd7fdca3a17370f25dbe09b63f8ccc143e4216f455f9a",
+      "frio_text": "<sídio",
+      "caliente_text": ", for,\n, is only,\nis, for, only one,\nis, original, has, case\n, the,\n, the same.\n, the only,\nonly, only, wait,\nthe,\n, for, for,\n, for, two,\nrem, the same\n, only, for,\n, the one,\n, only case,\n, then,\n, the, the,\n, is,\n, one,\n, for, two,\n, only,\nonly, is,\n,"
+    },
+    {
+      "id": "doc01-p06-s1337",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Cerrá con un resumen corto de todo lo anterior.",
+      "prompt_sha256": "3ddaba06046f24519b7b3e3eee6c99ecd2807d788c4731761755ebdddc379515",
+      "frio_text": "Las palabras que me gustaron en la cabena, yo no se los juegos. Y como es más y no, el más chiste más no lo fue. Esa y que es más? Es un juego? No? Por que, no puede. Lo que se sabe a decir que no? Se que yo, y yo se conocí en esa. Y que se yo, y que no, y yo no, se que yo, y yo no, y no.\nLo que yo, y yo no, y yo no, y no.\nPorque es más una juego, y no? No?",
+      "caliente_text": ", for,\nfor,\nis, if,\nthen, for,\ncase, for,\none,\n, has, two, only\nthe, for, for, case, only\n, then, the,\nrem, only, the same,\nfor, th,\n, knows,\nonly, is, group,\nonly one,\nonly\n, the same\n, for,\n, is both,\n, only,\n, only two,\n, is, case,\n, for,\ndifferent\n, for,\n, is,\ncases\n,\n, fact,"
+    },
+    {
+      "id": "doc01-p06-s2024",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Cerrá con un resumen corto de todo lo anterior.",
+      "prompt_sha256": "3ddaba06046f24519b7b3e3eee6c99ecd2807d788c4731761755ebdddc379515",
+      "frio_text": "La palabra en un mundo más justicia, que me gustará una palabra, no es un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y un poco y",
+      "caliente_text": "for, for, two,\n different,\n is, only.\n , for, case,\n rem, for, the,\n for, is only,\n , then,\n , the,\n , does,\n both,\n , for,\n the, \n then, only, one,\n the,\n , for,\n , for,\n only,\n all,\n , only\n , except,\n , the,\n , for\n ,\n ,\n ,\n , the\n , the\n ,\n , \n rem,\n , for,\n for,\n only,\n does,\n , the"
+    },
+    {
+      "id": "doc01-p06-s7",
+      "fuente": "/run/media/chaos/terciario/proyectos/kateto-train/out/eureka-largo.rows.jsonl",
+      "emparejamiento": "mismo_prompt",
+      "prompt": "Cerrá con un resumen corto de todo lo anterior.",
+      "prompt_sha256": "3ddaba06046f24519b7b3e3eee6c99ecd2807d788c4731761755ebdddc379515",
+      "frio_text": "",
+      "caliente_text": ", for,\nonly,\nfor, the one,\n, does,\ndifferent,\n does,\n rem,\n , for,\n , only two,\n , than,\n the,\n , wait,\n then,\n , the same\n ,\n only, for,\n for,\n the,\n , only,\n no,\n , no,\n only, for\n , the,\n , is,\n sound\n ,\n ,\n ,\n are,\n is,\n groups,\n are,\n , the,\n ,\n , the,\n only\n ,\n ,\n , the"
+    }
+  ]
+}
