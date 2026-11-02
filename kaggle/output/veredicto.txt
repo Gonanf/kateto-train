@@ -1,0 +1,4 @@
+=== A (bf16, triton, 305 pasos) ===
+rc=0 pasos_ce_finito=61 pasos_ce_nan=0 diag=305 guard=305 skip=0
+primer_tot_finite_0=None primer_lw_finite_0=None
+VEREDICTO: LIMPIO EN BF16
