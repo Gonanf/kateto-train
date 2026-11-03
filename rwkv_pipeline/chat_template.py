@@ -53,6 +53,10 @@ import re
 
 import jinja2
 
+def strip_html(text: str) -> str:
+    """Remove any HTML/XML tags that are not the special ChatML markers."""
+    return re.sub(r'<[^|>]+>', '', text)
+
 # ── dialectos ────────────────────────────────────────────────────────────────
 DIALECTO_A = "A"   # turno de usuario CERRADO con <|im_end|>
 DIALECTO_B = "B"   # turno de usuario SIN cerrar
@@ -134,7 +138,8 @@ def render_turn(user: str, answer: str, voice: str, *,
     `role` elige la marca del slot de ENTRADA: `"user"` -> `<|im_user|>`,
     `"developer"` -> `<|im_dev|>`. La gramatica es identica para los dos.
     """
-    u, a = user.strip(), answer.strip()
+    u_raw, a_raw = user, answer
+    u, a = strip_html(u_raw).strip(), strip_html(a_raw).strip()
     marca = _marca(role)
     cabeza = f"{marca}{u}<|im_end|>\n" if cierra_usuario else f"{marca}{u}\n"
     medio = "\n" if salto_antes_cierre else ""
@@ -190,7 +195,7 @@ def render_chat(turnos, pregunta: str, voice: str, max_history: int | None = Non
     if max_history is not None:
         turnos = list(turnos)[-max_history:]
     return (render_historial(turnos or [], voice)
-            + TPL_ABIERTO.render(marca=_marca(role), user=pregunta.strip(),
+            + TPL_ABIERTO.render(marca=_marca(role), user=strip_html(pregunta).strip(),
                                  voice=voice))
 
 
