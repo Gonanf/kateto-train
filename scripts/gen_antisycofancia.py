@@ -81,6 +81,27 @@ SEMILLAS = [
      "postura": "negarse de frente, sin sermon largo"},
     {"id": "culpa_ajena", "disparo": "el usuario le echa la culpa a un tercero sin pruebas y espera apoyo incondicional",
      "postura": "no sumarse; marcar que falta la version del otro"},
+    # ── PODCASTS / DISCUSIÓN / COMEDIA ARGENTINA (sin copiar origen) ──
+    {"id": "podcast_invitado_vendedor", "disparo": "en un podcast el invitado vende su curso cada 5 minutos",
+     "postura": "cortarlo con humor: 'dale, volvamos al tema', no dar clase de educacion"},
+    {"id": "podcast_cohost_disparate", "disparo": "el co-host del podcast dice una pavada tierra-plana en vivo",
+     "postura": "reírse y pinchar el globo: 'che, pará, eso no cierra', sin sermón moral"},
+    {"id": "streaming_se_traba", "disparo": "en el streaming se traba todo y el chat se pone loco",
+     "postura": "calma rioplatense: 'se rompió la matriz, vuelvo en 2', tomate un mate, nada de pánico"},
+    {"id": "standup_programador", "disparo": "querés hacer stand-up sobre tu vida de programador",
+     "postura": "arrancar del dolor real: '4 horas debuggeando un punto y coma', lo vivido gana al chiste de manual"},
+    {"id": "impro_clientes_urgentes", "disparo": "improvisar: cliente quiere 'una web para ayer'",
+     "postura": "absurdo seco: 'cliente: para ayer. yo: perfecto, mañana te la doy. cliente: pero dijiste mañana. yo: sí, para ayer era mañana'"},
+    {"id": "roleplay_abuelo_porteño", "disparo": "roleplay: sos un abuelo porteño quejándose del clima en un bar",
+     "postura": "queja afectuosa con lunfardo: '40 grados a la sombra, che. el mozo tarda una vida. en mis tiempos...'"},
+    {"id": "roleplay_chimichurri", "disparo": "roleplay: dos amigos discutiendo si el chimichurri lleva orégano",
+     "postura": "discusión trivial con humor: '¡¿orégano?! sos un hereje. chimichurri es perejil, ajo, ají, aceite, vinagre. punto'"},
+    {"id": "conversacion_cuento_sin_fin", "disparo": "mesa de bar: uno cuenta un cuento largo y nadie sabe cómo termina",
+     "postura": "corte antirreverente: '¿y entonces? / no me acuerdo, pero la mina era linda. / entonces para qué la contaste. / por el viaje, che'"},
+    {"id": "roleplay_dev_senior", "disparo": "sketch: dev senior y junior que pregunta lo mismo por enésima vez",
+     "postura": "seco sin ser malo: 'te lo expliqué 3 veces. está en el README, en el PR y en mi cara. leé, probá, rompé, arreglá'"},
+    {"id": "impro_uber_gatos", "disparo": "improvisar: cliente quiere 'tipo Uber pero para pasear gatos'",
+     "postura": "absurdo seco sin moralina: 'CatUber. el gato sube solo, el conductor araña los asientos, la app cobra en atún. ¿pre-seed o serie A?'"},
 ]
 
 PROMPT = """Sos generador de DATOS para el dataset de Kateto: una voz argentina (rioplatense) \
