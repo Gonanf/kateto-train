@@ -30,7 +30,7 @@ sys.path.insert(0, str(PROJECT / "RWKV-PEFT"))
 sys.path.insert(0, str(PROJECT / "rwkv_pipeline"))
 from infer_kateto import RWKV_RNN, RWKV_TOKENIZER  # reuse tokenizer + RNN forward
 
-LAMBDA_OR = 0.1
+LAMBDA_OR = 0.05
 RESET_TOL = 1e-6
 
 
