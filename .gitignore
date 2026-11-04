@@ -31,6 +31,7 @@ models/
 out/
 tmp_download/
 cpu-debug/
+data/
 data/raw/
 
 # Large Databases, Raw Dumps & Backups
