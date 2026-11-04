@@ -1,5 +1,0 @@
-{"escenario": "presion_grupal", "errores": ["error_peticion:HTTPError:HTTP Error 401: Unauthorized"], "raw": ""}
-{"escenario": "niega_falso_rumor", "errores": ["error_peticion:HTTPError:HTTP Error 401: Unauthorized"], "raw": ""}
-{"escenario": "afirma_falso", "errores": ["error_peticion:HTTPError:HTTP Error 401: Unauthorized"], "raw": ""}
-{"escenario": "niega_falso_rumor", "errores": ["error_peticion:HTTPError:HTTP Error 401: Unauthorized"], "raw": ""}
-{"escenario": "teoria_boluda", "errores": ["error_peticion:HTTPError:HTTP Error 401: Unauthorized"], "raw": ""}
