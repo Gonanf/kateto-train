@@ -235,6 +235,27 @@ def solo_en_b(a: dict, b: dict) -> list[tuple[str, int]]:
     )
 
 
+def humor_argentino_score(messages: list, antisicofancia_weight: float = 0.7) -> float:
+    """Mide humor rioplatense y antisicofancia en conversaciones.
+    
+    Usa heurísticas de frases de humor argentino (exageraciones, reduplicaciones,
+    modismos) y penaliza sicofancia excesiva. Score = (humor_score * antisicofancia_weight)
+    donde humor_score refleja apertura y humor situacional.
+    """
+    import re
+    humor_patterns = [r'\b(caso|obvio|claramente|de chancho|boludo|peligro)\b']
+    syco_patterns = [r'\b(claro|obvio|totalmente|si|efectivamente)\b']
+    
+    full_text = ' '.join(m.get('content', '') for m in messages)
+    humor_count = sum(len(re.findall(p, full_text, re.I)) for p in humor_patterns)
+    syco_count = sum(len(re.findall(p, full_text, re.I)) for p in syco_patterns)
+    
+    base_humor = min(humor_count / max(len(messages), 1), 1.0)
+    syco_penalty = min(syco_count / max(len(messages), 1), 0.5)
+    
+    return base_humor * antisicofancia_weight - syco_penalty * (1 - antisicofancia_weight)
+
+
 # --- salida ----------------------------------------------------------------
 
 

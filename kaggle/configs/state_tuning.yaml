@@ -14,4 +14,4 @@ epochs_per_voice:
   jane: 12
   whisperer: 10
   streamer: 15
-  seco: 5            # mantenimiento
+  seco: 15            # aumento para antisicofancia

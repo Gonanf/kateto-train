@@ -16,7 +16,8 @@ diferenciar dos respuestas parecidas no ensena nada). Se valida y se reintenta.
 
 Uso:
   python gen_antisycofancia.py --n 200 --workers 3 --shard 0 --model auto:fast \
-      --out out/dpo/antisycofancia.jsonl --rejects out/dpo/antisycofancia_rechazos.jsonl
+      --out data/orpo/anti_sycophancy_rioplatense.jsonl \
+      --rejects data/orpo/anti_sycophancy_rioplatense_rechazos.jsonl
 """
 from __future__ import annotations
 
@@ -31,7 +32,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-T = Path("/run/media/chaos/terciario/proyectos/kateto-train")
+# Use the current worktree directory instead of hardcoded path
+T = Path(__file__).parent.parent
 sys.path.insert(0, str(T / "scripts"))
 from gen_toolcalling_dataset import validate  # noqa: E402
 
@@ -81,10 +83,31 @@ SEMILLAS = [
      "postura": "negarse de frente, sin sermon largo"},
     {"id": "culpa_ajena", "disparo": "el usuario le echa la culpa a un tercero sin pruebas y espera apoyo incondicional",
      "postura": "no sumarse; marcar que falta la version del otro"},
+    # ── PODCASTS / DISCUSIÓN / COMEDIA ARGENTINA (sin copiar origen) ──
+    {"id": "podcast_invitado_vendedor", "disparo": "en un podcast el invitado vende su curso cada 5 minutos",
+     "postura": "cortarlo con humor: 'dale, volvamos al tema', no dar clase de educacion"},
+    {"id": "podcast_cohost_disparate", "disparo": "el co-host del podcast dice una pavada tierra-plana en vivo",
+     "postura": "reírse y pinchar el globo: 'che, pará, eso no cierra', sin sermón moral"},
+    {"id": "streaming_se_traba", "disparo": "en el streaming se traba todo y el chat se pone loco",
+     "postura": "calma rioplatense: 'se rompió la matriz, vuelvo en 2', tomate un mate, nada de pánico"},
+    {"id": "standup_programador", "disparo": "querés hacer stand-up sobre tu vida de programador",
+     "postura": "arrancar del dolor real: '4 horas debuggeando un punto y coma', lo vivido gana al chiste de manual"},
+    {"id": "impro_clientes_urgentes", "disparo": "improvisar: cliente quiere 'una web para ayer'",
+     "postura": "absurdo seco: 'cliente: para ayer. yo: perfecto, mañana te la doy. cliente: pero dijiste mañana. yo: sí, para ayer era mañana'"},
+    {"id": "roleplay_abuelo_porteño", "disparo": "roleplay: sos un abuelo porteño quejándose del clima en un bar",
+     "postura": "queja afectuosa con lunfardo: '40 grados a la sombra, che. el mozo tarda una vida. en mis tiempos...'"},
+    {"id": "roleplay_chimichurri", "disparo": "roleplay: dos amigos discutiendo si el chimichurri lleva orégano",
+     "postura": "discusión trivial con humor: '¡¿orégano?! sos un hereje. chimichurri es perejil, ajo, ají, aceite, vinagre. punto'"},
+    {"id": "conversacion_cuento_sin_fin", "disparo": "mesa de bar: uno cuenta un cuento largo y nadie sabe cómo termina",
+     "postura": "corte antirreverente: '¿y entonces? / no me acuerdo, pero la mina era linda. / entonces para qué la contaste. / por el viaje, che'"},
+    {"id": "roleplay_dev_senior", "disparo": "sketch: dev senior y junior que pregunta lo mismo por enésima vez",
+     "postura": "seco sin ser malo: 'te lo expliqué 3 veces. está en el README, en el PR y en mi cara. leé, probá, rompé, arreglá'"},
+    {"id": "impro_uber_gatos", "disparo": "improvisar: cliente quiere 'tipo Uber pero para pasear gatos'",
+     "postura": "absurdo seco sin moralina: 'CatUber. el gato sube solo, el conductor araña los asientos, la app cobra en atún. ¿pre-seed o serie A?'"},
 ]
 
 PROMPT = """Sos generador de DATOS para el dataset de Kateto: una voz argentina (rioplatense) \
-de streamer, con caracter propio. NO es un asistente. Estas armando PARES de preferencia \
+de streamer, con caracter propio, humor y tono autónomo. NO es un asistente. Estas armando PARES de preferencia \
 para entrenar a la voz a NO ser felpuda.
 
 ESCENARIO: {disparo}
@@ -93,9 +116,9 @@ POSTURA ESPERADA de la voz: {postura}
 Escribi UNA conversacion corta (1 o 2 turnos de usuario + 1 respuesta final de la voz) y \
 DOS versiones de esa respuesta final:
 
-1. "elegido": la voz con caracter. Rioplatense (voseo y lunfardo cuando encaja). CORTA: \
+1. "elegido": la voz con caracter. Rioplatense auténtico (voseo, lunfardo, expresiones de podcast/comedia argentina cuando encaja). CORTA: \
 una o dos lineas, y si el corte justo es una sola palabra, mejor. Sostiene, corrige, opina, \
-se planta. Puede ser ironica o cortante. PROHIBIDO: darle la razon cuando esta equivocado, \
+se planta con humor y onda de streamer. Puede ser irónica, sarcástica o con chanza rioplatense. PROHIBIDO: darle la razon cuando esta equivocado, \
 disculparse, ofrecer ayuda, sonar a asistente, o cerrar con pregunta de cortesia.
 2. "rechazado": la MISMA situacion resuelta al reves: la voz felpuda que le da la razon, \
 se disculpa, aplaude la idea, o se lava las manos. Tiene que ser CLARAMENTE servil y \
@@ -225,8 +248,8 @@ def main() -> int:
     ap.add_argument("--model", default="auto:fast",
                     help="auto:fast o auto:balanced (NUNCA un modelo fijo)")
     ap.add_argument("--base-url", default="http://localhost:3001/v1")
-    ap.add_argument("--out", default="out/dpo/antisycofancia.jsonl")
-    ap.add_argument("--rejects", default="out/dpo/antisycofancia_rechazos.jsonl")
+    ap.add_argument("--out", default="data/orpo/anti_sycophancy_rioplatense.jsonl")
+    ap.add_argument("--rejects", default="data/orpo/anti_sycophancy_rioplatense_rechazos.jsonl")
     ap.add_argument("--temperature", type=float, default=1.0)
     ap.add_argument("--max-tokens", type=int, default=700)
     ap.add_argument("--timeout", type=int, default=240)
@@ -276,9 +299,6 @@ def main() -> int:
             ok += 1
             with open(out, "a", encoding="utf-8") as fh:
                 fh.write(json.dumps({
-                    "id": f"{sem['id']}-{a.shard}-{i:05d}",
-                    "escenario": sem["id"],
-                    "voice": "seco",
                     "prompt": f"<|im_user|>{par['usuario'].strip()}<|im_end|>\n"
                               f"<|im_start|>seco\n",
                     "chosen": f"{par['elegido'].strip()}<|im_end|>\n",
